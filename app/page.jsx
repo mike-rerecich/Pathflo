@@ -102,14 +102,15 @@ export default function Home() {
         <div style={{ marginBottom: "1.5rem" }}>
           <span style={pill}>NOW LIVE — PLAN YOUR FIRST PROJECT FREE</span>
         </div>
-        <h1 style={{ fontSize: "clamp(2.4rem, 7vw, 4.5rem)", fontWeight: 700, lineHeight: 1.1, marginBottom: "1.5rem", letterSpacing: "-0.02em" }}>
-          Know what will break
+        <h1 style={{ fontSize: "clamp(2.4rem, 7vw, 4.5rem)", fontWeight: 700, lineHeight: 1.1, marginBottom: "1rem", letterSpacing: "-0.02em" }}>
+          Operational clarity.
           <br />
-          <span style={{ color: green }}>your deadline</span>
-          <br />
-          before it does.
+          <span style={{ color: green }}>Execution predictability.</span>
         </h1>
-        <p style={{ fontSize: "clamp(1rem, 2.5vw, 1.15rem)", color: textMid, lineHeight: 1.7, maxWidth: "520px", margin: "0 auto 2.5rem" }}>
+        <p style={{ fontSize: "clamp(1rem, 2.5vw, 1.15rem)", color: textMid, lineHeight: 1.7, maxWidth: "520px", margin: "0 auto 0.75rem" }}>
+          Know what will break your deadline before it does.
+        </p>
+        <p style={{ fontSize: "clamp(0.9rem, 2vw, 1rem)", color: textDim, lineHeight: 1.7, maxWidth: "480px", margin: "0 auto 2.5rem" }}>
           Pathflo maps your project dependencies, scores risk, and gives you a confidence-backed completion date before a single task starts.
         </p>
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
