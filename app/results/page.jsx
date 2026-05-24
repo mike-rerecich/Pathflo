@@ -789,33 +789,50 @@ function ResultsContent() {
               <ModeNote/>
               <CompareGanttChart origTasks={data.tasks} origResult={result} optTasks={optResult?buildOptimizedTasks(data.tasks,result.shuffleOps):data.tasks} optResult={optResult||result} startDate={data.startDate} dayMode={dayMode}/>
 
-              {/* FINISH SUMMARY CARDS — always legible, never overlap */}
+              {/* FINISH SUMMARY CARDS — positioned under their respective finish lines, scroll with Gantt */}
+              {optResult&&daysDiff>0&&(()=>{
+                const DAY_PX = dayMode==="work"?18:13;
+                const LABEL_W = 150;
+                const ORIG_TOTAL = result.projectDuration;
+                const OPT_TOTAL = optResult.projectDuration;
+                const SPAN = Math.max(ORIG_TOTAL,OPT_TOTAL)+10;
+                const totalW = LABEL_W + SPAN * DAY_PX + 80;
+                const origX = LABEL_W + ORIG_TOTAL * DAY_PX;
+                const optX  = LABEL_W + OPT_TOTAL  * DAY_PX;
+                const CARD_W = 148;
+                return (
+                  <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",height:96,marginTop:"0.35rem",scrollbarWidth:"none"}}>
+                    <div style={{position:"relative",width:totalW,height:"100%"}}>
+                      {/* YOUR FINISH — under red line */}
+                      <div style={{position:"absolute",left:origX,transform:"translateX(-50%)",top:4,width:CARD_W,background:C.danger+"08",border:"1px solid "+C.danger+"30",borderRadius:10,padding:"0.6rem 0.75rem",textAlign:"center"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"0.35rem",marginBottom:"0.3rem"}}>
+                          <div style={{width:14,height:3,background:C.danger,borderRadius:2}}/>
+                          <div style={{fontSize:"0.55rem",color:C.danger,fontFamily:"monospace",letterSpacing:"0.08em",fontWeight:600}}>YOUR FINISH</div>
+                        </div>
+                        <div style={{fontFamily:"'Fraunces',serif",fontSize:"0.88rem",fontWeight:300,color:C.text,lineHeight:1.3}}>{fmtDate(result.projectDuration,true)}</div>
+                        <div style={{fontSize:"0.62rem",color:C.textDim,marginTop:"0.2rem"}}>{result.projectDuration} days · {result.confidence.score}%</div>
+                      </div>
+                      {/* PATHFLO FINISH — under green line */}
+                      <div style={{position:"absolute",left:optX,transform:"translateX(-50%)",top:4,width:CARD_W,background:C.green+"08",border:"1px solid "+C.green+"30",borderRadius:10,padding:"0.6rem 0.75rem",textAlign:"center"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"0.35rem",marginBottom:"0.3rem"}}>
+                          <div style={{width:14,height:3,background:C.green,borderRadius:2}}/>
+                          <div style={{fontSize:"0.55rem",color:C.green,fontFamily:"monospace",letterSpacing:"0.08em",fontWeight:600}}>PATHFLO FINISH</div>
+                        </div>
+                        <div style={{fontFamily:"'Fraunces',serif",fontSize:"0.88rem",fontWeight:300,color:C.green,lineHeight:1.3}}>{fmtDate(optResult.projectDuration,true)}</div>
+                        <div style={{fontSize:"0.62rem",color:C.textDim,marginTop:"0.2rem"}}>{optResult.projectDuration} days · {optResult.confidence.score}%</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Days recovered bar */}
               {optResult&&daysDiff>0&&(
-                <>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem",marginTop:"1.25rem"}}>
-                    <div style={{background:C.danger+"06",border:"1px solid "+C.danger+"25",borderRadius:"12px",padding:"1rem 1.1rem"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.5rem"}}>
-                        <div style={{width:18,height:3,background:C.danger,borderRadius:2,flexShrink:0}}/>
-                        <div style={{fontSize:"0.62rem",color:C.danger,fontFamily:"monospace",letterSpacing:"0.1em",fontWeight:600}}>YOUR FINISH</div>
-                      </div>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:"1.1rem",fontWeight:300,color:C.text,marginBottom:"0.2rem"}}>{fmtDate(result.projectDuration,true)}</div>
-                      <div style={{fontSize:"0.75rem",color:C.textMid,fontWeight:300}}>{result.projectDuration} task days · {result.confidence.score}% confidence</div>
-                    </div>
-                    <div style={{background:C.green+"08",border:"1px solid "+C.green+"30",borderRadius:"12px",padding:"1rem 1.1rem"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.5rem"}}>
-                        <div style={{width:18,height:3,background:C.green,borderRadius:2,flexShrink:0}}/>
-                        <div style={{fontSize:"0.62rem",color:C.green,fontFamily:"monospace",letterSpacing:"0.1em",fontWeight:600}}>PATHFLO FINISH</div>
-                      </div>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:"1.1rem",fontWeight:300,color:C.green,marginBottom:"0.2rem"}}>{fmtDate(optResult.projectDuration,true)}</div>
-                      <div style={{fontSize:"0.75rem",color:C.textMid,fontWeight:300}}>{optResult.projectDuration} task days · {optResult.confidence.score}% confidence</div>
-                    </div>
-                  </div>
-                  <div style={{marginTop:"0.75rem",background:C.greenDim,border:"1px solid "+C.greenMid,borderRadius:"10px",padding:"0.75rem 1.1rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.75rem"}}>
-                    <div style={{width:18,height:3,background:C.danger,borderRadius:2,opacity:0.6}}/>
-                    <div style={{fontFamily:"'Fraunces',serif",fontSize:"0.95rem",fontWeight:300,color:C.green}}>{daysDiff} days recovered{scoreDiff>0?" · "+scoreDiff+"% more confidence":""}</div>
-                    <div style={{width:18,height:3,background:C.green,borderRadius:2}}/>
-                  </div>
-                </>
+                <div style={{marginTop:"0.5rem",background:C.greenDim,border:"1px solid "+C.greenMid,borderRadius:"10px",padding:"0.65rem 1.1rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.75rem"}}>
+                  <div style={{width:18,height:3,background:C.danger,borderRadius:2,opacity:0.6}}/>
+                  <div style={{fontFamily:"'Fraunces',serif",fontSize:"0.95rem",fontWeight:300,color:C.green}}>{daysDiff} days recovered{scoreDiff>0?" · "+scoreDiff+"% more confidence":""}</div>
+                  <div style={{width:18,height:3,background:C.green,borderRadius:2}}/>
+                </div>
               )}
 
               {/* What changed */}
@@ -831,8 +848,35 @@ function ResultsContent() {
                 </div>
               )}
             </Card>
-          </div>
-        )}
+
+            {/* PREDICTIVE RISK on Tab 1 — optimized plan's risk profile */}
+            {optResult&&optResult.predictiveRisk&&(
+              <Card style={{border:"1px solid "+optResult.predictiveRisk.band+"40",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,transparent,"+optResult.predictiveRisk.band+",transparent)"}}/>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
+                  <div>
+                    <div style={{fontSize:"0.62rem",color:C.textDim,fontFamily:"monospace",letterSpacing:"0.12em",marginBottom:"0.35rem"}}>PREDICTED RISK PROFILE — OPTIMIZED PLAN</div>
+                    <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem"}}>
+                      <span style={{fontFamily:"'Fraunces',serif",fontSize:"2.2rem",fontWeight:300,color:optResult.predictiveRisk.band,lineHeight:1}}>{optResult.predictiveRisk.planProb}%</span>
+                      <span style={{fontSize:"0.82rem",color:C.textMid,fontWeight:300}}>probability of missing deadline</span>
+                    </div>
+                  </div>
+                  <svg width="52" height="52" viewBox="0 0 52 52" style={{transform:"rotate(-90deg)",flexShrink:0}}>
+                    <circle cx="26" cy="26" r="20" fill="none" stroke="#1E251E" strokeWidth="6"/>
+                    <circle cx="26" cy="26" r="20" fill="none" stroke={optResult.predictiveRisk.band} strokeWidth="6"
+                      strokeDasharray={2*Math.PI*20} strokeDashoffset={2*Math.PI*20*(1-optResult.predictiveRisk.planProb/100)} strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div style={{background:C.greenDim,border:"1px solid "+C.greenMid,borderRadius:C.radiusSm,padding:"0.75rem 1rem",marginBottom:"0.75rem",display:"flex",gap:"0.5rem",alignItems:"flex-start"}}>
+                  <span style={{color:C.green,flexShrink:0,fontSize:"0.9rem"}}>↓</span>
+                  <p style={{fontSize:"0.82rem",color:C.text,lineHeight:1.65,fontWeight:300}}>
+                    Down from <strong style={{color:C.danger}}>{result.predictiveRisk?.planProb}%</strong> on your original plan. The scheduling changes reduce cascade risk by removing the sequential bottlenecks.
+                  </p>
+                </div>
+                <p style={{fontSize:"0.88rem",color:C.text,lineHeight:1.7,fontWeight:400,marginBottom:"0.4rem"}}>{optResult.predictiveRisk.planStatement}</p>
+                <p style={{fontSize:"0.82rem",color:C.textMid,lineHeight:1.65,fontWeight:300}}>{optResult.predictiveRisk.planDetail}</p>
+              </Card>
+            )}
 
         {/* ── TAB 2: DIAGNOSIS ── */}
         {activeTab===2&&(
