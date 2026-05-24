@@ -55,6 +55,115 @@ function computeConfidence(tasks, availableDays, projectDuration, budget, buffer
   return { score, band, reason, breakdown: factors.map(f => ({ name: f.name, score: f.score, weight: Math.round(f.weight*100) })) };
 }
 
+// ── PREDICTIVE RISK ENGINE (Phase 1) ────────────────────────────────────────
+// Derives failure probabilities from plan structure alone — no historical data needed.
+// Four signals: slack ratio, owner concentration, dependency chain depth, buffer ratio.
+
+function computePredictiveRisk(tasks, byId, projectDuration, availableDays, bufferDays) {
+  if (!tasks.length) return null;
+
+  const criticalTasks = tasks.filter(t => byId[t.id].slack === 0);
+  const totalTasks = tasks.length;
+
+  // ── PER-MILESTONE RISK SCORING ─────────────────────────────────────────────
+  const milestoneRisks = tasks.map(t => {
+    const task = byId[t.id];
+    let prob = 0;
+
+    // Signal 1: Slack ratio — zero float = 100% cascade, each day of float reduces risk
+    const slackRatio = task.slack === 0 ? 1.0 : Math.max(0, 1 - (task.slack / Math.max(projectDuration * 0.1, 3)));
+    prob += slackRatio * 0.40;
+
+    // Signal 2: Owner concentration — how many critical tasks does this owner hold?
+    const ownerCriticalCount = criticalTasks.filter(ct => ct.owner === t.owner && t.owner && t.owner !== "UNASSIGNED").length;
+    const ownerConcentration = ownerCriticalCount >= 4 ? 1.0 : ownerCriticalCount >= 3 ? 0.8 : ownerCriticalCount >= 2 ? 0.55 : ownerCriticalCount === 1 ? 0.3 : 0.1;
+    prob += ownerConcentration * 0.25;
+
+    // Signal 3: Dependency chain depth — how many predecessors does this task have upstream?
+    function chainDepth(id, visited = new Set()) {
+      if (visited.has(id)) return 0;
+      visited.add(id);
+      const t = byId[id];
+      if (!t || !t.predecessors || !t.predecessors.length) return 0;
+      return 1 + Math.max(...t.predecessors.map(pid => chainDepth(pid, visited)));
+    }
+    const depth = chainDepth(t.id);
+    const depthRisk = depth >= 6 ? 1.0 : depth >= 4 ? 0.8 : depth >= 2 ? 0.55 : depth >= 1 ? 0.35 : 0.1;
+    prob += depthRisk * 0.20;
+
+    // Signal 4: Downstream dependents — more tasks waiting = higher cascade cost
+    const dependents = tasks.filter(s => s.predecessors && s.predecessors.includes(t.id)).length;
+    const dependentRisk = dependents >= 5 ? 1.0 : dependents >= 3 ? 0.75 : dependents >= 1 ? 0.45 : 0.1;
+    prob += dependentRisk * 0.15;
+
+    // Cap and floor
+    const finalProb = Math.min(Math.max(Math.round(prob * 100), 5), 97);
+
+    // Plain language reason
+    let reason = "";
+    if (task.slack === 0 && dependents >= 3) reason = "Zero buffer with " + dependents + " milestones waiting — a single day over cascades immediately.";
+    else if (task.slack === 0) reason = "No buffer. Any delay here moves your finish date by the same amount.";
+    else if (ownerCriticalCount >= 3) reason = t.owner + " owns " + ownerCriticalCount + " critical path milestones — single-resource concentration risk.";
+    else if (depth >= 4) reason = "Sits " + depth + " dependencies deep. Upstream delays compound into this milestone.";
+    else if (dependents >= 3) reason = dependents + " milestones are waiting on this one to finish.";
+    else reason = "Limited buffer — not enough recovery room if this runs over.";
+
+    return {
+      id: t.id,
+      name: t.name,
+      owner: t.owner || "Unassigned",
+      days: parseInt(t.days) || 1,
+      slack: task.slack,
+      prob: finalProb,
+      reason,
+      dependents,
+      isCritical: task.slack === 0,
+    };
+  });
+
+  // Sort by probability descending
+  const ranked = [...milestoneRisks].sort((a, b) => b.prob - a.prob);
+  const top3 = ranked.slice(0, 3);
+
+  // ── PLAN-LEVEL FAILURE PROBABILITY ────────────────────────────────────────
+  // If ANY critical milestone slips, the plan fails — so plan failure prob
+  // is driven by the highest-risk critical milestone, amplified by chain length.
+  const criticalRisks = milestoneRisks.filter(m => m.isCritical);
+  const maxCriticalProb = criticalRisks.length > 0 ? Math.max(...criticalRisks.map(m => m.prob)) : 30;
+
+  // Buffer ratio dampens or amplifies
+  const bufferRatio = availableDays > 0 ? bufferDays / availableDays : -0.1;
+  const bufferMultiplier = bufferRatio >= 0.15 ? 0.75 : bufferRatio >= 0.05 ? 0.88 : bufferRatio >= 0 ? 1.0 : 1.15;
+
+  // Chain length multiplier — more chained zero-float tasks = higher plan risk
+  const zeroFloatCount = criticalTasks.length;
+  const chainMultiplier = zeroFloatCount >= 6 ? 1.15 : zeroFloatCount >= 4 ? 1.05 : 1.0;
+
+  const planProb = Math.min(Math.max(Math.round(maxCriticalProb * bufferMultiplier * chainMultiplier), 10), 96);
+
+  // Plan-level plain language
+  let planStatement = "";
+  let planDetail = "";
+  if (planProb >= 80) {
+    planStatement = "High probability of missing deadline.";
+    planDetail = "The dependency structure leaves almost no room for recovery. A single slip on the critical path propagates forward with no buffer to absorb it.";
+  } else if (planProb >= 60) {
+    planStatement = "Moderate-high probability of missing deadline.";
+    planDetail = "The plan is structurally tight. One milestone running over by 2–3 days is likely to cascade into a deadline miss without intervention.";
+  } else if (planProb >= 40) {
+    planStatement = "Moderate probability of missing deadline.";
+    planDetail = "The plan has some structural risk. Buffer exists in places, but the critical path has limited recovery capacity.";
+  } else {
+    planStatement = "Lower probability of missing deadline.";
+    planDetail = "The plan has reasonable buffer and distribution. Primary risk comes from external dependencies and owner availability.";
+  }
+
+  // Color band
+  const band = planProb >= 75 ? "#F87171" : planProb >= 55 ? "#FB923C" : planProb >= 35 ? "#FBBF24" : "#3ECB6F";
+
+  return { planProb, planStatement, planDetail, band, top3, milestoneRisks };
+}
+
 function buildOptimizedTasks(tasks, shuffleOps) {
   if (!shuffleOps.length) return tasks;
   return tasks.map(t => {
@@ -123,13 +232,14 @@ function computeCPM(tasks, startDate, targetDate, budget) {
   tasks.forEach(t => { if (!t.concurrent&&t.predecessors.length&&byId[t.id].slack===0) { const pred=tasks.find(p=>p.id===t.predecessors[0]); if (pred) concOps.push({task:t.name,predecessor:pred.name,daysSaved:Math.floor((parseInt(t.days)||1)*0.5),reason:"\""+t.name+"\" can start while \""+pred.name+"\" is in final review. No dependency broken."}); }});
   const shuffleOps = concOps.slice(0,3);
   const confidence = computeConfidence(tasks,availableDays,projectDuration,budget,bufferDays,shuffleOps,byId);
+  const predictiveRisk = computePredictiveRisk(tasks, byId, projectDuration, availableDays, bufferDays);
   return {
     tasks:Object.values(byId), projectDuration, bufferDays, verdict, verdictColor, verdictSub,
     projectedDate:projDate.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}),
     availableDays, primaryConstraint, primaryReason, scopeMove, timeMove, budgetMove, recommendedMove,
     criticalPath:tasks.filter(t=>byId[t.id].slack===0).map(t=>t.name),
     bottlenecks:tasks.filter(t=>byId[t.id].slack===0).map(t=>({...byId[t.id],dependents:tasks.filter(s=>s.predecessors.includes(t.id)).length})).sort((a,b)=>b.dependents-a.dependents).slice(0,3),
-    shuffleOps, confidence, startDate,
+    shuffleOps, confidence, predictiveRisk, startDate,
   };
 }
 
@@ -536,6 +646,73 @@ function ResultsContent() {
                 ))}
               </div>
             </Card>
+
+            {/* PREDICTIVE RISK ENGINE CARD */}
+            {result.predictiveRisk && (
+              <Card style={{ border: "1px solid " + result.predictiveRisk.band + "40", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg,transparent," + result.predictiveRisk.band + ",transparent)" }}/>
+
+                {/* Header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+                  <div>
+                    <div style={{ fontSize: "0.62rem", color: C.textDim, fontFamily: "monospace", letterSpacing: "0.12em", marginBottom: "0.35rem" }}>PREDICTED RISK PROFILE</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+                      <span style={{ fontFamily: "'Fraunces',serif", fontSize: "2.2rem", fontWeight: 300, color: result.predictiveRisk.band, lineHeight: 1 }}>{result.predictiveRisk.planProb}%</span>
+                      <span style={{ fontSize: "0.82rem", color: C.textMid, fontWeight: 300 }}>probability of missing deadline</span>
+                    </div>
+                  </div>
+                  {/* Mini probability bar */}
+                  <div style={{ flexShrink: 0, width: 52, textAlign: "center" }}>
+                    <svg width="52" height="52" viewBox="0 0 52 52" style={{ transform: "rotate(-90deg)" }}>
+                      <circle cx="26" cy="26" r="20" fill="none" stroke="#1E251E" strokeWidth="6"/>
+                      <circle cx="26" cy="26" r="20" fill="none" stroke={result.predictiveRisk.band} strokeWidth="6"
+                        strokeDasharray={2 * Math.PI * 20}
+                        strokeDashoffset={2 * Math.PI * 20 * (1 - result.predictiveRisk.planProb / 100)}
+                        strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                </div>
+
+                <p style={{ fontSize: "0.88rem", color: C.text, lineHeight: 1.7, fontWeight: 400, marginBottom: "0.4rem" }}>{result.predictiveRisk.planStatement}</p>
+                <p style={{ fontSize: "0.82rem", color: C.textMid, lineHeight: 1.65, fontWeight: 300, marginBottom: "1.25rem" }}>{result.predictiveRisk.planDetail}</p>
+
+                <div style={{ height: 1, background: C.border, marginBottom: "1rem" }}/>
+
+                {/* Top 3 milestone risks */}
+                <div style={{ fontSize: "0.62rem", color: C.textDim, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>HIGHEST RISK MILESTONES</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                  {result.predictiveRisk.top3.map((m, i) => {
+                    const mColor = m.prob >= 75 ? C.danger : m.prob >= 55 ? "#FB923C" : m.prob >= 35 ? C.warn : C.green;
+                    return (
+                      <div key={i} style={{ background: C.surface2, border: "1px solid " + mColor + "25", borderRadius: C.radiusSm, padding: "0.85rem 1rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.3rem" }}>
+                          <div style={{ fontSize: "0.88rem", fontWeight: 600, color: C.text }}>{m.name}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexShrink: 0, marginLeft: "1rem" }}>
+                            <div style={{ height: 5, width: 60, background: C.border, borderRadius: 3 }}>
+                              <div style={{ height: "100%", width: m.prob + "%", background: mColor, borderRadius: 3 }}/>
+                            </div>
+                            <span style={{ fontSize: "0.75rem", fontFamily: "monospace", fontWeight: 700, color: mColor }}>{m.prob}%</span>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: C.textDim, marginBottom: "0.3rem" }}>
+                          {m.owner} · {m.days} days · {m.slack === 0 ? "no buffer" : m.slack + "d buffer"}
+                          {m.dependents > 0 ? " · " + m.dependents + " milestone" + (m.dependents > 1 ? "s" : "") + " waiting" : ""}
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: C.textMid, lineHeight: 1.55, fontWeight: 300 }}>{m.reason}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Mitigation note */}
+                <div style={{ marginTop: "1rem", background: C.greenDim, border: "1px solid " + C.greenMid, borderRadius: C.radiusSm, padding: "0.75rem 1rem", display: "flex", gap: "0.5rem" }}>
+                  <span style={{ color: C.green, flexShrink: 0 }}>→</span>
+                  <p style={{ fontSize: "0.82rem", color: C.text, lineHeight: 1.65, fontWeight: 300 }}>
+                    See <strong style={{ color: C.green, cursor: "pointer" }}>Pathflo: Execution Forecast</strong> tab for specific scheduling changes that reduce these probabilities.
+                  </p>
+                </div>
+              </Card>
+            )}
 
             <Card>
               <STitle color={C.green}>Your plan as entered</STitle>
