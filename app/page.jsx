@@ -172,6 +172,168 @@ export default function Home() {
         </div>
       </section>
 
+      {/* DEPENDENCY INTELLIGENCE GRAPH */}
+      <section style={{ padding: "80px 2rem", maxWidth: "1100px", margin: "0 auto", position: "relative", zIndex: 1 }}>
+        <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+          <div style={{ fontSize: "0.7rem", color: T.green, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: "1rem" }}>Dependency Intelligence Graph</div>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(2rem, 5vw, 3rem)", fontWeight: 300, lineHeight: 1.2, letterSpacing: "-0.02em", marginBottom: "0.75rem" }}>
+            See the failure chain<br /><em style={{ color: T.green, fontStyle: "italic" }}>before it activates.</em>
+          </h2>
+          <p style={{ color: T.textMid, fontSize: "1rem", fontWeight: 300, lineHeight: 1.75, maxWidth: "520px", margin: "0 auto" }}>Most teams see a project as tasks on a list. Pathflo maps the hidden connections — and shows which thread, if pulled, unravels everything.</p>
+        </div>
+        {/* Graph Stage */}
+        <div style={{ background: T.surface, border: "1px solid " + T.border, borderRadius: "20px", overflow: "hidden" }}>
+          {/* Top bar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", padding: "0.85rem 1.5rem", borderBottom: "1px solid " + T.border }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.75rem", fontWeight: 700, color: T.green }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: T.green, animation: "pulse 2s infinite" }} />
+              Website Launch — Northstar Nutrition
+            </div>
+            <div style={{ display: "flex", gap: "1.5rem" }}>
+              {[{ label: "Tasks", val: "14" }, { label: "Dependencies", val: "23" }, { label: "Critical Path", val: "6 tasks" }].map(s => (
+                <div key={s.label} style={{ fontSize: "0.72rem", color: T.textMid }}>{s.label} <strong style={{ color: T.text }}>{s.val}</strong></div>
+              ))}
+            </div>
+            <div style={{ fontSize: "0.7rem", borderRadius: 6, padding: "0.22rem 0.7rem", fontWeight: 600, color: "#F87171", background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)" }}>⚠ CASCADE RISK DETECTED</div>
+          </div>
+          {/* Graph body */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 272px" }}>
+            {/* SVG */}
+            <div style={{ padding: "1.5rem", overflowX: "auto" }}>
+              <svg viewBox="0 0 700 320" style={{ width: "100%", height: 320, minWidth: 400 }}>
+                <defs>
+                  <marker id="mg" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L8,3z" fill={T.green}/></marker>
+                  <marker id="mw" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L8,3z" fill="#FBBF24"/></marker>
+                  <marker id="md" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L8,3z" fill="#F87171"/></marker>
+                  <filter id="glowlp"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+                {/* Cascade zone */}
+                <rect x="262" y="44" width="418" height="224" rx="12" fill="rgba(248,113,113,0.04)" stroke="#F87171" strokeWidth="1" strokeDasharray="7 4"/>
+                <text x="272" y="62" fontFamily="system-ui" fontSize="9" fill="#F87171" fontWeight="600" opacity="0.75">CASCADE IMPACT — 5–7 DAY DELAY</text>
+                {/* Edges */}
+                <path d="M112 56Q148 56 158 86" stroke={T.green} strokeWidth="1.5" fill="none" opacity="0.45" markerEnd="url(#mg)"/>
+                <path d="M112 68Q138 126 158 186" stroke={T.green} strokeWidth="1.5" fill="none" opacity="0.45" markerEnd="url(#mg)"/>
+                <path d="M242 96L298 96" stroke={T.green} strokeWidth="1.5" fill="none" opacity="0.45" markerEnd="url(#mg)"/>
+                <path d="M380 86L438 64" stroke="#FBBF24" strokeWidth="1.5" fill="none" opacity="0.6" strokeDasharray="6 3" markerEnd="url(#mw)"/>
+                <path d="M380 102Q408 146 436 160" stroke="#FBBF24" strokeWidth="1.5" fill="none" opacity="0.6" strokeDasharray="6 3" markerEnd="url(#mw)"/>
+                <path d="M242 196L298 226" stroke={T.green} strokeWidth="1.5" fill="none" opacity="0.45" markerEnd="url(#mg)"/>
+                <path d="M524 60L580 110" stroke="#F87171" strokeWidth="1.8" fill="none" opacity="0.75" strokeDasharray="6 3" markerEnd="url(#md)" filter="url(#glowlp)"/>
+                <path d="M524 180L580 126" stroke="#F87171" strokeWidth="1.8" fill="none" opacity="0.75" strokeDasharray="6 3" markerEnd="url(#md)"/>
+                {/* Nodes */}
+                {[
+                  { x:18, y:34, bg:dark?"#161A16":"#F0F4F0", stroke:T.textMid, lines:["Strategy &","Planning"], sub:"Done · 5d", dot:T.textDim },
+                  { x:160, y:70, bg:dark?"#161A16":"#F0F4F0", stroke:T.textMid, lines:["Content","& Copy"], sub:"Done · 7d", dot:T.textDim },
+                  { x:160, y:170, bg:dark?"#071410":"#E8F5EE", stroke:T.green, lines:["Product","Photography"], sub:"Jun 3 · 6d", dot:T.green },
+                  { x:300, y:72, bg:dark?"#130F00":"#FEF3C7", stroke:"#FBBF24", lines:["Design"], sub:"Jun 5 · 8d", stat:"AT RISK", dot:"#FBBF24" },
+                  { x:300, y:210, bg:dark?"#071410":"#E8F5EE", stroke:T.green, lines:["Klaviyo","Setup"], sub:"Jun 8 · 4d", dot:T.green },
+                  { x:440, y:38, bg:dark?"#130600":"#FEE2E2", stroke:"#F87171", lines:["Development"], sub:"3 days late", stat:"DELAYED", dot:"#F87171" },
+                  { x:438, y:146, bg:dark?"#130F00":"#FEF3C7", stroke:"#FBBF24", lines:["QA & Testing"], sub:"Jun 15 · 5d", stat:"AT RISK", dot:"#FBBF24" },
+                  { x:580, y:92, bg:dark?"#071410":"#E8F5EE", stroke:T.green, lines:["Launch"], sub:"Jun 28 · CRITICAL", stat:"ZERO FLOAT", dot:T.green, glow:true, w:108 },
+                ].map((n, i) => (
+                  <g key={i} transform={`translate(${n.x},${n.y})`} filter={n.glow?"url(#glowlp)":undefined}>
+                    <rect width={n.w||90} height={n.lines.length===1?50:52} rx="8" fill={n.bg} stroke={n.stroke} strokeWidth={n.glow?2.5:1.5}/>
+                    {n.lines.map((ln, j) => <text key={j} x="10" y={n.lines.length===1?20:16+j*12} fontFamily="system-ui" fontSize="10" fontWeight="600" fill={T.text}>{ln}</text>)}
+                    <text x="10" y={n.lines.length===1?34:16+n.lines.length*12+2} fontFamily="system-ui" fontSize="9" fill={n.stroke}>{n.sub}</text>
+                    {n.stat && <text x="10" y={n.lines.length===1?44:52-6} fontFamily="system-ui" fontSize="8" fontWeight="700" fill={n.stroke}>{n.stat}</text>}
+                    <circle cx={(n.w||90)-10} cy="10" r="3.5" fill={n.dot}/>
+                  </g>
+                ))}
+              </svg>
+            </div>
+            {/* Right panel */}
+            <div style={{ borderLeft: "1px solid " + T.border, padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              <div>
+                <div style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: T.green, marginBottom: "0.45rem" }}>Biggest Risk</div>
+                <div style={{ background: dark?"#110404":"#FEE2E2", border: dark?"1px solid #2A0E0E":"1px solid #FECACA", borderRadius: 10, padding: "1rem" }}>
+                  <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#F87171", marginBottom: "0.35rem" }}>⚠ Development is 3 days late</div>
+                  <div style={{ fontSize: "0.78rem", lineHeight: 1.6, color: T.textMid }}>Backend QA depends on it. Cascades into Launch with zero float.</div>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: T.green, marginBottom: "0.45rem" }}>Cascade Impact</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+                  {[{ label: "Delay Risk", val: "+5–7d", bad: true }, { label: "Tasks Affected", val: "6 tasks", warn: true }, { label: "Owners at Risk", val: "3 people", warn: true }, { label: "Cost Exposure", val: "$4,200", bad: true }].map((s,i) => (
+                    <div key={i} style={{ background: T.surface2, border: "1px solid " + T.border, borderRadius: 8, padding: "0.6rem 0.75rem" }}>
+                      <div style={{ fontSize: "0.6rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.2rem", color: T.textDim }}>{s.label}</div>
+                      <div style={{ fontSize: "0.9rem", fontWeight: 700, color: s.bad ? "#F87171" : "#FBBF24" }}>{s.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: T.green, marginBottom: "0.45rem" }}>Pathflo Recommendation</div>
+                <div style={{ background: T.greenDim, border: "1px solid " + T.greenMid, borderRadius: 10, padding: "0.9rem" }}>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 700, color: T.green, marginBottom: "0.4rem" }}>✦ Pathflo Recommendation</div>
+                  <div style={{ fontSize: "0.8rem", lineHeight: 1.6, color: T.textMid }}>Move product photography earlier to run in parallel with design. Recovers 4 days and removes the primary bottleneck.</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.75rem" }}>
+                    <div style={{ fontSize: "0.62rem", fontWeight: 600, whiteSpace: "nowrap", color: T.textDim }}>Confidence</div>
+                    <div style={{ flex: 1, height: 4, borderRadius: 2, background: T.border2, overflow: "hidden" }}><div style={{ height: "100%", width: "86%", background: T.green, borderRadius: 2 }}/></div>
+                    <div style={{ fontSize: "0.72rem", fontWeight: 700, color: T.green }}>86%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Legend */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.85rem", padding: "0.9rem 1.5rem", borderTop: "1px solid " + T.border }}>
+            {[{ color: T.textMid, label: "Completed" }, { color: T.green, label: "On Track" }, { color: "#FBBF24", label: "At Risk" }, { color: "#F87171", label: "Delayed" }, { color: T.green, label: "Critical / Zero Float", outline: true }].map((l,i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.7rem", color: T.textMid }}>
+                <div style={{ width: 11, height: 11, borderRadius: 3, border: "1.5px solid " + l.color, background: l.color + "20", outline: l.outline ? "1px solid " + l.color : "none", outlineOffset: 1 }}/>
+                {l.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* EXECUTION INTELLIGENCE PILLARS */}
+      <section style={{ padding: "80px 2rem", maxWidth: "1100px", margin: "0 auto", position: "relative", zIndex: 1, borderTop: "1px solid " + T.border }}>
+        <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+          <div style={{ fontSize: "0.7rem", color: T.green, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: "1rem" }}>Execution Intelligence Pillars</div>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(2rem, 5vw, 3rem)", fontWeight: 300, lineHeight: 1.2, letterSpacing: "-0.02em", marginBottom: "0.75rem" }}>
+            Three dimensions of<br /><em style={{ color: T.green, fontStyle: "italic" }}>operational health.</em>
+          </h2>
+          <p style={{ color: T.textMid, fontSize: "1rem", fontWeight: 300, lineHeight: 1.75, maxWidth: "520px", margin: "0 auto" }}>Pathflo reads your project across timeline, resource, and operational dimensions — and surfaces exactly where you're exposed.</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.75rem" }}>
+          {[
+            { n:"01 · Timeline Health", title:"How your schedule holds under pressure", color:"#818CF8", vals:[74,55,81], labels:["DEPENDENCY","CRITICAL","FORECAST"], score:"74%", scoreLabel:"ACCURACY", stats:[{name:"Dependency Compression",val:"Moderate",color:"#FBBF24"},{name:"Critical Path Stability",val:"Good",color:T.green},{name:"Forecast Accuracy",val:"81%",color:"#818CF8"}] },
+            { n:"02 · Resource Health", title:"Who's overloaded, who's a single point of failure", color:"#C084FC", vals:[40,55,62], labels:["OVERLOAD","OWNER","APPROVAL"], score:"62%", scoreLabel:"CAPACITY", stats:[{name:"Team Overload",val:"High",color:"#F87171"},{name:"Single Owner Risk",val:"Elevated",color:"#FBBF24"},{name:"Approval Capacity",val:"Limited",color:"#F87171"}] },
+            { n:"03 · Operational Health", title:"Execution confidence and rework risk", color:T.green, vals:[88,72,78], labels:["STABILITY","REWORK","CONFIDENCE"], score:"78%", scoreLabel:"EXECUTION", stats:[{name:"Budget Stability",val:"Strong",color:T.green},{name:"Rework Risk",val:"Moderate",color:"#FBBF24"},{name:"Execution Confidence",val:"74%",color:T.green}] },
+          ].map((pillar,i) => {
+            const size=160, cx=size/2, cy=size/2, r=52, n=3;
+            const outerPts = Array.from({length:n},(_,j)=>{ const a=(j*2*Math.PI/n)-Math.PI/2; return {x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)}; });
+            const innerPts = pillar.vals.map((v,j)=>{ const a=(j*2*Math.PI/n)-Math.PI/2; const d=r*(v/100); return {x:cx+d*Math.cos(a),y:cy+d*Math.sin(a)}; });
+            const labelPts = outerPts.map((p,j)=>({ x:cx+(r+18)*Math.cos((j*2*Math.PI/n)-Math.PI/2), y:cy+(r+18)*Math.sin((j*2*Math.PI/n)-Math.PI/2) }));
+            const poly = (pts) => pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+            return (
+              <div key={i} className="card" style={{ background: T.surface, border: "1px solid " + T.border, borderRadius: "16px", padding: "2rem", position: "relative", overflow: "hidden", transition: "transform 0.2s", cursor: "default" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,transparent,${pillar.color},transparent)`, opacity: 0.7 }}/>
+                <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: "0.65rem", color: T.textMid }}>{pillar.n}</div>
+                <div style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1.4rem", color: T.text }}>{pillar.title}</div>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.4rem" }}>
+                  <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: "visible" }}>
+                    <polygon points={poly(outerPts)} fill="none" stroke={pillar.color} strokeWidth="1" opacity="0.22"/>
+                    <polygon points={poly(innerPts)} fill={pillar.color} fillOpacity="0.16" stroke={pillar.color} strokeWidth="1.5"/>
+                    {outerPts.map((p,j)=><circle key={j} cx={p.x} cy={p.y} r="4" fill={pillar.color} opacity="0.45"/>)}
+                    {innerPts.map((p,j)=><circle key={j} cx={p.x} cy={p.y} r="3" fill={pillar.color}/>)}
+                    {labelPts.map((p,j)=><text key={j} x={p.x.toFixed(1)} y={p.y.toFixed(1)} textAnchor="middle" dominantBaseline="middle" fontSize="7.5" fontFamily="system-ui" fill={pillar.color} fontWeight="600" opacity="0.65">{pillar.labels[j]}</text>)}
+                    <text x={cx} y={cy-4} textAnchor="middle" fontSize="20" fontFamily="Georgia,serif" fill={pillar.color}>{pillar.score}</text>
+                    <text x={cx} y={cy+11} textAnchor="middle" fontSize="7" fontFamily="system-ui" fill={pillar.color} fontWeight="600" opacity="0.55">{pillar.scoreLabel}</text>
+                  </svg>
+                </div>
+                {pillar.stats.map((s,j) => (
+                  <div key={j} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.84rem", marginBottom: "0.4rem" }}>
+                    <span style={{ color: T.textMid }}>{s.name}</span>
+                    <span style={{ fontWeight: 700, color: s.color }}>{s.val}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* PM TOOLS VS PATHFLO */}
       <section style={{ padding: "80px 2rem", position: "relative", zIndex: 1 }}>
         <div style={{ maxWidth: "780px", margin: "0 auto" }}>
