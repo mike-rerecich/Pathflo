@@ -184,35 +184,21 @@ function computeCPM(tasks, startDate, targetDate, budget) {
   };
 }
 
-// ── DEPENDENCY GRAPH ──────────────────────────────────────────────────────────
-function DependencyGraph({ tasks, result }) {
+// ── DEPENDENCY GRAPH — P1-1 INTERACTIVE ──────────────────────────────────────
+function DependencyGraph({ tasks, result, onNodeClick }) {
   const canvasRef = useRef(null);
+  const nodePositionsRef = useRef({});
+  const hoveredRef = useRef(null);
+  const selectedRef = useRef(null);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !result || !tasks.length) return;
-    const dpr = window.devicePixelRatio || 1;
-    const W = canvas.parentElement.clientWidth || 700;
-    const H = 380;
-    canvas.style.width = W + "px";
-    canvas.style.height = H + "px";
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0,0,W,H);
-
-    const byId = {};
-    result.tasks.forEach(t => { byId[t.id] = t; });
-
-    // Layout nodes in topological order
+  // Build node positions — extracted so both draw + hit-test can use
+  const buildLayout = useCallback((W, H) => {
+    const nodeW = 110, nodeH = 46, padX = 60;
     const levels = {};
-    const assigned = new Set();
     function assignLevel(id, lvl) {
       if (levels[id] !== undefined && levels[id] >= lvl) return;
       levels[id] = lvl;
-      assigned.add(id);
-      tasks.filter(t => t.predecessors.includes(id)).forEach(s => assignLevel(s.id, lvl+1));
+      tasks.filter(t => t.predecessors.includes(id)).forEach(s => assignLevel(s.id, lvl + 1));
     }
     tasks.filter(t => t.predecessors.length === 0).forEach(t => assignLevel(t.id, 0));
     tasks.forEach(t => { if (levels[t.id] === undefined) assignLevel(t.id, 0); });
@@ -225,127 +211,217 @@ function DependencyGraph({ tasks, result }) {
       levelGroups[lvl].push(t);
     });
 
-    const nodeW = 110, nodeH = 46, padX = 60;
     const totalLevels = maxLevel + 1;
     const colW = Math.max(nodeW + padX, (W - 40) / totalLevels);
-
-    const nodePositions = {};
+    const positions = {};
     Object.entries(levelGroups).forEach(([lvl, group]) => {
-      const x = 20 + lvl * colW + colW/2 - nodeW/2;
+      const x = 20 + lvl * colW + colW / 2 - nodeW / 2;
       const totalH = group.length * (nodeH + 16) - 16;
       const startY = (H - totalH) / 2;
       group.forEach((t, i) => {
-        nodePositions[t.id] = { x, y: startY + i * (nodeH + 16) };
+        positions[t.id] = { x, y: startY + i * (nodeH + 16), w: nodeW, h: nodeH };
       });
     });
+    return positions;
+  }, [tasks]);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !result || !tasks.length) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.parentElement.clientWidth || 700;
+    const H = 380;
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    const byId = {};
+    result.tasks.forEach(t => { byId[t.id] = t; });
+
+    const positions = buildLayout(W, H);
+    nodePositionsRef.current = positions;
+
+    const criticalIds = new Set(result.tasks.filter(t => t.slack === 0).map(t => t.id));
+    const hoveredId = hoveredRef.current;
+    const selectedId = selectedRef.current;
+
+    // Connected node sets for hover highlight
+    const upstreamOf = (id) => {
+      const set = new Set();
+      function walk(tid) {
+        const t = tasks.find(t => t.id === tid);
+        if (!t) return;
+        t.predecessors.forEach(pid => { if (!set.has(pid)) { set.add(pid); walk(pid); } });
+      }
+      walk(id);
+      return set;
+    };
+    const downstreamOf = (id) => {
+      const set = new Set();
+      function walk(tid) {
+        tasks.filter(t => t.predecessors.includes(tid)).forEach(t => {
+          if (!set.has(t.id)) { set.add(t.id); walk(t.id); }
+        });
+      }
+      walk(id);
+      return set;
+    };
+
+    const focusId = hoveredId || selectedId;
+    const upstream = focusId ? upstreamOf(focusId) : new Set();
+    const downstream = focusId ? downstreamOf(focusId) : new Set();
+    const connected = new Set([...upstream, ...downstream]);
 
     // Cascade zone
-    const criticalIds = new Set(result.tasks.filter(t=>t.slack===0).map(t=>t.id));
-    const cascadeNodes = [...criticalIds].map(id => nodePositions[id]).filter(Boolean);
+    const cascadeNodes = [...criticalIds].map(id => positions[id]).filter(Boolean);
     if (cascadeNodes.length > 2) {
-      const minX = Math.min(...cascadeNodes.map(n=>n.x)) - 12;
-      const minY = Math.min(...cascadeNodes.map(n=>n.y)) - 12;
-      const maxX = Math.max(...cascadeNodes.map(n=>n.x+nodeW)) + 12;
-      const maxY = Math.max(...cascadeNodes.map(n=>n.y+nodeH)) + 12;
+      const minX = Math.min(...cascadeNodes.map(n => n.x)) - 12;
+      const minY = Math.min(...cascadeNodes.map(n => n.y)) - 12;
+      const maxX = Math.max(...cascadeNodes.map(n => n.x + 110)) + 12;
+      const maxY = Math.max(...cascadeNodes.map(n => n.y + 46)) + 12;
       ctx.fillStyle = "rgba(239,68,68,0.04)";
       ctx.strokeStyle = "rgba(239,68,68,0.35)";
       ctx.lineWidth = 1;
-      ctx.setLineDash([6,4]);
+      ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.roundRect(minX, minY, maxX-minX, maxY-minY, 12);
+      ctx.roundRect(minX, minY, maxX - minX, maxY - minY, 12);
       ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = "rgba(239,68,68,0.7)";
       ctx.font = "700 9px system-ui";
-      ctx.fillText("CASCADE IMPACT ZONE", minX+8, minY+14);
+      ctx.fillText("CASCADE IMPACT ZONE", minX + 8, minY + 14);
     }
 
     // Draw edges
     tasks.forEach(t => {
       t.predecessors.forEach(pid => {
-        const from = nodePositions[pid];
-        const to = nodePositions[t.id];
+        const from = positions[pid];
+        const to = positions[t.id];
         if (!from || !to) return;
         const isCritEdge = criticalIds.has(pid) && criticalIds.has(t.id);
-        const isBlocked = result.bufferDays < 0 && isCritEdge;
-        ctx.strokeStyle = isBlocked ? "rgba(239,68,68,0.7)" : isCritEdge ? "rgba(239,68,68,0.5)" : "rgba(139,148,158,0.3)";
-        ctx.lineWidth = isCritEdge ? 2 : 1.5;
-        ctx.setLineDash(t.concurrent ? [5,4] : []);
-        const fx = from.x + nodeW, fy = from.y + nodeH/2;
-        const tx2 = to.x, ty = to.y + nodeH/2;
+        const isConnectedEdge = focusId && (
+          (pid === focusId || t.id === focusId) ||
+          (upstream.has(pid) && upstream.has(t.id)) ||
+          (downstream.has(pid) && downstream.has(t.id)) ||
+          (upstream.has(pid) && t.id === focusId) ||
+          (pid === focusId && downstream.has(t.id))
+        );
+        const dimmed = focusId && !isConnectedEdge;
+
+        ctx.strokeStyle = dimmed
+          ? "rgba(72,79,88,0.15)"
+          : isConnectedEdge
+            ? (isCritEdge ? "rgba(239,68,68,0.9)" : "rgba(124,58,237,0.7)")
+            : (isCritEdge ? "rgba(239,68,68,0.5)" : "rgba(139,148,158,0.3)");
+        ctx.lineWidth = isConnectedEdge ? 2.5 : (isCritEdge ? 2 : 1.5);
+        ctx.setLineDash(t.concurrent ? [5, 4] : []);
+
+        const fx = from.x + 110, fy = from.y + 23;
+        const tx2 = to.x, ty = to.y + 23;
         const cp = (tx2 - fx) * 0.45;
         ctx.beginPath();
         ctx.moveTo(fx, fy);
-        ctx.bezierCurveTo(fx+cp, fy, tx2-cp, ty, tx2, ty);
+        ctx.bezierCurveTo(fx + cp, fy, tx2 - cp, ty, tx2, ty);
         ctx.stroke();
         ctx.setLineDash([]);
-        // arrowhead
-        const ang = Math.atan2(ty-fy, tx2-fx);
-        ctx.fillStyle = isCritEdge ? "rgba(239,68,68,0.7)" : "rgba(139,148,158,0.4)";
+
+        // Arrowhead
+        const ang = Math.atan2(ty - fy, tx2 - fx);
+        ctx.fillStyle = dimmed
+          ? "rgba(72,79,88,0.15)"
+          : isConnectedEdge
+            ? (isCritEdge ? "rgba(239,68,68,0.9)" : "rgba(124,58,237,0.7)")
+            : (isCritEdge ? "rgba(239,68,68,0.7)" : "rgba(139,148,158,0.4)");
         ctx.beginPath();
         ctx.moveTo(tx2, ty);
-        ctx.lineTo(tx2-8*Math.cos(ang-0.35), ty-8*Math.sin(ang-0.35));
-        ctx.lineTo(tx2-8*Math.cos(ang+0.35), ty-8*Math.sin(ang+0.35));
+        ctx.lineTo(tx2 - 8 * Math.cos(ang - 0.35), ty - 8 * Math.sin(ang - 0.35));
+        ctx.lineTo(tx2 - 8 * Math.cos(ang + 0.35), ty - 8 * Math.sin(ang + 0.35));
         ctx.closePath(); ctx.fill();
       });
     });
 
     // Draw nodes
     tasks.forEach(t => {
-      const pos = nodePositions[t.id];
+      const pos = positions[t.id];
       if (!pos) return;
-      const task = result.tasks.find(rt=>rt.id===t.id);
+      const task = result.tasks.find(rt => rt.id === t.id);
       const isCrit = task?.slack === 0;
       const isBottleneck = task && result.bottleneck?.name === t.name;
+      const isHovered = t.id === hoveredId;
+      const isSelected = t.id === selectedId;
+      const isUpstream = upstream.has(t.id);
+      const isDownstream = downstream.has(t.id);
+      const dimmed = focusId && t.id !== focusId && !connected.has(t.id);
 
       let bg, border, textColor;
-      if (isCrit && result.bufferDays < 0) { bg="rgba(239,68,68,0.15)"; border=C.red; textColor=C.red; }
-      else if (isCrit) { bg="rgba(239,68,68,0.1)"; border="rgba(239,68,68,0.7)"; textColor="#F87171"; }
-      else if (t.concurrent) { bg="rgba(34,197,94,0.08)"; border="rgba(34,197,94,0.4)"; textColor=C.green; }
-      else { bg="rgba(28,33,40,0.8)"; border=C.border; textColor=C.textMid; }
-
-      if (isBottleneck) {
-        ctx.shadowColor = C.amber;
-        ctx.shadowBlur = 12;
+      if (isSelected) {
+        bg = "rgba(124,58,237,0.25)"; border = C.purple; textColor = C.purpleLight;
+      } else if (isUpstream) {
+        bg = "rgba(59,130,246,0.15)"; border = "rgba(59,130,246,0.8)"; textColor = C.blue;
+      } else if (isDownstream) {
+        bg = "rgba(239,68,68,0.12)"; border = "rgba(239,68,68,0.6)"; textColor = "#F87171";
+      } else if (isCrit && result.bufferDays < 0) {
+        bg = "rgba(239,68,68,0.15)"; border = C.red; textColor = C.red;
+      } else if (isCrit) {
+        bg = "rgba(239,68,68,0.1)"; border = "rgba(239,68,68,0.7)"; textColor = "#F87171";
+      } else if (t.concurrent) {
+        bg = "rgba(34,197,94,0.08)"; border = "rgba(34,197,94,0.4)"; textColor = C.green;
+      } else {
+        bg = "rgba(28,33,40,0.8)"; border = C.border; textColor = C.textMid;
       }
+
+      if (dimmed) { bg = "rgba(22,27,34,0.4)"; border = "rgba(48,54,61,0.3)"; textColor = C.textDim; }
+
+      if (isBottleneck && !dimmed) { ctx.shadowColor = C.amber; ctx.shadowBlur = 12; }
+      if (isHovered && !isSelected) { ctx.shadowColor = C.purple; ctx.shadowBlur = 10; }
 
       ctx.fillStyle = bg;
       ctx.strokeStyle = border;
-      ctx.lineWidth = isCrit ? 2 : 1;
+      ctx.lineWidth = (isSelected || isHovered) ? 2.5 : (isCrit ? 2 : 1);
       ctx.beginPath();
-      ctx.roundRect(pos.x, pos.y, nodeW, nodeH, 8);
+      ctx.roundRect(pos.x, pos.y, 110, 46, 8);
       ctx.fill(); ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Task name
-      ctx.fillStyle = textColor;
-      ctx.font = `${isCrit ? "700" : "500"} 10px system-ui`;
+      // Selected ring
+      if (isSelected) {
+        ctx.strokeStyle = C.purple;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.roundRect(pos.x - 3, pos.y - 3, 116, 52, 11);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.fillStyle = dimmed ? C.textDim : textColor;
+      ctx.font = `${(isCrit || isSelected) ? "700" : "500"} 10px system-ui`;
       ctx.textAlign = "left";
-      const name = t.name.length > 14 ? t.name.slice(0,13)+"…" : t.name;
-      ctx.fillText(name, pos.x+8, pos.y+17);
+      const name = t.name.length > 14 ? t.name.slice(0, 13) + "…" : t.name;
+      ctx.fillText(name, pos.x + 8, pos.y + 17);
 
-      // Meta
-      ctx.fillStyle = C.textDim;
+      ctx.fillStyle = dimmed ? "#3a3f46" : C.textDim;
       ctx.font = "400 9px system-ui";
-      ctx.fillText(`${t.days}d · ${t.owner||"?"}`.slice(0,18), pos.x+8, pos.y+30);
+      ctx.fillText(`${t.days}d · ${t.owner || "?"}`.slice(0, 18), pos.x + 8, pos.y + 30);
 
-      // Status dot
       const dot = isCrit ? C.red : C.green;
-      ctx.fillStyle = dot;
+      ctx.fillStyle = dimmed ? "#3a3f46" : dot;
       ctx.beginPath();
-      ctx.arc(pos.x+nodeW-10, pos.y+10, 3.5, 0, Math.PI*2);
+      ctx.arc(pos.x + 100, pos.y + 10, 3.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Slack badge
-      if (task?.slack > 0) {
-        ctx.fillStyle = "rgba(34,197,94,0.15)";
+      if (task?.slack > 0 && !dimmed) {
         ctx.fillStyle = "rgba(34,197,94,0.2)";
         ctx.beginPath();
-        ctx.roundRect(pos.x+nodeW-28, pos.y+nodeH-14, 22, 10, 3);
+        ctx.roundRect(pos.x + 82, pos.y + 32, 22, 10, 3);
         ctx.fill();
         ctx.fillStyle = C.green;
         ctx.font = "600 7.5px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText(`+${task.slack}d`, pos.x+nodeW-17, pos.y+nodeH-6);
+        ctx.fillText(`+${task.slack}d`, pos.x + 93, pos.y + 40);
       }
       ctx.textAlign = "left";
     });
@@ -355,23 +431,250 @@ function DependencyGraph({ tasks, result }) {
       { color: C.red, label: "Critical / Zero Float" },
       { color: C.green, label: "On Track" },
       { color: C.amber, label: "Bottleneck" },
-      { color: C.textMid, label: "Sequential" },
+      { color: C.blue, label: "Upstream" },
+      { color: C.purple, label: "Selected" },
     ];
     legend.forEach((l, i) => {
-      const lx = 20 + i*130, ly = H-18;
+      const lx = 20 + i * 120, ly = H - 18;
       ctx.fillStyle = l.color;
       ctx.beginPath();
-      ctx.arc(lx+5, ly+3, 4, 0, Math.PI*2);
+      ctx.arc(lx + 5, ly + 3, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = C.textDim;
       ctx.font = "400 9px system-ui";
-      ctx.fillText(l.label, lx+14, ly+6);
+      ctx.fillText(l.label, lx + 14, ly + 6);
     });
-  }, [tasks, result]);
+
+    // Click hint if nothing selected
+    if (!selectedId) {
+      ctx.fillStyle = "rgba(139,148,158,0.4)";
+      ctx.font = "400 9px system-ui";
+      ctx.textAlign = "right";
+      ctx.fillText("Click any node for details", W - 12, H - 12);
+      ctx.textAlign = "left";
+    }
+  }, [tasks, result, buildLayout]);
+
+  useEffect(() => { draw(); }, [draw]);
+  useEffect(() => {
+    const h = () => draw();
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, [draw]);
+
+  // Hit test
+  const hitTest = useCallback((clientX, clientY) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const positions = nodePositionsRef.current;
+    for (const [id, pos] of Object.entries(positions)) {
+      if (x >= pos.x && x <= pos.x + 110 && y >= pos.y && y <= pos.y + 46) {
+        return id;
+      }
+    }
+    return null;
+  }, []);
+
+  const handleMouseMove = useCallback((e) => {
+    const id = hitTest(e.clientX, e.clientY);
+    if (id !== hoveredRef.current) {
+      hoveredRef.current = id;
+      canvasRef.current.style.cursor = id ? "pointer" : "default";
+      draw();
+    }
+  }, [hitTest, draw]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoveredRef.current !== null) {
+      hoveredRef.current = null;
+      draw();
+    }
+  }, [draw]);
+
+  const handleClick = useCallback((e) => {
+    const id = hitTest(e.clientX, e.clientY);
+    if (id === selectedRef.current) {
+      // Deselect on second click
+      selectedRef.current = null;
+      onNodeClick && onNodeClick(null);
+    } else {
+      selectedRef.current = id;
+      onNodeClick && onNodeClick(id);
+    }
+    draw();
+  }, [hitTest, draw, onNodeClick]);
 
   return (
-    <div style={{overflowX:"auto"}}>
-      <canvas ref={canvasRef} style={{display:"block"}}/>
+    <div style={{ overflowX: "auto" }}>
+      <canvas
+        ref={canvasRef}
+        style={{ display: "block" }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleClick}
+      />
+    </div>
+  );
+}
+
+// ── NODE DETAIL PANEL (P1-1) ──────────────────────────────────────────────────
+function NodeDetailPanel({ nodeId, tasks, result, onClose }) {
+  if (!nodeId) return null;
+
+  const task = tasks.find(t => t.id === nodeId);
+  const resultTask = result.tasks.find(t => t.id === nodeId);
+  if (!task || !resultTask) return null;
+
+  const isCritical = resultTask.slack === 0;
+  const accentColor = isCritical ? C.red : resultTask.slack < 3 ? C.amber : C.green;
+
+  // Cascade chain — upstream tasks
+  const upstream = [];
+  function walkUp(id, depth = 0) {
+    if (depth > 8) return;
+    const t = tasks.find(t => t.id === id);
+    if (!t) return;
+    t.predecessors.forEach(pid => {
+      const pt = tasks.find(t => t.id === pid);
+      if (pt && !upstream.find(u => u.id === pid)) {
+        upstream.push({ id: pid, name: pt.name, depth });
+        walkUp(pid, depth + 1);
+      }
+    });
+  }
+  walkUp(nodeId);
+
+  // Downstream tasks
+  const downstream = tasks.filter(t => t.predecessors.includes(nodeId));
+
+  // Risk data
+  const riskData = result.predictiveRisk?.milestoneRisks?.find(m => m.id === nodeId);
+  const riskColor = riskData?.prob >= 75 ? C.red : riskData?.prob >= 55 ? C.amber : C.green;
+
+  // Recommended fix
+  const fix = result.shuffleOps.find(op => op.task === task.name || op.predecessor === task.name);
+  const fixText = fix
+    ? `Run "${fix.task}" concurrently with "${fix.predecessor}" — recovers ~${fix.daysSaved} days`
+    : isCritical
+      ? `Validate ${task.owner || "owner"} availability before start. Any delay propagates forward with no buffer.`
+      : `${resultTask.slack} days of float — monitor but not critical.`;
+
+  return (
+    <div style={{
+      width: 280, flexShrink: 0,
+      background: C.surface,
+      borderLeft: "1px solid " + C.border,
+      display: "flex", flexDirection: "column",
+      animation: "slideIn 0.2s ease both",
+      overflowY: "auto",
+    }}>
+      <style>{`@keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}`}</style>
+
+      {/* Header */}
+      <div style={{
+        padding: "1rem",
+        borderBottom: "1px solid " + C.border,
+        position: "relative",
+      }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: accentColor }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: "0.25rem" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: "0.6rem", color: accentColor, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.3rem" }}>
+              {isCritical ? "CRITICAL PATH" : "TASK DETAIL"}
+            </div>
+            <div style={{ fontSize: "0.95rem", fontWeight: 700, color: C.text, lineHeight: 1.3, wordBreak: "break-word" }}>{task.name}</div>
+            <div style={{ fontSize: "0.72rem", color: C.textMid, marginTop: "0.25rem" }}>{task.owner || "Unassigned"} · {task.days} days</div>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textDim, cursor: "pointer", fontSize: "1.1rem", padding: "0 0 0 0.5rem", flexShrink: 0 }}>✕</button>
+        </div>
+        {/* Status badge */}
+        <div style={{ marginTop: "0.65rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          <span style={{ background: accentColor + "20", color: accentColor, fontSize: "0.62rem", fontWeight: 700, padding: "0.15rem 0.55rem", borderRadius: 100, border: "1px solid " + accentColor + "40" }}>
+            {isCritical ? "Zero float" : `+${resultTask.slack}d float`}
+          </span>
+          {riskData && (
+            <span style={{ background: riskColor + "15", color: riskColor, fontSize: "0.62rem", fontWeight: 700, padding: "0.15rem 0.55rem", borderRadius: 100, border: "1px solid " + riskColor + "30" }}>
+              {riskData.prob}% risk
+            </span>
+          )}
+          {task.concurrent && (
+            <span style={{ background: C.green + "15", color: C.green, fontSize: "0.62rem", fontWeight: 700, padding: "0.15rem 0.55rem", borderRadius: 100, border: "1px solid " + C.green + "30" }}>
+              Concurrent
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Timing */}
+      <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid " + C.border }}>
+        <div style={{ fontSize: "0.58rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>TIMING</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+          {[
+            { label: "Starts", val: `Day ${resultTask.es + 1}` },
+            { label: "Finishes", val: `Day ${resultTask.ef}` },
+            { label: "Duration", val: `${task.days} days` },
+            { label: "Float", val: isCritical ? "None" : `${resultTask.slack}d` },
+          ].map((s, i) => (
+            <div key={i}>
+              <div style={{ fontSize: "0.58rem", color: C.textDim }}>{s.label}</div>
+              <div style={{ fontSize: "0.82rem", fontWeight: 600, color: C.text }}>{s.val}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Cascade chain */}
+      {(upstream.length > 0 || downstream.length > 0) && (
+        <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid " + C.border }}>
+          <div style={{ fontSize: "0.58rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>CASCADE CHAIN</div>
+          {upstream.length > 0 && (
+            <div style={{ marginBottom: "0.5rem" }}>
+              <div style={{ fontSize: "0.62rem", color: C.blue, marginBottom: "0.3rem" }}>↑ Upstream ({upstream.length})</div>
+              {upstream.slice(0, 4).map((u, i) => (
+                <div key={i} style={{ fontSize: "0.75rem", color: C.textMid, padding: "0.2rem 0", borderBottom: i < Math.min(upstream.length, 4) - 1 ? "1px solid " + C.border2 : "none" }}>
+                  {u.name}
+                </div>
+              ))}
+              {upstream.length > 4 && <div style={{ fontSize: "0.68rem", color: C.textDim }}>+{upstream.length - 4} more</div>}
+            </div>
+          )}
+          {downstream.length > 0 && (
+            <div>
+              <div style={{ fontSize: "0.62rem", color: C.red, marginBottom: "0.3rem" }}>↓ Downstream ({downstream.length})</div>
+              {downstream.slice(0, 4).map((d, i) => (
+                <div key={i} style={{ fontSize: "0.75rem", color: C.textMid, padding: "0.2rem 0", borderBottom: i < Math.min(downstream.length, 4) - 1 ? "1px solid " + C.border2 : "none" }}>
+                  {d.name}
+                  {result.tasks.find(t => t.id === d.id)?.slack === 0 && <span style={{ color: C.red, marginLeft: "0.35rem", fontSize: "0.6rem" }}>CRITICAL</span>}
+                </div>
+              ))}
+              {downstream.length > 4 && <div style={{ fontSize: "0.68rem", color: C.textDim }}>+{downstream.length - 4} more</div>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Risk detail */}
+      {riskData && (
+        <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid " + C.border }}>
+          <div style={{ fontSize: "0.58rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>RISK SIGNAL</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
+            <div style={{ flex: 1, height: 5, background: C.border2, borderRadius: 3 }}>
+              <div style={{ height: "100%", width: riskData.prob + "%", background: riskColor, borderRadius: 3 }} />
+            </div>
+            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: riskColor }}>{riskData.prob}%</span>
+          </div>
+          <div style={{ fontSize: "0.78rem", color: C.textMid, lineHeight: 1.5 }}>{riskData.reason}</div>
+        </div>
+      )}
+
+      {/* Recommended fix */}
+      <div style={{ padding: "0.85rem 1rem", background: C.greenDim, borderTop: "1px solid " + C.green + "20" }}>
+        <div style={{ fontSize: "0.58rem", color: C.green, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.4rem" }}>RECOMMENDED FIX</div>
+        <div style={{ fontSize: "0.78rem", color: C.text, lineHeight: 1.6 }}>{fixText}</div>
+      </div>
     </div>
   );
 }
@@ -437,7 +740,6 @@ function GanttChart({ tasks, result, startDate }) {
     function addDays(n) { const d=new Date(start); d.setDate(d.getDate()+n); return d; }
     function fmt(n) { return addDays(n).toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
     const xOf = d => LW + d * DAY_PX;
-
     for (let d=0;d<=TOTAL;d+=7) {
       const xp=xOf(d);
       ctx.strokeStyle="#21262D"; ctx.lineWidth=1; ctx.setLineDash([2,4]);
@@ -484,6 +786,7 @@ function ResultsContent() {
   const [aiReadout, setAiReadout] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState(null); // P1-1
 
   useEffect(() => {
     const raw = searchParams.get("data");
@@ -517,7 +820,6 @@ function ResultsContent() {
   const confBand = result.confidence.band;
   const planRisk = result.predictiveRisk?.planProb || 0;
 
-  // Nav items per v7.1 architecture
   const navItems = [
     { id:"overview", label:"Executive Overview", icon:"⬡" },
     { id:"graph", label:"Dependency Graph", icon:"◈" },
@@ -536,14 +838,38 @@ function ResultsContent() {
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
+    @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
     ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
   `;
 
-  // Shared card style
   const card = (extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
   const label = (color=C.purple) => ({fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color,marginBottom:"0.4rem"});
-
   const verdColor = result.verdict==="ON TRACK" ? C.green : result.verdict==="AT RISK" ? C.amber : C.red;
+
+  // Graph section with interactive panel
+  const GraphSection = ({ preview = false }) => (
+    <div style={{ display: "flex", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <DependencyGraph
+          tasks={data.tasks}
+          result={result}
+          onNodeClick={(id) => {
+            setSelectedNodeId(id);
+            // Auto-switch to graph tab if in preview mode
+            if (preview && id) setActiveNav("graph");
+          }}
+        />
+      </div>
+      {selectedNodeId && (
+        <NodeDetailPanel
+          nodeId={selectedNodeId}
+          tasks={data.tasks}
+          result={result}
+          onClose={() => setSelectedNodeId(null)}
+        />
+      )}
+    </div>
+  );
 
   return (
     <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Inter,system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
@@ -599,12 +925,11 @@ function ResultsContent() {
         )}
 
         {/* ── MAIN CONTENT ── */}
-        <main style={{flex:1,overflowY:"auto",padding:"1.5rem"}}>
+        <main style={{flex:1,overflowY:"auto",padding:"1.5rem",minWidth:0}}>
 
           {/* ══ EXECUTIVE OVERVIEW ══ */}
           {activeNav==="overview" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
-              {/* AI COO Report header */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:"0.75rem"}}>
                 <div>
                   <div style={{fontSize:"1.3rem",fontWeight:700,color:C.text}}>Executive Overview</div>
@@ -619,7 +944,6 @@ function ResultsContent() {
               <div style={{...card(),padding:"1.25rem",marginBottom:"1rem",border:"1px solid "+verdColor+"40",position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${verdColor},transparent)`}}/>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:"1rem",alignItems:"center"}}>
-                  {/* Confidence */}
                   <div>
                     <div style={label(C.textDim)}>EXECUTION CONFIDENCE</div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:"2.8rem",fontWeight:400,color:verdColor,lineHeight:1}}>{confScore}<span style={{fontSize:"1.2rem"}}>%</span></div>
@@ -627,43 +951,28 @@ function ResultsContent() {
                       {confScore>=75?"Good":confScore>=55?"Moderate":"Low"}
                     </div>
                   </div>
-                  {/* Risk signals */}
                   <div style={{display:"flex",flexDirection:"column",gap:"0.6rem"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                      <span style={{color:result.delayRisk==="High"?C.red:result.delayRisk==="Moderate"?C.amber:C.green}}>⚠</span>
-                      <div>
-                        <div style={{fontSize:"0.62rem",color:C.textDim}}>DELAY RISK</div>
-                        <div style={{fontSize:"0.85rem",fontWeight:600,color:result.delayRisk==="High"?C.red:result.delayRisk==="Moderate"?C.amber:C.green}}>{result.delayRisk}</div>
+                    {[
+                      {label:"DELAY RISK",val:result.delayRisk,color:result.delayRisk==="High"?C.red:result.delayRisk==="Moderate"?C.amber:C.green},
+                      {label:"BOTTLENECK SEVERITY",val:result.bottleneckSeverity,color:result.bottleneckSeverity==="High"?C.red:result.bottleneckSeverity==="Moderate"?C.amber:C.green},
+                      {label:"BUDGET STABILITY",val:overrunCost>0?"At Risk":"Strong",color:overrunCost>0?C.red:C.green},
+                    ].map((s,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                        <span style={{color:s.color}}>{s.val==="High"||s.val==="At Risk"?"⚠":"✓"}</span>
+                        <div><div style={{fontSize:"0.62rem",color:C.textDim}}>{s.label}</div><div style={{fontSize:"0.85rem",fontWeight:600,color:s.color}}>{s.val}</div></div>
                       </div>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                      <span style={{color:result.bottleneckSeverity==="High"?C.red:result.bottleneckSeverity==="Moderate"?C.amber:C.green}}>⚠</span>
-                      <div>
-                        <div style={{fontSize:"0.62rem",color:C.textDim}}>BOTTLENECK SEVERITY</div>
-                        <div style={{fontSize:"0.85rem",fontWeight:600,color:result.bottleneckSeverity==="High"?C.red:result.bottleneckSeverity==="Moderate"?C.amber:C.green}}>{result.bottleneckSeverity}</div>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                      <span style={{color:C.green}}>✓</span>
-                      <div>
-                        <div style={{fontSize:"0.62rem",color:C.textDim}}>BUDGET STABILITY</div>
-                        <div style={{fontSize:"0.85rem",fontWeight:600,color:overrunCost>0?C.red:C.green}}>{overrunCost>0?"At Risk":"Strong"}</div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                  {/* Delivery window */}
                   <div>
                     <div style={label(C.textDim)}>PROJECTED DELIVERY WINDOW</div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:"1.4rem",color:C.text,lineHeight:1.2}}>{result.projectedRange}</div>
                     <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.3rem"}}>{result.bufferDays>=0?`${result.bufferDays} days buffer`:Math.abs(result.bufferDays)+" days over"}</div>
                   </div>
-                  {/* Most likely failure */}
                   <div>
                     <div style={label(C.red)}>MOST LIKELY FAILURE POINT</div>
                     <div style={{fontSize:"0.85rem",color:C.text,fontWeight:500}}>{result.bottleneck?.name||result.criticalPath[0]||"—"}</div>
                     <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.2rem"}}>{result.bottleneck?.reason||"Critical path constraint"}</div>
                   </div>
-                  {/* Recommended action */}
                   <div style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:8,padding:"0.75rem"}}>
                     <div style={label(C.green)}>RECOMMENDED ACTION</div>
                     <div style={{fontSize:"0.82rem",color:C.green,fontWeight:500,lineHeight:1.5}}>
@@ -719,7 +1028,7 @@ function ResultsContent() {
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem"}}>
                   {[
                     { title:"1. Timeline Health", color:C.blue, vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50, 70], labels:["DEPENDENCY","CRITICAL","FORECAST"], score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, scoreLabel:"ACCURACY", stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}] },
-                    { title:"2. Resource Health", color:C.purple, vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50, result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, 60], labels:["OVERLOAD","OWNER","APPROVAL"], score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, scoreLabel:"CAPACITY", stats:[{name:"Team Overload",val:result.data?.tasks?.filter(t=>!t.owner).length>2?"High":"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}] },
+                    { title:"2. Resource Health", color:C.purple, vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50, result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, 60], labels:["OVERLOAD","OWNER","APPROVAL"], score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, scoreLabel:"CAPACITY", stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}] },
                     { title:"3. Operational Health", color:C.green, vals:[result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50, result.confidence.breakdown.find(f=>f.name==="External dependencies")?.score||50, 78], labels:["STABILITY","REWORK","CONFIDENCE"], score:result.confidence.score, scoreLabel:"EXECUTION", stats:[{name:"Budget Stability",val:overrunCost>0?"At Risk":"Strong",color:overrunCost>0?C.red:C.green},{name:"Rework Risk",val:result.shuffleOps.length>1?"Moderate":"Low",color:result.shuffleOps.length>1?C.amber:C.green},{name:"Execution Confidence",val:confScore+"%",color:verdColor}] },
                   ].map((pillar,i) => (
                     <div key={i} style={{...card({background:C.surface2}),padding:"1rem"}}>
@@ -783,7 +1092,7 @@ function ResultsContent() {
                     <div style={label(C.purple)}>DEPENDENCY INTELLIGENCE GRAPH</div>
                     <button onClick={()=>setActiveNav("graph")} style={{background:"transparent",border:"none",color:C.purple,fontSize:"0.75rem",cursor:"pointer",fontFamily:"inherit"}}>View full graph →</button>
                   </div>
-                  <DependencyGraph tasks={data.tasks} result={result}/>
+                  <GraphSection preview={true} />
                 </div>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
@@ -816,14 +1125,13 @@ function ResultsContent() {
             </div>
           )}
 
-          {/* ══ DEPENDENCY GRAPH (HERO per v7.1) ══ */}
+          {/* ══ DEPENDENCY GRAPH (HERO — full interactive) ══ */}
           {activeNav==="graph" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
               <div style={{marginBottom:"1.25rem"}}>
                 <div style={{fontSize:"1.2rem",fontWeight:700}}>Dependency Intelligence Graph</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>The connections between tasks that control your outcome. Red zone = cascade impact area.</div>
+                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Click any node to see task detail, cascade chain, and recommended fix. Red zone = cascade impact area.</div>
               </div>
-              {/* Stats bar */}
               <div style={{display:"flex",gap:"1.5rem",marginBottom:"1rem",flexWrap:"wrap"}}>
                 {[{label:"Tasks",val:result.totalTasks},{label:"Dependencies",val:data.tasks.filter(t=>t.predecessors.length>0).length},{label:"Critical Path",val:`${result.criticalPath.length} tasks`},{label:"Cascade Risk",val:`${result.predictiveRisk?.planProb||0}%`}].map((s,i)=>(
                   <div key={i} style={{...card({background:C.surface2}),padding:"0.65rem 1rem"}}>
@@ -832,7 +1140,7 @@ function ResultsContent() {
                   </div>
                 ))}
                 <div style={{marginLeft:"auto",display:"flex",gap:"0.75rem",flexWrap:"wrap",alignItems:"center"}}>
-                  {[{color:C.red,label:"Critical Path"},{color:C.amber,label:"At Risk"},{color:C.green,label:"On Track"},{color:C.textMid,label:"Future"}].map((l,i)=>(
+                  {[{color:C.red,label:"Critical"},{color:C.blue,label:"Upstream"},{color:"#F87171",label:"Downstream"},{color:C.purple,label:"Selected"},{color:C.green,label:"On Track"}].map((l,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.72rem",color:C.textMid}}>
                       <div style={{width:10,height:10,borderRadius:2,background:l.color+"30",border:"1px solid "+l.color}}/>
                       {l.label}
@@ -840,10 +1148,12 @@ function ResultsContent() {
                   ))}
                 </div>
               </div>
-              {/* Full graph */}
-              <div style={{...card(),padding:"1.5rem"}}>
-                <DependencyGraph tasks={data.tasks} result={result}/>
+
+              {/* Full interactive graph + detail panel side by side */}
+              <div style={{...card(),overflow:"hidden",marginBottom:"1rem"}}>
+                <GraphSection preview={false} />
               </div>
+
               {/* Critical path chain */}
               <div style={{...card(),padding:"1.25rem",marginTop:"1rem"}}>
                 <div style={label(C.red)}>CRITICAL PATH — tasks that control your deadline</div>
@@ -857,6 +1167,7 @@ function ResultsContent() {
                   ))}
                 </div>
               </div>
+
               {/* Predicted risk cards */}
               {result.predictiveRisk && (
                 <div style={{...card({border:"1px solid "+result.predictiveRisk.planBand+"40"}),padding:"1.25rem",marginTop:"1rem",position:"relative",overflow:"hidden"}}>
@@ -923,7 +1234,6 @@ function ResultsContent() {
                   </div>
                 ))}
               </div>
-              {/* Full confidence breakdown */}
               <div style={{...card(),padding:"1.25rem"}}>
                 <div style={label(verdColor)}>CONFIDENCE SCORE BREAKDOWN — {confScore}%</div>
                 <div style={{display:"flex",flexDirection:"column",gap:"0.65rem",marginTop:"0.75rem"}}>
@@ -977,7 +1287,6 @@ function ResultsContent() {
                   </div>
                 </div>
               )}
-              {/* Optimization opportunities */}
               {result.shuffleOps.length > 0 && (
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
@@ -998,7 +1307,7 @@ function ResultsContent() {
             </div>
           )}
 
-          {/* ══ TIMELINE (Gantt — supporting context per v7.1) ══ */}
+          {/* ══ TIMELINE ══ */}
           {activeNav==="gantt" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
               <div style={{marginBottom:"1.25rem"}}>
@@ -1007,16 +1316,15 @@ function ResultsContent() {
               </div>
               <div style={{...card(),padding:"1.5rem",marginBottom:"1rem"}}>
                 <div style={{display:"flex",gap:"1.5rem",marginBottom:"1rem",flexWrap:"wrap"}}>
-                  {[{color:C.red,label:"Critical Path"},{color:C.green,label:"Concurrent"},{color:C.blue,label:"Sequential"},{color:C.red,label:"Milestone",dashed:true}].map((l,i)=>(
+                  {[{color:C.red,label:"Critical Path"},{color:C.green,label:"Concurrent"},{color:C.blue,label:"Sequential"}].map((l,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.72rem",color:C.textMid}}>
-                      <div style={{width:16,height:5,background:l.color,borderRadius:2,opacity:l.dashed?0.5:0.8}}/>
+                      <div style={{width:16,height:5,background:l.color,borderRadius:2,opacity:0.8}}/>
                       {l.label}
                     </div>
                   ))}
                 </div>
                 <GanttChart tasks={data.tasks} result={result} startDate={data.startDate}/>
               </div>
-              {/* Finish summary */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem"}}>
                 <div style={{...card({border:"1px solid "+verdColor+"30"}),padding:"1rem"}}>
                   <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>PROJECTED FINISH</div>
@@ -1146,7 +1454,6 @@ function ResultsContent() {
                 </div>
               </div>
               <div style={{...card(),padding:"0"}}>
-                {/* Header */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"1rem",padding:"0.6rem 1.25rem",borderBottom:"1px solid "+C.border,fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>
                   <span>MILESTONE</span><span>OWNER</span><span>DAYS</span><span>START</span><span>FLOAT</span>
                 </div>
