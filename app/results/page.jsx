@@ -573,7 +573,7 @@ function NodeDetailPanel({ nodeId, tasks, result, onClose }) {
       : `${resultTask.slack} days of float — monitor but not critical.`;
 
   return (
-    <div style={{
+    <div className="r-detail-panel" style={{
       width: 280, flexShrink: 0,
       background: C.surface,
       borderLeft: "1px solid " + C.border,
@@ -784,7 +784,7 @@ function GanttChart({ tasks, result, startDate }) {
   }, [tasks, result, startDate]);
   useEffect(()=>{draw();},[draw]);
   useEffect(()=>{ const h=()=>draw(); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[draw]);
-  return <div style={{overflowX:"auto"}}><canvas ref={canvasRef} style={{display:"block"}}/></div>;
+  return <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}><canvas ref={canvasRef} style={{display:"block"}}/></div>;
 }
 
 // ── RESULTS CONTENT ───────────────────────────────────────────────────────────
@@ -843,6 +843,13 @@ function ResultsContent() {
     { id:"details", label:"Details", icon:"≡" },
   ].filter(n => n.id !== "financials" || totalCost > 0);
 
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+
   const style = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
     *{box-sizing:border-box;margin:0;padding:0}
@@ -851,6 +858,22 @@ function ResultsContent() {
     @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
     @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
     ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
+    @media(max-width:768px){
+      .r-nav{display:none !important}
+      .r-hero-grid{grid-template-columns:1fr !important}
+      .r-2col{grid-template-columns:1fr !important}
+      .r-3col{grid-template-columns:1fr !important}
+      .r-6col{grid-template-columns:repeat(2,1fr) !important}
+      .r-briefing{grid-template-columns:1fr !important}
+      .r-graph-wrap{flex-direction:column !important}
+      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #30363D !important}
+      .r-details-header{grid-template-columns:1fr 60px 50px !important}
+      .r-details-row{grid-template-columns:1fr 60px 50px !important}
+      .r-col-owner{display:none !important}
+      .r-col-start{display:none !important}
+      .r-topbar{flex-wrap:wrap !important;height:auto !important;padding:0.6rem 1rem !important}
+      .r-main{padding:1rem !important}
+    }
   `;
 
   const card = (extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
@@ -859,7 +882,7 @@ function ResultsContent() {
 
   // Graph section with interactive panel
   const GraphSection = ({ preview = false }) => (
-    <div style={{ display: "flex", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
+    <div className="r-graph-wrap" style={{ display: "flex", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <DependencyGraph
           tasks={data.tasks}
@@ -887,7 +910,7 @@ function ResultsContent() {
       <style>{style}</style>
 
       {/* ── TOP BAR ── */}
-      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,height:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 1.25rem",position:"sticky",top:0,zIndex:200,gap:"1rem",flexShrink:0}}>
+      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,minHeight:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 1.25rem",position:"sticky",top:0,zIndex:200,gap:"0.75rem",flexShrink:0,flexWrap:"wrap"}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
           <button onClick={()=>setNavCollapsed(v=>!v)} style={{background:"transparent",border:"none",color:C.textMid,cursor:"pointer",fontSize:"1rem",padding:"0.25rem"}}>☰</button>
           <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
@@ -918,7 +941,7 @@ function ResultsContent() {
 
         {/* ── LEFT NAV ── */}
         {!navCollapsed && (
-          <nav style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
+          <nav className="r-nav" style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"0 0.75rem 0.75rem",fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase"}}>{entityName}</div>
             {navItems.map(n => (
               <button key={n.id} onClick={()=>setActiveNav(n.id)} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.6rem 0.75rem",background:activeNav===n.id?C.purpleDim:"transparent",border:"none",borderLeft:activeNav===n.id?`2px solid ${C.purple}`:"2px solid transparent",color:activeNav===n.id?C.purpleLight:C.textMid,fontFamily:"inherit",fontSize:"0.82rem",fontWeight:activeNav===n.id?600:400,cursor:"pointer",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
@@ -938,7 +961,7 @@ function ResultsContent() {
         )}
 
         {/* ── MAIN CONTENT ── */}
-        <main style={{flex:1,overflowY:"auto",padding:"1.5rem",minWidth:0}}>
+        <main className="r-main" style={{flex:1,overflowY:"auto",padding:"1.5rem",minWidth:0,overflowX:"hidden"}}>
 
           {/* ══ EXECUTIVE OVERVIEW ══ */}
           {activeNav==="overview" && (
@@ -956,7 +979,7 @@ function ResultsContent() {
               {/* HERO METRICS BANNER */}
               <div style={{...card(),padding:"1.25rem",marginBottom:"1rem",border:"1px solid "+verdColor+"40",position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${verdColor},transparent)`}}/>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:"1rem",alignItems:"center"}}>
+                <div className="r-hero-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"1rem",alignItems:"start"}}>
                   <div>
                     <div style={label(C.textDim)}>ON-TIME DELIVERY CONFIDENCE</div>
                     <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem",marginBottom:"0.4rem"}}>
@@ -1009,7 +1032,7 @@ function ResultsContent() {
               </div>
 
               {/* AI BRIEFING + KEY INSIGHT */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:"1rem",marginBottom:"1rem"}}>
+              <div className="r-briefing" style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
                     <span style={{color:C.purple}}>✦</span>
@@ -1050,7 +1073,7 @@ function ResultsContent() {
               {/* INTELLIGENCE PILLARS */}
               <div style={{...card(),padding:"1.25rem",marginBottom:"1rem"}}>
                 <div style={label(C.purple)}>EXECUTION INTELLIGENCE PILLARS</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem"}}>
+                <div className="r-3col" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem"}}>
                   {[
                     { title:"1. Timeline Health", color:C.blue, vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50, 70], labels:["DEPENDENCY","CRITICAL","FORECAST"], score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, scoreLabel:"ACCURACY", stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}] },
                     { title:"2. Resource Health", color:C.purple, vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50, result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, 60], labels:["OVERLOAD","OWNER","APPROVAL"], score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, scoreLabel:"CAPACITY", stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}] },
@@ -1073,7 +1096,7 @@ function ResultsContent() {
               </div>
 
               {/* BOTTLENECKS + OPPORTUNITIES */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
+              <div className="r-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
                     <span style={{color:C.red}}>⚠</span>
@@ -1111,7 +1134,7 @@ function ResultsContent() {
               </div>
 
               {/* DEPENDENCY GRAPH PREVIEW + GANTT PREVIEW */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
+              <div className="r-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
                     <div style={label(C.purple)}>DEPENDENCY INTELLIGENCE GRAPH</div>
@@ -1130,7 +1153,7 @@ function ResultsContent() {
 
               {/* AT A GLANCE FOOTER */}
               <div style={{...card(),padding:"1rem"}}>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"0.75rem",textAlign:"center"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:"0.75rem",textAlign:"center"}}>
                   {[
                     {label:"TASKS",val:result.totalTasks,sub:"On Track",subColor:verdColor},
                     {label:"CRITICAL PATH TASKS",val:result.criticalPath.length,sub:"At Risk",subColor:C.red},
@@ -1236,7 +1259,7 @@ function ResultsContent() {
                 <div style={{fontSize:"1.2rem",fontWeight:700}}>Intelligence Pillars</div>
                 <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Three dimensions of execution health across timeline, resource, and operational axes.</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem",marginBottom:"1rem"}}>
+              <div className="r-3col" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem",marginBottom:"1rem"}}>
                 {[
                   {title:"Timeline Health",color:C.blue,vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50,result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50,70],labels:["DEPENDENCY","CRITICAL","FORECAST"],score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50,scoreLabel:"ACCURACY",desc:"How your schedule holds under execution pressure. Dependency compression, critical path stability, and forecast accuracy.",stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}]},
                   {title:"Resource Health",color:C.purple,vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50,result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50,60],labels:["OVERLOAD","OWNER","APPROVAL"],score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50,scoreLabel:"CAPACITY",desc:"Who is overloaded, who is a single point of failure, and where approval bottlenecks exist.",stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}]},
@@ -1421,7 +1444,7 @@ function ResultsContent() {
                   {overrunCost>0?`At $${Math.round(dailyBurn).toLocaleString()}/day, ${Math.abs(result.bufferDays)} extra days costs $${Math.round(overrunCost).toLocaleString()} more than mapped.`:
                   `Daily burn of $${Math.round(dailyBurn).toLocaleString()}/day is sustainable within the current plan.`}
                 </p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem"}}>
+                <div className="r-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem"}}>
                   {[{label:"MAPPED COSTS",val:"$"+totalCost.toLocaleString(),color:C.text},{label:"DAILY BURN",val:"$"+Math.round(dailyBurn).toLocaleString()+"/day",color:C.textMid},{label:"OVERRUN EXPOSURE",val:overrunCost>0?"$"+Math.round(overrunCost).toLocaleString():"None",color:overrunCost>0?C.red:C.green},{label:"PLAN DURATION",val:result.projectDuration+"d",color:C.text}].map((s,i)=>(
                     <div key={i} style={{...card({background:C.surface2}),padding:"0.85rem 1rem"}}>
                       <div style={{fontSize:"0.6rem",color:C.textDim,fontFamily:"monospace",letterSpacing:"0.08em",marginBottom:"0.3rem"}}>{s.label}</div>
@@ -1479,11 +1502,11 @@ function ResultsContent() {
                 </div>
               </div>
               <div style={{...card(),padding:"0"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"1rem",padding:"0.6rem 1.25rem",borderBottom:"1px solid "+C.border,fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"0.5rem",padding:"0.6rem 1rem",borderBottom:"1px solid "+C.border,fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>
                   <span>MILESTONE</span><span>OWNER</span><span>DAYS</span><span>START</span><span>FLOAT</span>
                 </div>
                 {result.tasks.map((t,i)=>(
-                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"1rem",padding:"0.75rem 1.25rem",borderBottom:i<result.tasks.length-1?"1px solid "+C.border2:"none",alignItems:"center"}}>
+                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"0.5rem",padding:"0.6rem 1rem",borderBottom:i<result.tasks.length-1?"1px solid "+C.border2:"none",alignItems:"center"}}>
                     <div>
                       <div style={{fontSize:"0.85rem",color:t.slack===0?C.red:C.text,fontWeight:t.slack===0?600:400}}>{t.slack===0?"◆ ":""}{t.name}</div>
                       {t.concurrent&&<div style={{fontSize:"0.65rem",color:C.green,marginTop:"0.15rem"}}>↑ runs concurrently</div>}
