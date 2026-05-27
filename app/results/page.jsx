@@ -194,8 +194,180 @@ function computeCPM(tasks, startDate, targetDate, budget) {
   };
 }
 
+
+// ── P1-2: CASCADE IMPACT SIMULATOR ENGINE ────────────────────────────────────
+function computeCascadeImpact(tasks, result, slippingTaskId, delayDays, startDate, targetDate, budget) {
+  if (!slippingTaskId || !delayDays) return null;
+  const slippingTask = tasks.find(t => t.id === slippingTaskId);
+  const slippingResultTask = result.tasks.find(t => t.id === slippingTaskId);
+  if (!slippingTask || !slippingResultTask) return null;
+  const float = slippingResultTask.slack || 0;
+  const netDelay = Math.max(0, delayDays - float);
+  const floatAbsorbed = Math.min(float, delayDays);
+  function getDownstream(id) {
+    const set = new Set();
+    function walk(tid) { tasks.filter(t => t.predecessors.includes(tid)).forEach(t => { if (!set.has(t.id)) { set.add(t.id); walk(t.id); } }); }
+    walk(id);
+    return [...set];
+  }
+  const downstreamIds = getDownstream(slippingTaskId);
+  const downstreamTasks = downstreamIds.map(id => tasks.find(t => t.id === id)).filter(Boolean);
+  const criticalDownstream = downstreamTasks.filter(t => result.tasks.find(r => r.id === t.id)?.slack === 0);
+  if (netDelay === 0) {
+    return { noImpact: true, taskName: slippingTask.name, delayDays, floatAbsorbed,
+      message: `${slippingTask.name} has ${float} days of float — a ${delayDays}-day slip is fully absorbed. Deadline unchanged.` };
+  }
+  const modifiedTasks = tasks.map(t => t.id === slippingTaskId ? { ...t, days: (parseInt(t.days)||1) + delayDays } : t);
+  const newResult = computeCPM(modifiedTasks, startDate, targetDate, budget);
+  if (!newResult) return null;
+  const daysAdded = newResult.projectDuration - result.projectDuration;
+  const start = new Date(startDate);
+  const newFinish = new Date(start); newFinish.setDate(newFinish.getDate() + newResult.projectDuration);
+  const oldFinish = new Date(start); oldFinish.setDate(oldFinish.getDate() + result.projectDuration);
+  const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const totalCost = tasks.reduce((a,t)=>{const c=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;return a+c;},0);
+  const dailyBurn = totalCost > 0 && result.projectDuration > 0 ? totalCost / result.projectDuration : 0;
+  const costExposure = daysAdded * dailyBurn;
+  const newConf = newResult.confidence.score;
+  const oldConf = result.confidence.score;
+  const newRisk = newResult.predictiveRisk?.planProb || 0;
+  const oldRisk = result.predictiveRisk?.planProb || 0;
+  const fix = result.shuffleOps.find(op => op.task === slippingTask.name || op.predecessor === slippingTask.name);
+  const newlyBlocked = downstreamTasks.filter(t => {
+    const wasOk = (result.tasks.find(r => r.id === t.id)?.slack || 0) > 0;
+    const nowCrit = (newResult.tasks.find(r => r.id === t.id)?.slack || 0) === 0;
+    return wasOk && nowCrit;
+  });
+  return { noImpact: false, taskName: slippingTask.name, taskOwner: slippingTask.owner, delayDays, netDelay, floatAbsorbed, daysAdded,
+    oldFinish: fmt(oldFinish), newFinish: fmt(newFinish), downstreamCount: downstreamIds.length,
+    criticalDownstreamCount: criticalDownstream.length, newlyBlocked, oldConf, newConf, confDelta: newConf - oldConf,
+    oldRisk, newRisk, costExposure, dailyBurn, fix, newResult };
+}
+
+// ── P1-2: CASCADE SIMULATOR PANEL ────────────────────────────────────────────
+function CascadeSimulator({ tasks, result, simulatorTaskId, onTaskChange, startDate, targetDate, budget }) {
+  const [delayDays, setDelayDays] = useState(3);
+  const impact = simulatorTaskId ? computeCascadeImpact(tasks, result, simulatorTaskId, delayDays, startDate, targetDate, budget) : null;
+  const selectedResultTask = result.tasks.find(t => t.id === simulatorTaskId);
+  const card2 = (extra={}) => ({ background: C.surface2, border: "1px solid " + C.border, borderRadius: 10, ...extra });
+  return (
+    <div style={{ border: "1px solid " + C.border, borderRadius: 12, overflow: "hidden", marginTop: "1rem" }}>
+      <div style={{ background: C.surface, borderBottom: "1px solid " + C.border, padding: "0.85rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div style={{ fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.12em", color: C.amber, textTransform: "uppercase" }}>⚡ Cascade Impact Simulator</div>
+        <div style={{ fontSize: "0.75rem", color: C.textMid }}>What if a task slips? See the full downstream effect instantly.</div>
+      </div>
+      <div style={{ padding: "1.25rem", background: C.surface }}>
+        <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "1.25rem" }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: "0.6rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.4rem" }}>SELECT TASK</div>
+            <select value={simulatorTaskId || ""} onChange={e => onTaskChange(e.target.value || null)}
+              style={{ width: "100%", background: C.surface2, border: "1px solid " + C.border, borderRadius: 8, color: C.text, fontFamily: "inherit", fontSize: "0.85rem", padding: "0.55rem 0.85rem", cursor: "pointer", appearance: "none" }}>
+              <option value="">— Pick a task to simulate —</option>
+              {tasks.map(t => { const rt = result.tasks.find(r => r.id === t.id); const isCrit = rt?.slack === 0;
+                return <option key={t.id} value={t.id}>{isCrit?"◆ ":""}{t.name} ({t.days}d{rt?.slack>0?` · +${rt.slack}d float`:" · zero float"})</option>; })}
+            </select>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: "0.6rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.4rem" }}>
+              SLIP BY — <span style={{ color: C.red }}>{delayDays} {delayDays===1?"day":"days"}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <input type="range" min={1} max={21} value={delayDays} onChange={e => setDelayDays(parseInt(e.target.value))} style={{ flex: 1, accentColor: C.red }}/>
+              <span style={{ fontSize: "0.75rem", color: C.textDim, whiteSpace: "nowrap" }}>1–21d</span>
+            </div>
+            {selectedResultTask && selectedResultTask.slack > 0 && (
+              <div style={{ fontSize: "0.68rem", color: C.amber, marginTop: "0.3rem" }}>{selectedResultTask.slack}d float absorbs first {selectedResultTask.slack} day{selectedResultTask.slack>1?"s":""} of slip</div>
+            )}
+          </div>
+        </div>
+        {!simulatorTaskId && (
+          <div style={{ textAlign: "center", padding: "2rem", color: C.textDim, fontSize: "0.85rem", border: "1px dashed " + C.border, borderRadius: 10 }}>
+            Select a task above — or click ⚡ Simulate delay on any node in the graph
+          </div>
+        )}
+        {impact?.noImpact && (
+          <div style={{ background: C.greenDim, border: "1px solid " + C.green + "30", borderRadius: 10, padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: "1.2rem" }}>✓</span>
+            <div><div style={{ fontSize: "0.82rem", fontWeight: 700, color: C.green, marginBottom: "0.2rem" }}>No cascade impact</div><div style={{ fontSize: "0.78rem", color: C.textMid }}>{impact.message}</div></div>
+          </div>
+        )}
+        {impact && !impact.noImpact && (
+          <div>
+            <div style={{ background: "#160404", border: "1px solid " + C.red + "40", borderRadius: 10, padding: "1rem 1.25rem", marginBottom: "1rem", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: C.red }}/>
+              <div style={{ fontSize: "0.68rem", color: C.red, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>
+                CASCADE IMPACT — IF {impact.taskName.toUpperCase()} SLIPS {impact.delayDays} DAY{impact.delayDays>1?"S":""}
+              </div>
+              <div style={{ fontSize: "1rem", color: C.text, fontWeight: 600, lineHeight: 1.6 }}>
+                {impact.floatAbsorbed > 0 && <span style={{ color: C.amber }}>{impact.floatAbsorbed}d float absorbed → </span>}
+                <span style={{ color: C.red }}>+{impact.netDelay} day{impact.netDelay>1?"s":""} added to project</span>
+              </div>
+              <div style={{ fontSize: "0.82rem", color: C.textMid, marginTop: "0.3rem" }}>
+                Finish moves from <strong style={{ color: C.text }}>{impact.oldFinish}</strong> to <strong style={{ color: C.red }}>{impact.newFinish}</strong>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.65rem", marginBottom: "1rem" }}>
+              {[
+                { label: "NEW FINISH DATE", val: impact.newFinish, sub: `was ${impact.oldFinish}`, color: C.red },
+                { label: "DAYS ADDED", val: `+${impact.daysAdded}d`, sub: impact.floatAbsorbed>0?`${impact.floatAbsorbed}d float absorbed`:"zero float — full slip", color: C.red },
+                { label: "TASKS BLOCKED", val: impact.downstreamCount, sub: `${impact.criticalDownstreamCount} on critical path`, color: C.amber },
+                { label: "CONFIDENCE", val: `${impact.newConf}%`, sub: `was ${impact.oldConf}% (${impact.confDelta>0?"+":""}${impact.confDelta}pts)`, color: impact.confDelta<-10?C.red:impact.confDelta<0?C.amber:C.green },
+                { label: "DEADLINE RISK", val: `${impact.newRisk}%`, sub: `was ${impact.oldRisk}% (+${impact.newRisk-impact.oldRisk}pts)`, color: impact.newRisk>=75?C.red:impact.newRisk>=55?C.amber:C.green },
+                ...(impact.dailyBurn>0?[{ label: "COST EXPOSURE", val: `$${Math.round(impact.costExposure).toLocaleString()}`, sub: `at $${Math.round(impact.dailyBurn)}/day`, color: C.amber }]:[]),
+              ].map((m, i) => (
+                <div key={i} style={{ ...card2(), padding: "0.75rem 0.85rem" }}>
+                  <div style={{ fontSize: "0.55rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.3rem" }}>{m.label}</div>
+                  <div style={{ fontSize: "1.1rem", fontWeight: 700, color: m.color, lineHeight: 1 }}>{m.val}</div>
+                  <div style={{ fontSize: "0.68rem", color: C.textDim, marginTop: "0.25rem" }}>{m.sub}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ ...card2(), padding: "0.85rem 1rem", marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.6rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.65rem" }}>ON-TIME DELIVERY CONFIDENCE</div>
+              {[{ label: "Before slip", val: impact.oldConf, color: C.amber }, { label: `After ${impact.delayDays}d slip`, val: impact.newConf, color: impact.newConf<35?C.red:C.amber }].map((b, i) => (
+                <div key={i} style={{ marginBottom: i===0?"0.5rem":0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                    <span style={{ fontSize: "0.72rem", color: C.textMid }}>{b.label}</span>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: b.color }}>{b.val}%</span>
+                  </div>
+                  <div style={{ height: 6, background: C.border2, borderRadius: 3 }}>
+                    <div style={{ height: "100%", width: b.val+"%", background: b.color, borderRadius: 3, transition: "width 0.4s ease" }}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {impact.newlyBlocked.length > 0 && (
+              <div style={{ ...card2(), padding: "0.85rem 1rem", marginBottom: "1rem" }}>
+                <div style={{ fontSize: "0.6rem", color: C.red, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>NEWLY CRITICAL — tasks that lose all float</div>
+                {impact.newlyBlocked.map((t, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.35rem 0", borderBottom: i<impact.newlyBlocked.length-1?"1px solid "+C.border2:"none" }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.red, flexShrink: 0 }}/>
+                    <span style={{ fontSize: "0.8rem", color: C.text }}>{t.name}</span>
+                    <span style={{ fontSize: "0.68rem", color: C.textDim, marginLeft: "auto" }}>{t.owner}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ background: C.greenDim, border: "1px solid " + C.green + "30", borderRadius: 10, padding: "1rem 1.25rem" }}>
+              <div style={{ fontSize: "0.6rem", color: C.green, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>PATHFLO RECOMMENDATION</div>
+              {impact.fix ? (
+                <div>
+                  <div style={{ fontSize: "0.85rem", color: C.text, fontWeight: 600, marginBottom: "0.3rem" }}>Run "{impact.fix.task}" concurrently with "{impact.fix.predecessor}"</div>
+                  <div style={{ fontSize: "0.78rem", color: C.textMid, lineHeight: 1.6 }}>Recovers ~{impact.fix.daysSaved} of the {impact.daysAdded} days added at zero additional cost.{impact.daysAdded<=impact.fix.daysSaved?" Fully offsets this slip.":" Net delay reduced to "+(impact.daysAdded-impact.fix.daysSaved)+" days."}</div>
+                </div>
+              ) : (
+                <div style={{ fontSize: "0.82rem", color: C.textMid, lineHeight: 1.6 }}>Validate {impact.taskOwner||"owner"} availability immediately. With zero float and {impact.downstreamCount} downstream tasks waiting, this slip has no buffer to absorb it. Consider whether any downstream tasks can be started earlier or run in parallel.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── DEPENDENCY GRAPH — P1-1 INTERACTIVE ──────────────────────────────────────
-function DependencyGraph({ tasks, result, onNodeClick }) {
+function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
   const canvasRef = useRef(null);
   const nodePositionsRef = useRef({});
   const hoveredRef = useRef(null);
@@ -367,7 +539,9 @@ function DependencyGraph({ tasks, result, onNodeClick }) {
       const dimmed = focusId && t.id !== focusId && !connected.has(t.id);
 
       let bg, border, textColor;
-      if (isSelected) {
+      if (t.id === simulatorTaskId) {
+        bg = "rgba(245,158,11,0.2)"; border = C.amber; textColor = C.amber;
+      } else if (isSelected) {
         bg = "rgba(124,58,237,0.25)"; border = C.purple; textColor = C.purpleLight;
       } else if (isUpstream) {
         bg = "rgba(59,130,246,0.15)"; border = "rgba(59,130,246,0.8)"; textColor = C.blue;
@@ -531,7 +705,7 @@ function DependencyGraph({ tasks, result, onNodeClick }) {
 }
 
 // ── NODE DETAIL PANEL (P1-1) ──────────────────────────────────────────────────
-function NodeDetailPanel({ nodeId, tasks, result, onClose }) {
+function NodeDetailPanel({ nodeId, tasks, result, onClose, onSimulate }) {
   if (!nodeId) return null;
 
   const task = tasks.find(t => t.id === nodeId);
@@ -573,7 +747,7 @@ function NodeDetailPanel({ nodeId, tasks, result, onClose }) {
       : `${resultTask.slack} days of float — monitor but not critical.`;
 
   return (
-    <div className="r-detail-panel" style={{
+    <div style={{
       width: 280, flexShrink: 0,
       background: C.surface,
       borderLeft: "1px solid " + C.border,
@@ -680,6 +854,14 @@ function NodeDetailPanel({ nodeId, tasks, result, onClose }) {
         </div>
       )}
 
+      {/* P1-2: Simulate button */}
+      {onSimulate && (
+        <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid " + C.border }}>
+          <button onClick={() => onSimulate(nodeId)} style={{ width: "100%", background: C.amberDim, border: "1px solid " + C.amber + "40", borderRadius: 8, color: C.amber, fontFamily: "inherit", fontSize: "0.8rem", fontWeight: 700, padding: "0.65rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+            ⚡ Simulate delay on this task
+          </button>
+        </div>
+      )}
       {/* Recommended fix */}
       <div style={{ padding: "0.85rem 1rem", background: C.greenDim, borderTop: "1px solid " + C.green + "20" }}>
         <div style={{ fontSize: "0.58rem", color: C.green, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.4rem" }}>RECOMMENDED FIX</div>
@@ -784,7 +966,7 @@ function GanttChart({ tasks, result, startDate }) {
   }, [tasks, result, startDate]);
   useEffect(()=>{draw();},[draw]);
   useEffect(()=>{ const h=()=>draw(); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[draw]);
-  return <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}><canvas ref={canvasRef} style={{display:"block"}}/></div>;
+  return <div style={{overflowX:"auto"}}><canvas ref={canvasRef} style={{display:"block"}}/></div>;
 }
 
 // ── RESULTS CONTENT ───────────────────────────────────────────────────────────
@@ -797,6 +979,7 @@ function ResultsContent() {
   const [aiLoading, setAiLoading] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState(null); // P1-1
+  const [simulatorTaskId, setSimulatorTaskId] = useState(null); // P1-2
 
   useEffect(() => {
     const raw = searchParams.get("data");
@@ -843,13 +1026,6 @@ function ResultsContent() {
     { id:"details", label:"Details", icon:"≡" },
   ].filter(n => n.id !== "financials" || totalCost > 0);
 
-  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
-  useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", h);
-    return () => window.removeEventListener("resize", h);
-  }, []);
-
   const style = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
     *{box-sizing:border-box;margin:0;padding:0}
@@ -858,22 +1034,6 @@ function ResultsContent() {
     @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
     @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
     ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
-    @media(max-width:768px){
-      .r-nav{display:none !important}
-      .r-hero-grid{grid-template-columns:1fr !important}
-      .r-2col{grid-template-columns:1fr !important}
-      .r-3col{grid-template-columns:1fr !important}
-      .r-6col{grid-template-columns:repeat(2,1fr) !important}
-      .r-briefing{grid-template-columns:1fr !important}
-      .r-graph-wrap{flex-direction:column !important}
-      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #30363D !important}
-      .r-details-header{grid-template-columns:1fr 60px 50px !important}
-      .r-details-row{grid-template-columns:1fr 60px 50px !important}
-      .r-col-owner{display:none !important}
-      .r-col-start{display:none !important}
-      .r-topbar{flex-wrap:wrap !important;height:auto !important;padding:0.6rem 1rem !important}
-      .r-main{padding:1rem !important}
-    }
   `;
 
   const card = (extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
@@ -882,14 +1042,15 @@ function ResultsContent() {
 
   // Graph section with interactive panel
   const GraphSection = ({ preview = false }) => (
-    <div className="r-graph-wrap" style={{ display: "flex", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
+    <div style={{ display: "flex", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <DependencyGraph
           tasks={data.tasks}
           result={result}
+          simulatorTaskId={simulatorTaskId}
           onNodeClick={(id) => {
             setSelectedNodeId(id);
-            // Auto-switch to graph tab if in preview mode
+            if (id !== simulatorTaskId) setSimulatorTaskId(null);
             if (preview && id) setActiveNav("graph");
           }}
         />
@@ -900,6 +1061,11 @@ function ResultsContent() {
           tasks={data.tasks}
           result={result}
           onClose={() => setSelectedNodeId(null)}
+          onSimulate={(id) => {
+            setSimulatorTaskId(id);
+            setSelectedNodeId(null);
+            if (preview) setActiveNav("graph");
+          }}
         />
       )}
     </div>
@@ -910,15 +1076,15 @@ function ResultsContent() {
       <style>{style}</style>
 
       {/* ── TOP BAR ── */}
-      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,minHeight:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 1.25rem",position:"sticky",top:0,zIndex:200,gap:"0.75rem",flexShrink:0,flexWrap:"wrap"}}>
+      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,height:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 1.25rem",position:"sticky",top:0,zIndex:200,gap:"1rem",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
           <button onClick={()=>setNavCollapsed(v=>!v)} style={{background:"transparent",border:"none",color:C.textMid,cursor:"pointer",fontSize:"1rem",padding:"0.25rem"}}>☰</button>
           <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
-            <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={C.purple} strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-            <circle cx="4" cy="24" r="3" fill={C.purple}/>
-            <circle cx="15" cy="14" r="2.5" fill={C.purple} opacity="0.7"/>
-            <circle cx="26" cy="6" r="2.5" fill={C.purple} opacity="0.5"/>
-            <circle cx="31" cy="14" r="2.5" fill={C.purple} opacity="0.9"/>
+            <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+            <circle cx="4" cy="24" r="3" fill={C.green}/>
+            <circle cx="15" cy="14" r="2.5" fill={C.green} opacity="0.7"/>
+            <circle cx="26" cy="6" r="2.5" fill={C.green} opacity="0.5"/>
+            <circle cx="31" cy="14" r="2.5" fill={C.green} opacity="0.9"/>
           </svg>
           <span style={{fontWeight:700,color:C.text,fontSize:"0.9rem"}}>Path<span style={{color:C.purple}}>flo</span></span>
           <span style={{color:C.border,fontSize:"1rem"}}>|</span>
@@ -932,7 +1098,7 @@ function ResultsContent() {
             <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
             <span>if optimized</span>
           </div>
-          <a href="/" style={{background:C.purple,color:"#fff",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none"}}>New Project</a>
+          <a href="/" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none"}}>New Project</a>
         </div>
       </div>
 
@@ -941,10 +1107,10 @@ function ResultsContent() {
 
         {/* ── LEFT NAV ── */}
         {!navCollapsed && (
-          <nav className="r-nav" style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
+          <nav style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"0 0.75rem 0.75rem",fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase"}}>{entityName}</div>
             {navItems.map(n => (
-              <button key={n.id} onClick={()=>setActiveNav(n.id)} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.6rem 0.75rem",background:activeNav===n.id?C.purpleDim:"transparent",border:"none",borderLeft:activeNav===n.id?`2px solid ${C.purple}`:"2px solid transparent",color:activeNav===n.id?C.purpleLight:C.textMid,fontFamily:"inherit",fontSize:"0.82rem",fontWeight:activeNav===n.id?600:400,cursor:"pointer",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
+              <button key={n.id} onClick={()=>setActiveNav(n.id)} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.6rem 0.75rem",background:activeNav===n.id?C.greenDim:"transparent",border:"none",borderLeft:activeNav===n.id?`2px solid ${C.green}`:"2px solid transparent",color:activeNav===n.id?C.green:C.textMid,fontFamily:"inherit",fontSize:"0.82rem",fontWeight:activeNav===n.id?600:400,cursor:"pointer",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
                 <span style={{fontSize:"0.85rem",opacity:0.8}}>{n.icon}</span>
                 {n.label}
               </button>
@@ -961,7 +1127,7 @@ function ResultsContent() {
         )}
 
         {/* ── MAIN CONTENT ── */}
-        <main className="r-main" style={{flex:1,overflowY:"auto",padding:"1.5rem",minWidth:0,overflowX:"hidden"}}>
+        <main style={{flex:1,overflowY:"auto",padding:"1.5rem",minWidth:0}}>
 
           {/* ══ EXECUTIVE OVERVIEW ══ */}
           {activeNav==="overview" && (
@@ -979,7 +1145,7 @@ function ResultsContent() {
               {/* HERO METRICS BANNER */}
               <div style={{...card(),padding:"1.25rem",marginBottom:"1rem",border:"1px solid "+verdColor+"40",position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${verdColor},transparent)`}}/>
-                <div className="r-hero-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"1rem",alignItems:"start"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:"1rem",alignItems:"center"}}>
                   <div>
                     <div style={label(C.textDim)}>ON-TIME DELIVERY CONFIDENCE</div>
                     <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem",marginBottom:"0.4rem"}}>
@@ -1032,7 +1198,7 @@ function ResultsContent() {
               </div>
 
               {/* AI BRIEFING + KEY INSIGHT */}
-              <div className="r-briefing" style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:"1rem",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
                     <span style={{color:C.purple}}>✦</span>
@@ -1073,7 +1239,7 @@ function ResultsContent() {
               {/* INTELLIGENCE PILLARS */}
               <div style={{...card(),padding:"1.25rem",marginBottom:"1rem"}}>
                 <div style={label(C.purple)}>EXECUTION INTELLIGENCE PILLARS</div>
-                <div className="r-3col" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem"}}>
                   {[
                     { title:"1. Timeline Health", color:C.blue, vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50, 70], labels:["DEPENDENCY","CRITICAL","FORECAST"], score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, scoreLabel:"ACCURACY", stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}] },
                     { title:"2. Resource Health", color:C.purple, vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50, result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, 60], labels:["OVERLOAD","OWNER","APPROVAL"], score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, scoreLabel:"CAPACITY", stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}] },
@@ -1096,7 +1262,7 @@ function ResultsContent() {
               </div>
 
               {/* BOTTLENECKS + OPPORTUNITIES */}
-              <div className="r-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
                     <span style={{color:C.red}}>⚠</span>
@@ -1134,7 +1300,7 @@ function ResultsContent() {
               </div>
 
               {/* DEPENDENCY GRAPH PREVIEW + GANTT PREVIEW */}
-              <div className="r-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
                     <div style={label(C.purple)}>DEPENDENCY INTELLIGENCE GRAPH</div>
@@ -1153,7 +1319,7 @@ function ResultsContent() {
 
               {/* AT A GLANCE FOOTER */}
               <div style={{...card(),padding:"1rem"}}>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:"0.75rem",textAlign:"center"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"0.75rem",textAlign:"center"}}>
                   {[
                     {label:"TASKS",val:result.totalTasks,sub:"On Track",subColor:verdColor},
                     {label:"CRITICAL PATH TASKS",val:result.criticalPath.length,sub:"At Risk",subColor:C.red},
@@ -1178,7 +1344,7 @@ function ResultsContent() {
             <div style={{animation:"fadeUp 0.3s ease both"}}>
               <div style={{marginBottom:"1.25rem"}}>
                 <div style={{fontSize:"1.2rem",fontWeight:700}}>Dependency Intelligence Graph</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Click any node to see task detail, cascade chain, and recommended fix. Red zone = cascade impact area.</div>
+                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Click any node to see task detail and cascade chain. Hit <strong style={{color:C.amber}}>⚡ Simulate delay</strong> to run the cascade simulator on any task.</div>
               </div>
               <div style={{display:"flex",gap:"1.5rem",marginBottom:"1rem",flexWrap:"wrap"}}>
                 {[{label:"Tasks",val:result.totalTasks},{label:"Dependencies",val:data.tasks.filter(t=>t.predecessors.length>0).length},{label:"Critical Path",val:`${result.criticalPath.length} tasks`},{label:"Cascade Risk",val:`${result.predictiveRisk?.planProb||0}%`}].map((s,i)=>(
@@ -1201,6 +1367,17 @@ function ResultsContent() {
               <div style={{...card(),overflow:"hidden",marginBottom:"1rem"}}>
                 <GraphSection preview={false} />
               </div>
+
+              {/* P1-2: Cascade Impact Simulator */}
+              <CascadeSimulator
+                tasks={data.tasks}
+                result={result}
+                simulatorTaskId={simulatorTaskId}
+                onTaskChange={setSimulatorTaskId}
+                startDate={data.startDate}
+                targetDate={data.targetDate}
+                budget={data.budget||"Flexible"}
+              />
 
               {/* Critical path chain */}
               <div style={{...card(),padding:"1.25rem",marginTop:"1rem"}}>
@@ -1259,7 +1436,7 @@ function ResultsContent() {
                 <div style={{fontSize:"1.2rem",fontWeight:700}}>Intelligence Pillars</div>
                 <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Three dimensions of execution health across timeline, resource, and operational axes.</div>
               </div>
-              <div className="r-3col" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem",marginBottom:"1rem"}}>
                 {[
                   {title:"Timeline Health",color:C.blue,vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50,result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50,70],labels:["DEPENDENCY","CRITICAL","FORECAST"],score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50,scoreLabel:"ACCURACY",desc:"How your schedule holds under execution pressure. Dependency compression, critical path stability, and forecast accuracy.",stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}]},
                   {title:"Resource Health",color:C.purple,vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50,result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50,60],labels:["OVERLOAD","OWNER","APPROVAL"],score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50,scoreLabel:"CAPACITY",desc:"Who is overloaded, who is a single point of failure, and where approval bottlenecks exist.",stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}]},
@@ -1444,7 +1621,7 @@ function ResultsContent() {
                   {overrunCost>0?`At $${Math.round(dailyBurn).toLocaleString()}/day, ${Math.abs(result.bufferDays)} extra days costs $${Math.round(overrunCost).toLocaleString()} more than mapped.`:
                   `Daily burn of $${Math.round(dailyBurn).toLocaleString()}/day is sustainable within the current plan.`}
                 </p>
-                <div className="r-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem"}}>
                   {[{label:"MAPPED COSTS",val:"$"+totalCost.toLocaleString(),color:C.text},{label:"DAILY BURN",val:"$"+Math.round(dailyBurn).toLocaleString()+"/day",color:C.textMid},{label:"OVERRUN EXPOSURE",val:overrunCost>0?"$"+Math.round(overrunCost).toLocaleString():"None",color:overrunCost>0?C.red:C.green},{label:"PLAN DURATION",val:result.projectDuration+"d",color:C.text}].map((s,i)=>(
                     <div key={i} style={{...card({background:C.surface2}),padding:"0.85rem 1rem"}}>
                       <div style={{fontSize:"0.6rem",color:C.textDim,fontFamily:"monospace",letterSpacing:"0.08em",marginBottom:"0.3rem"}}>{s.label}</div>
@@ -1502,11 +1679,11 @@ function ResultsContent() {
                 </div>
               </div>
               <div style={{...card(),padding:"0"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"0.5rem",padding:"0.6rem 1rem",borderBottom:"1px solid "+C.border,fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"1rem",padding:"0.6rem 1.25rem",borderBottom:"1px solid "+C.border,fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>
                   <span>MILESTONE</span><span>OWNER</span><span>DAYS</span><span>START</span><span>FLOAT</span>
                 </div>
                 {result.tasks.map((t,i)=>(
-                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"0.5rem",padding:"0.6rem 1rem",borderBottom:i<result.tasks.length-1?"1px solid "+C.border2:"none",alignItems:"center"}}>
+                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"1rem",padding:"0.75rem 1.25rem",borderBottom:i<result.tasks.length-1?"1px solid "+C.border2:"none",alignItems:"center"}}>
                     <div>
                       <div style={{fontSize:"0.85rem",color:t.slack===0?C.red:C.text,fontWeight:t.slack===0?600:400}}>{t.slack===0?"◆ ":""}{t.name}</div>
                       {t.concurrent&&<div style={{fontSize:"0.65rem",color:C.green,marginTop:"0.15rem"}}>↑ runs concurrently</div>}
