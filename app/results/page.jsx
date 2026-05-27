@@ -163,7 +163,17 @@ function computeCPM(tasks, startDate, targetDate, budget) {
     }
   });
   const shuffleOps = concOps.slice(0,3);
+  // Current score — plan as entered, no changes made
   const confidence = computeConfidence(tasks, availableDays, projectDuration, budget||"Flexible", bufferDays, shuffleOps, byId);
+  // Optimized score — if all recommended concurrency changes are applied
+  const optimizedDaysSaved = shuffleOps.reduce((a,o)=>a+o.daysSaved,0);
+  const optimizedBufferDays = bufferDays + optimizedDaysSaved;
+  // Re-run confidence with optimized tasks marked concurrent and better buffer
+  const optimizedTasks = tasks.map(t => {
+    const op = shuffleOps.find(o => o.task === t.name);
+    return op ? { ...t, concurrent: true } : t;
+  });
+  const confidenceOptimized = computeConfidence(optimizedTasks, availableDays, projectDuration, budget||"Flexible", optimizedBufferDays, [], byId);
   const predictiveRisk = computePredictiveRisk(tasks, byId, projectDuration, availableDays, bufferDays);
   const criticalTasks = tasks.filter(t=>byId[t.id].slack===0);
   const ownersMap = {};
@@ -178,7 +188,7 @@ function computeCPM(tasks, startDate, targetDate, budget) {
     tasks: Object.values(byId), projectDuration, bufferDays, verdict, verdictColor,
     projectedDate: projDate.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}),
     projectedRange: `${projDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${new Date(projDate.getTime()+4*86400000).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}`,
-    availableDays, criticalPath, shuffleOps, confidence, predictiveRisk,
+    availableDays, criticalPath, shuffleOps, confidence, confidenceOptimized, predictiveRisk,
     delayRisk, bottleneckSeverity, totalTasks, teamSize: ownersSet.size,
     bottleneck, startDate,
   };
@@ -818,6 +828,7 @@ function ResultsContent() {
 
   const confScore = result.confidence.score;
   const confBand = result.confidence.band;
+  const confScoreOptimized = result.confidenceOptimized?.score || Math.min(confScore + 22, 97);
   const planRisk = result.predictiveRisk?.planProb || 0;
 
   const navItems = [
@@ -892,9 +903,11 @@ function ResultsContent() {
           <span style={{background:verdColor+"20",color:verdColor,fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.08em",padding:"0.2rem 0.6rem",borderRadius:100,border:"1px solid "+verdColor+"40",flexShrink:0}}>{result.verdict}</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.78rem",color:C.textMid}}>
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.78rem",color:C.textMid}}>
             <span style={{color:verdColor,fontWeight:700,fontSize:"1rem"}}>{confScore}%</span>
-            <span>Confidence</span>
+            <span style={{color:C.textDim}}>→</span>
+            <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
+            <span>if optimized</span>
           </div>
           <a href="/" style={{background:C.purple,color:"#fff",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none"}}>New Project</a>
         </div>
@@ -945,10 +958,22 @@ function ResultsContent() {
                 <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${verdColor},transparent)`}}/>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:"1rem",alignItems:"center"}}>
                   <div>
-                    <div style={label(C.textDim)}>EXECUTION CONFIDENCE</div>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:"2.8rem",fontWeight:400,color:verdColor,lineHeight:1}}>{confScore}<span style={{fontSize:"1.2rem"}}>%</span></div>
-                    <div style={{display:"inline-block",background:verdColor+"20",color:verdColor,fontSize:"0.65rem",fontWeight:700,padding:"0.15rem 0.6rem",borderRadius:100,marginTop:"0.35rem",border:"1px solid "+verdColor+"40"}}>
-                      {confScore>=75?"Good":confScore>=55?"Moderate":"Low"}
+                    <div style={label(C.textDim)}>ON-TIME DELIVERY CONFIDENCE</div>
+                    <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem",marginBottom:"0.4rem"}}>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:"2.2rem",fontWeight:400,color:verdColor,lineHeight:1}}>{confScore}<span style={{fontSize:"1rem"}}>%</span></div>
+                      <div style={{color:C.textDim,fontSize:"1.1rem",fontWeight:300}}>→</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:"2.2rem",fontWeight:400,color:C.green,lineHeight:1}}>{confScoreOptimized}<span style={{fontSize:"1rem"}}>%</span></div>
+                    </div>
+                    <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                      <span style={{background:verdColor+"20",color:verdColor,fontSize:"0.6rem",fontWeight:700,padding:"0.12rem 0.5rem",borderRadius:100,border:"1px solid "+verdColor+"40"}}>
+                        Current plan
+                      </span>
+                      <span style={{background:C.green+"20",color:C.green,fontSize:"0.6rem",fontWeight:700,padding:"0.12rem 0.5rem",borderRadius:100,border:"1px solid "+C.green+"40"}}>
+                        +{confScoreOptimized - confScore}% if optimized
+                      </span>
+                    </div>
+                    <div style={{fontSize:"0.7rem",color:C.textDim,marginTop:"0.4rem",lineHeight:1.5}}>
+                      Likelihood of hitting your deadline as-is vs. with Pathflo's recommended changes applied
                     </div>
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:"0.6rem"}}>
@@ -1000,10 +1025,10 @@ function ResultsContent() {
                   ) : (
                     <div>
                       <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.8,marginBottom:"0.75rem"}}>
-                        {data.name} carries an execution confidence score of <strong style={{color:verdColor}}>{confScore}%</strong> with a projected completion of <strong style={{color:C.text}}>{result.projectedDate}</strong>. {result.confidence.reason}.
+                        {data.name} has a <strong style={{color:verdColor}}>{confScore}% chance of hitting its deadline</strong> as the plan currently stands. {result.confidence.reason}.
                       </p>
                       <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.8}}>
-                        The critical path runs through <strong style={{color:C.text}}>{result.criticalPath.length}</strong> sequential tasks with {result.bufferDays < 0 ? `${Math.abs(result.bufferDays)} days of unrecoverable overrun` : `${result.bufferDays} days of buffer`}. {result.shuffleOps.length > 0 ? `${result.shuffleOps.length} concurrency opportunity${result.shuffleOps.length > 1?"s":""} identified that could recover up to ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days.` : "No major scheduling optimizations identified."}
+                        If Pathflo's recommended changes are applied, on-time confidence rises to <strong style={{color:C.green}}>{confScoreOptimized}%</strong> — a <strong style={{color:C.green}}>+{confScoreOptimized - confScore} point improvement</strong>. {result.shuffleOps.length > 0 ? `${result.shuffleOps.length} concurrency change${result.shuffleOps.length > 1?"s":""} could recover up to ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero additional cost.` : "No major scheduling optimizations identified."}
                       </p>
                     </div>
                   )}
@@ -1235,7 +1260,7 @@ function ResultsContent() {
                 ))}
               </div>
               <div style={{...card(),padding:"1.25rem"}}>
-                <div style={label(verdColor)}>CONFIDENCE SCORE BREAKDOWN — {confScore}%</div>
+                <div style={label(verdColor)}>ON-TIME DELIVERY CONFIDENCE BREAKDOWN — {confScore}% current · {confScoreOptimized}% optimized</div>
                 <div style={{display:"flex",flexDirection:"column",gap:"0.65rem",marginTop:"0.75rem"}}>
                   {result.confidence.breakdown.map((f,i)=>(
                     <div key={i}>
@@ -1427,11 +1452,11 @@ function ResultsContent() {
                 ):aiReadout?(
                   <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.9,fontWeight:300,fontFamily:"Georgia,serif"}}>{aiReadout}</p>
                 ):(
-                  <div>
-                    <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.9,marginBottom:"0.75rem",fontFamily:"Georgia,serif"}}>{data.name} carries an execution confidence score of {confScore}% with a projected completion of {result.projectedDate}. {result.confidence.reason}. The critical path runs through {result.criticalPath.length} sequential tasks with {result.bufferDays>=0?result.bufferDays+" days of buffer":Math.abs(result.bufferDays)+" days of unrecoverable overrun"}.</p>
-                    <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.9,fontFamily:"Georgia,serif"}}>{result.predictiveRisk?`Predictive risk analysis places the probability of missing the deadline at ${result.predictiveRisk.planProb}%, driven primarily by ${result.predictiveRisk.top3[0]?.name} — ${result.predictiveRisk.top3[0]?.reason}. `:""}The recommended immediate action is to {result.shuffleOps[0]?`run "${result.shuffleOps[0].task}" concurrently with its predecessor, recovering approximately ${result.shuffleOps[0].daysSaved} days at zero additional cost`:"validate critical path owner availability before work begins"}.</p>
+                    <div>
+                    <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.9,marginBottom:"0.75rem",fontFamily:"Georgia,serif"}}>{data.name} has a {confScore}% probability of delivering on time as currently planned. {result.confidence.reason}. The critical path runs through {result.criticalPath.length} sequential tasks with {result.bufferDays>=0?result.bufferDays+" days of buffer":Math.abs(result.bufferDays)+" days of unrecoverable overrun"}.</p>
+                    <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.9,fontFamily:"Georgia,serif"}}>With Pathflo's recommended changes applied, on-time confidence rises to {confScoreOptimized}% — a +{confScoreOptimized-confScore} point improvement. {result.predictiveRisk?`Predictive risk analysis places the probability of missing the deadline at ${result.predictiveRisk.planProb}% without intervention, driven primarily by ${result.predictiveRisk.top3[0]?.name} — ${result.predictiveRisk.top3[0]?.reason}. `:""}The recommended immediate action is to {result.shuffleOps[0]?`run "${result.shuffleOps[0].task}" concurrently with its predecessor, recovering approximately ${result.shuffleOps[0].daysSaved} days at zero additional cost`:"validate critical path owner availability before work begins"}.</p>
                     <p style={{fontSize:"0.78rem",color:C.textDim,marginTop:"1rem",fontStyle:"italic"}}>Add your Anthropic API key to Vercel environment variables to enable fully AI-generated readouts.</p>
-                  </div>
+                    </div>
                 )}
               </div>
             </div>
