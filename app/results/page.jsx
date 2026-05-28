@@ -401,7 +401,7 @@ function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
       const totalH = group.length * (nodeH + 16) - 16;
       const startY = (H - totalH) / 2;
       group.forEach((t, i) => {
-        positions[t.id] = { x, y: startY + i * (nodeH + 16), w: nodeW, h: nodeH };
+        positions[t.id] = { x, y: Math.max(28, startY) + i * (nodeH + 16), w: nodeW, h: nodeH };
       });
     });
     return positions;
@@ -411,8 +411,11 @@ function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
     const canvas = canvasRef.current;
     if (!canvas || !result || !tasks.length) return;
     const dpr = window.devicePixelRatio || 1;
-    const W = canvas.parentElement.clientWidth || 700;
-    const H = 380;
+    const containerW = canvas.parentElement.clientWidth || 700;
+    // On mobile, use minimum width so nodes don't crunch — allow horizontal scroll
+    const minW = Math.max(containerW, tasks.length * 130 + 80);
+    const W = minW;
+    const H = 420;
     canvas.style.width = W + "px";
     canvas.style.height = H + "px";
     canvas.width = W * dpr;
@@ -612,14 +615,14 @@ function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
 
     // Legend
     const legend = [
-      { color: C.red, label: "Critical / Zero Float" },
+      { color: C.red, label: "Critical" },
       { color: C.green, label: "On Track" },
       { color: C.amber, label: "Bottleneck" },
       { color: C.blue, label: "Upstream" },
       { color: C.purple, label: "Selected" },
     ];
     legend.forEach((l, i) => {
-      const lx = 20 + i * 120, ly = H - 18;
+      const lx = 12 + i * 90, ly = H - 14;
       ctx.fillStyle = l.color;
       ctx.beginPath();
       ctx.arc(lx + 5, ly + 3, 4, 0, Math.PI * 2);
@@ -692,13 +695,17 @@ function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
   }, [hitTest, draw, onNodeClick]);
 
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
       <canvas
         ref={canvasRef}
         style={{ display: "block" }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
+        onTouchEnd={(e) => {
+          const touch = e.changedTouches[0];
+          if (touch) handleClick({ clientX: touch.clientX, clientY: touch.clientY });
+        }}
       />
     </div>
   );
@@ -1258,30 +1265,60 @@ function ResultsContent() {
                 </div>
               </div>
 
-              {/* INTELLIGENCE PILLARS */}
-              <div style={{...card(),padding:"1.25rem",marginBottom:"1rem"}}>
-                <div style={label(C.purple)}>EXECUTION INTELLIGENCE PILLARS</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"1rem"}}>
-                  {[
-                    { title:"1. Timeline Health", color:C.blue, vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50, 70], labels:["DEPENDENCY","CRITICAL","FORECAST"], score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, scoreLabel:"ACCURACY", stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}] },
-                    { title:"2. Resource Health", color:C.purple, vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50, result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, 60], labels:["OVERLOAD","OWNER","APPROVAL"], score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, scoreLabel:"CAPACITY", stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}] },
-                    { title:"3. Operational Health", color:C.green, vals:[result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50, result.confidence.breakdown.find(f=>f.name==="External dependencies")?.score||50, 78], labels:["STABILITY","REWORK","CONFIDENCE"], score:result.confidence.score, scoreLabel:"EXECUTION", stats:[{name:"Budget Stability",val:overrunCost>0?"At Risk":"Strong",color:overrunCost>0?C.red:C.green},{name:"Rework Risk",val:result.shuffleOps.length>1?"Moderate":"Low",color:result.shuffleOps.length>1?C.amber:C.green},{name:"Execution Confidence",val:confScore+"%",color:verdColor}] },
-                  ].map((pillar,i) => (
-                    <div key={i} style={{...card({background:C.surface2}),padding:"1rem"}}>
-                      <div style={{fontSize:"0.72rem",fontWeight:700,color:pillar.color,marginBottom:"0.75rem"}}>{pillar.title}</div>
-                      <RadarChart color={pillar.color} values={pillar.vals} labels={pillar.labels} title={pillar.title} score={pillar.score} scoreLabel={pillar.scoreLabel}/>
-                      <div style={{marginTop:"0.75rem",display:"flex",flexDirection:"column",gap:"0.35rem"}}>
-                        {pillar.stats.map((s,j) => (
-                          <div key={j} style={{display:"flex",justifyContent:"space-between",fontSize:"0.75rem"}}>
-                            <span style={{color:C.textMid}}>{s.name}</span>
-                            <span style={{color:s.color,fontWeight:600}}>{s.val}</span>
+              {/* INTELLIGENCE PILLARS — plain language */}
+              {(() => {
+                const timelineScore = result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50;
+                const resourceScore = result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50;
+                const opScore = result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50;
+                const pillars = [
+                  {
+                    n:"1", title:"Will this finish on time?", color:C.blue,
+                    score: timelineScore,
+                    what: timelineScore>=75?"Your schedule has breathing room. Even if a task slips a few days, the plan can absorb it.":timelineScore>=45?"Your schedule is tight. The critical path has little room for error — one delay can cascade.":"Your schedule is at serious risk. The critical path is overloaded and has no buffer to absorb slips.",
+                    signal: result.bufferDays>=5?`${result.bufferDays} days of buffer`:result.bufferDays>=0?`Only ${result.bufferDays} days of buffer — very tight`:`${Math.abs(result.bufferDays)} days over deadline`,
+                    signalColor: result.bufferDays>=5?C.green:result.bufferDays>=0?C.amber:C.red,
+                  },
+                  {
+                    n:"2", title:"Can your team handle this?", color:C.purple,
+                    score: resourceScore,
+                    what: resourceScore>=75?"Work is spread across your team. No single person is a bottleneck.":resourceScore>=45?"Some team members are carrying too much. If they fall behind, it stalls everyone else.":"One or two people are responsible for most of the critical work. That's a serious single point of failure.",
+                    signal: result.criticalPath.length <= 3 ? "Critical path owned by multiple people" : result.teamSize<=2?"Most critical tasks on 1–2 people":"Check owner concentration below",
+                    signalColor: resourceScore>=65?C.green:resourceScore>=40?C.amber:C.red,
+                  },
+                  {
+                    n:"3", title:"Is the plan built to succeed?", color:C.green,
+                    score: Math.round((opScore + (result.shuffleOps.length>0?70:30)) / 2),
+                    what: result.shuffleOps.length>0?`There are ${result.shuffleOps.length} task${result.shuffleOps.length>1?"s":""} that could run at the same time but currently run back-to-back. Fixing this could save ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero extra cost.`:"Your plan is well-sequenced. Tasks are ordered logically and no obvious scheduling improvements were found.",
+                    signal: result.shuffleOps.length>0?`${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days recoverable at no cost`:"Plan sequencing looks good",
+                    signalColor: result.shuffleOps.length>0?C.amber:C.green,
+                  },
+                ];
+                return (
+                  <div style={{...card(),padding:"1.25rem",marginBottom:"1rem"}}>
+                    <div style={{fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:C.green,marginBottom:"0.85rem"}}>EXECUTION INTELLIGENCE — 3 KEY QUESTIONS</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
+                      {pillars.map((p,i) => {
+                        const pct = Math.min(Math.max(p.score, 2), 98);
+                        const barColor = pct>=70?C.green:pct>=45?C.amber:C.red;
+                        const rating = pct>=70?"Good":pct>=45?"At Risk":"Critical";
+                        return (
+                          <div key={i} style={{background:C.surface2,border:"1px solid "+C.border,borderRadius:10,padding:"1rem",borderLeft:"3px solid "+p.color}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"0.5rem"}}>
+                              <div style={{fontSize:"0.88rem",fontWeight:700,color:C.text,flex:1,paddingRight:"1rem"}}>{p.n}. {p.title}</div>
+                              <span style={{fontSize:"0.68rem",fontWeight:700,padding:"0.2rem 0.6rem",borderRadius:100,background:barColor+"20",color:barColor,border:"1px solid "+barColor+"40",flexShrink:0,whiteSpace:"nowrap"}}>{rating}</span>
+                            </div>
+                            <div style={{height:5,background:C.border2,borderRadius:3,marginBottom:"0.6rem"}}>
+                              <div style={{height:"100%",width:pct+"%",background:barColor,borderRadius:3,transition:"width 0.8s ease"}}/>
+                            </div>
+                            <p style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.65,marginBottom:"0.5rem"}}>{p.what}</p>
+                            <div style={{fontSize:"0.72rem",fontWeight:600,color:p.signalColor}}>→ {p.signal}</div>
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                );
+              })()}
 
               {/* BOTTLENECKS + OPPORTUNITIES */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:"1rem",marginBottom:"1rem"}}>
@@ -1386,8 +1423,10 @@ function ResultsContent() {
               </div>
 
               {/* Full interactive graph + detail panel side by side */}
-              <div style={{...card(),overflow:"hidden",marginBottom:"1rem"}}>
-                <GraphSection preview={false} />
+              <div style={{...card(),overflow:"visible",marginBottom:"1rem"}}>
+                <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",borderRadius:12}}>
+                  <GraphSection preview={false} />
+                </div>
               </div>
 
               {/* P1-2: Cascade Impact Simulator */}
@@ -1451,50 +1490,142 @@ function ResultsContent() {
             </div>
           )}
 
-          {/* ══ INTELLIGENCE PILLARS ══ */}
+          {/* ══ INTELLIGENCE PILLARS — plain language full screen ══ */}
           {activeNav==="intelligence" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
               <div style={{marginBottom:"1.25rem"}}>
                 <div style={{fontSize:"1.2rem",fontWeight:700}}>Intelligence Pillars</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Three dimensions of execution health across timeline, resource, and operational axes.</div>
+                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Three plain-language questions that explain your on-time delivery confidence score.</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"1rem",marginBottom:"1rem"}}>
-                {[
-                  {title:"Timeline Health",color:C.blue,vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50,result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50,70],labels:["DEPENDENCY","CRITICAL","FORECAST"],score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50,scoreLabel:"ACCURACY",desc:"How your schedule holds under execution pressure. Dependency compression, critical path stability, and forecast accuracy.",stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}]},
-                  {title:"Resource Health",color:C.purple,vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50,result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50,60],labels:["OVERLOAD","OWNER","APPROVAL"],score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50,scoreLabel:"CAPACITY",desc:"Who is overloaded, who is a single point of failure, and where approval bottlenecks exist.",stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}]},
-                  {title:"Operational Health",color:C.green,vals:[result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50,result.confidence.breakdown.find(f=>f.name==="External dependencies")?.score||50,78],labels:["STABILITY","REWORK","CONFIDENCE"],score:result.confidence.score,scoreLabel:"EXECUTION",desc:"Execution confidence, rework risk, and budget stability across the full project lifecycle.",stats:[{name:"Budget Stability",val:overrunCost>0?"At Risk":"Strong",color:overrunCost>0?C.red:C.green},{name:"Rework Risk",val:result.shuffleOps.length>1?"Moderate":"Low",color:result.shuffleOps.length>1?C.amber:C.green},{name:"Execution Confidence",val:confScore+"%",color:verdColor}]},
-                ].map((pillar,i) => (
-                  <div key={i} style={{...card(),padding:"1.5rem",borderTop:"2px solid "+pillar.color}}>
-                    <div style={{fontSize:"0.78rem",fontWeight:700,color:pillar.color,marginBottom:"0.5rem"}}>{pillar.title}</div>
-                    <p style={{fontSize:"0.78rem",color:C.textDim,lineHeight:1.6,marginBottom:"1rem"}}>{pillar.desc}</p>
-                    <div style={{display:"flex",justifyContent:"center",marginBottom:"1rem"}}>
-                      <RadarChart color={pillar.color} values={pillar.vals} labels={pillar.labels} title={pillar.title} score={pillar.score} scoreLabel={pillar.scoreLabel}/>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}>
-                      {pillar.stats.map((s,j)=>(
-                        <div key={j} style={{display:"flex",justifyContent:"space-between",fontSize:"0.82rem",paddingBottom:"0.5rem",borderBottom:j<pillar.stats.length-1?"1px solid "+C.border:"none"}}>
-                          <span style={{color:C.textMid}}>{s.name}</span>
-                          <span style={{color:s.color,fontWeight:700}}>{s.val}</span>
-                        </div>
-                      ))}
-                    </div>
+
+              {/* Overall score banner */}
+              <div style={{...card({border:"1px solid "+verdColor+"40"}),padding:"1.25rem",marginBottom:"1rem",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:verdColor}}/>
+                <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.5rem"}}>YOUR ON-TIME DELIVERY CONFIDENCE</div>
+                <div style={{display:"flex",alignItems:"baseline",gap:"0.75rem",marginBottom:"0.5rem"}}>
+                  <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:verdColor,lineHeight:1,fontWeight:400}}>{confScore}%</span>
+                  <div>
+                    <div style={{fontSize:"0.82rem",color:C.text,fontWeight:600}}>{confScore>=75?"Looking good":"Needs attention"}</div>
+                    <div style={{fontSize:"0.72rem",color:C.textMid}}>If changes applied: <strong style={{color:C.green}}>{confScoreOptimized}%</strong> (+{confScoreOptimized-confScore} pts)</div>
                   </div>
-                ))}
+                </div>
+                <div style={{height:8,background:C.border2,borderRadius:4}}>
+                  <div style={{height:"100%",width:confScore+"%",background:verdColor,borderRadius:4,transition:"width 1s ease"}}/>
+                </div>
+                <div style={{fontSize:"0.75rem",color:C.textMid,marginTop:"0.5rem"}}>{result.confidence.reason}.</div>
               </div>
+
+              {/* Three questions */}
+              {(() => {
+                const tScore = result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50;
+                const rScore = result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50;
+                const sScore = result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50;
+                const oScore = result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50;
+                const opScore = Math.round((sScore + oScore) / 2);
+
+                const questions = [
+                  {
+                    n:"Q1", color:C.blue,
+                    question:"Will this finish on time?",
+                    score: tScore,
+                    answer: tScore>=75
+                      ? `Yes — your schedule has ${result.bufferDays} days of buffer. Even if a task slips, the plan can absorb it.`
+                      : tScore>=45
+                        ? result.bufferDays>=0
+                          ? `Tight. Only ${result.bufferDays} day${result.bufferDays!==1?"s":""} of buffer on the critical path. One slip and the deadline moves.`
+                          : `At risk. The critical path already runs ${Math.abs(result.bufferDays)} days over your target deadline.`
+                        : `High risk. The plan has no buffer — the critical path overruns your deadline by ${Math.abs(result.bufferDays)} days.`,
+                    fixes: result.shuffleOps.length>0
+                      ? [`Run "${result.shuffleOps[0].task}" at the same time as "${result.shuffleOps[0].predecessor}" — saves ~${result.shuffleOps[0].daysSaved} days`]
+                      : ["Protect critical path tasks from scope creep"],
+                    weight: 25,
+                  },
+                  {
+                    n:"Q2", color:C.purple,
+                    question:"Can your team handle the workload?",
+                    score: rScore,
+                    answer: rScore>=75
+                      ? `Yes — work is distributed well. No single person is carrying an outsized portion of the critical path.`
+                      : rScore>=45
+                        ? `Borderline. Some team members have multiple critical tasks. If they fall behind, it delays everything after them.`
+                        : `Risky. One or two people own most of the critical work. That's a single point of failure — if they get stuck, the project stalls.`,
+                    fixes: result.criticalPath.length>0
+                      ? [`${result.criticalPath.length} task${result.criticalPath.length!==1?"s are":" is"} on the critical path — confirm each owner has capacity`, "Consider redistributing tasks if one owner appears multiple times"]
+                      : ["Team capacity looks balanced"],
+                    weight: 33,
+                  },
+                  {
+                    n:"Q3", color:C.green,
+                    question:"Is the plan structured efficiently?",
+                    score: opScore,
+                    answer: result.shuffleOps.length>0
+                      ? `Not fully. There ${result.shuffleOps.length===1?"is":"are"} ${result.shuffleOps.length} task${result.shuffleOps.length!==1?"s":""} running back-to-back that could run at the same time. This is leaving ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days on the table at zero extra cost.`
+                      : `Yes — tasks are sequenced well. No obvious scheduling improvements were found.`,
+                    fixes: result.shuffleOps.map(op=>`Run "${op.task}" at the same time as "${op.predecessor}" → saves ~${op.daysSaved} days`),
+                    weight: 42,
+                  },
+                ];
+
+                return (
+                  <div style={{display:"flex",flexDirection:"column",gap:"1rem",marginBottom:"1rem"}}>
+                    {questions.map((q,i) => {
+                      const pct = Math.min(Math.max(q.score,2),98);
+                      const barColor = pct>=70?C.green:pct>=45?C.amber:C.red;
+                      const rating = pct>=70?"Good":pct>=45?"At Risk":"Critical";
+                      return (
+                        <div key={i} style={{...card(),padding:"1.25rem",borderLeft:"3px solid "+q.color,borderRadius:"0 12px 12px 0"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.6rem"}}>
+                            <div style={{fontSize:"0.6rem",color:q.color,fontWeight:700,letterSpacing:"0.1em"}}>{q.n} · {Math.round(q.weight)}% OF SCORE</div>
+                            <span style={{fontSize:"0.68rem",fontWeight:700,padding:"0.2rem 0.65rem",borderRadius:100,background:barColor+"20",color:barColor,border:"1px solid "+barColor+"40"}}>{rating}</span>
+                          </div>
+                          <div style={{fontSize:"1rem",fontWeight:700,color:C.text,marginBottom:"0.75rem"}}>{q.question}</div>
+                          <div style={{height:6,background:C.border2,borderRadius:3,marginBottom:"0.75rem"}}>
+                            <div style={{height:"100%",width:pct+"%",background:barColor,borderRadius:3,transition:"width 0.8s ease"}}/>
+                          </div>
+                          <p style={{fontSize:"0.85rem",color:C.textMid,lineHeight:1.7,marginBottom:q.fixes.length>0?"0.75rem":0}}>{q.answer}</p>
+                          {q.fixes.length>0 && (
+                            <div style={{borderTop:"1px solid "+C.border,paddingTop:"0.65rem",display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+                              <div style={{fontSize:"0.6rem",color:C.green,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.2rem"}}>PATHFLO FIX</div>
+                              {q.fixes.map((fix,j)=>(
+                                <div key={j} style={{fontSize:"0.78rem",color:C.text,lineHeight:1.5}}>→ {fix}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Score breakdown */}
               <div style={{...card(),padding:"1.25rem"}}>
-                <div style={label(verdColor)}>ON-TIME DELIVERY CONFIDENCE BREAKDOWN — {confScore}% current · {confScoreOptimized}% optimized</div>
-                <div style={{display:"flex",flexDirection:"column",gap:"0.65rem",marginTop:"0.75rem"}}>
-                  {result.confidence.breakdown.map((f,i)=>(
-                    <div key={i}>
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.3rem"}}>
-                        <span style={{fontSize:"0.82rem",color:C.textMid,textTransform:"capitalize"}}>{f.name}</span>
-                        <span style={{fontSize:"0.75rem",color:f.score<40?C.red:f.score<65?C.amber:C.green,fontFamily:"monospace"}}>{f.score}/100 · {f.weight}%</span>
+                <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>FULL CONFIDENCE SCORE BREAKDOWN — what drives the {confScore}%</div>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.65rem"}}>
+                  {result.confidence.breakdown.map((f,i)=>{
+                    const labels = {
+                      "Timeline tightness":"How much buffer is on the critical path",
+                      "Budget pressure":"Whether budget limits your ability to recover",
+                      "Scope vs capacity":"Whether the team has enough people for the work",
+                      "External dependencies":"Tasks that depend on multiple things going right",
+                      "Owner concentration":"Whether one person owns too many critical tasks",
+                      "Plan sequencing":"Whether tasks run in parallel where possible",
+                      "Optimization gaps":"Scheduling improvements that could recover days",
+                    };
+                    const col = f.score<40?C.red:f.score<65?C.amber:C.green;
+                    return (
+                      <div key={i}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.25rem",alignItems:"baseline"}}>
+                          <span style={{fontSize:"0.78rem",color:C.text,fontWeight:500,textTransform:"capitalize"}}>{f.name}</span>
+                          <span style={{fontSize:"0.68rem",color:col,fontFamily:"monospace",flexShrink:0,marginLeft:"0.5rem"}}>{f.score}/100 · {f.weight}% weight</span>
+                        </div>
+                        <div style={{fontSize:"0.7rem",color:C.textDim,marginBottom:"0.3rem"}}>{labels[f.name]||f.name}</div>
+                        <div style={{height:5,background:C.border2,borderRadius:3}}>
+                          <div style={{height:"100%",width:f.score+"%",background:col,borderRadius:3,transition:"width 0.8s ease"}}/>
+                        </div>
                       </div>
-                      <div style={{height:5,background:C.border2,borderRadius:3}}>
-                        <div style={{height:"100%",width:f.score+"%",background:f.score<40?C.red:f.score<65?C.amber:C.green,borderRadius:3,transition:"width 0.8s ease"}}/>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
