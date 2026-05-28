@@ -1315,8 +1315,8 @@ function ResultsContent() {
                     n:"1", title:"Will this finish on time?", color:C.blue,
                     score: timelineScore,
                     what: timelineScore>=75?"Your schedule has breathing room. Even if a task slips a few days, the plan can absorb it.":timelineScore>=45?"Your schedule is tight. The critical path has little room for error — one delay can cascade.":"Your schedule is at serious risk. The critical path is overloaded and has no buffer to absorb slips.",
-                    signal: result.bufferDays>=5?`${result.bufferDays} days of buffer`:result.bufferDays>=0?`Only ${result.bufferDays} days of buffer — very tight`:`${Math.abs(result.bufferDays)} days over deadline`,
-                    signalColor: result.bufferDays>=5?C.green:result.bufferDays>=0?C.amber:C.red,
+                    signal: result.bufferDays>=7?`${result.bufferDays} days of buffer — schedule is solid`:result.bufferDays>=3?`${result.bufferDays} days of buffer — tight but workable`:result.bufferDays>=0?`Only ${result.bufferDays} days of buffer — very tight`:`${Math.abs(result.bufferDays)} days over deadline`,
+                    signalColor: result.bufferDays>=7?C.green:result.bufferDays>=3?C.amber:C.red,
                   },
                   {
                     n:"2", title:"Can your team handle this?", color:C.purple,
@@ -1558,8 +1558,16 @@ function ResultsContent() {
 
               {/* Three pillars */}
               {(() => {
-                const tScore = Math.round(result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50);
-                const rScore = Math.round(((result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50) + (result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50)) / 2);
+                // Timeline: based directly on buffer days — more buffer = higher score
+                const buf = result.bufferDays;
+                const tScore = buf >= 14 ? 88 : buf >= 7 ? 75 : buf >= 3 ? 60 : buf >= 0 ? 40 : buf >= -3 ? 20 : 8;
+                // Resource: solo operators aren't penalized — single person teams are common
+                const ownerConc = result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50;
+                const scopeCap = result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50;
+                const rScore = result.teamSize <= 1
+                  ? Math.round((ownerConc * 0.3) + (scopeCap * 0.7)) // solo: weight scope more
+                  : Math.round((ownerConc + scopeCap) / 2);
+                // Operational: sequencing + optimization
                 const oScore = Math.round(((result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50) + (result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)) / 2);
 
                 const pillars = [
@@ -1568,11 +1576,15 @@ function ResultsContent() {
                     color:C.blue, score:tScore,
                     triVals:[tScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)/100,1), Math.min(result.bufferDays>=0?0.8:0.2,1)],
                     triLabels:["BUFFER","SEQUENCE","RISK"],
-                    plain: result.bufferDays>=5
-                      ? `${result.bufferDays} days of buffer on the critical path. The schedule can absorb minor slips without blowing the deadline.`
-                      : result.bufferDays>=0
-                        ? `Only ${result.bufferDays} day${result.bufferDays!==1?"s":""} of buffer. One task slips and the deadline moves.`
-                        : `The critical path already runs ${Math.abs(result.bufferDays)} days past your target. The deadline is at risk as-is.`,
+                    plain: result.bufferDays>=14
+                      ? `${result.bufferDays} days of buffer on the critical path — you have real breathing room. Even if a task slips by a week, the deadline holds.`
+                      : result.bufferDays>=7
+                        ? `${result.bufferDays} days of buffer. Healthy, but not unlimited — protect the critical path from unexpected slips.`
+                        : result.bufferDays>=3
+                          ? `${result.bufferDays} days of buffer. Tight. One task slipping more than a few days and the deadline moves.`
+                          : result.bufferDays>=0
+                            ? `Only ${result.bufferDays} day${result.bufferDays!==1?"s":""} of buffer. Essentially no room for error on the critical path.`
+                            : `The critical path already runs ${Math.abs(result.bufferDays)} day${Math.abs(result.bufferDays)!==1?"s":""} past your target deadline. The plan needs to be compressed.`,
                     fix: result.shuffleOps[0]
                       ? `Run "${result.shuffleOps[0].task}" parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" — recovers ~${result.shuffleOps[0].daysSaved}d`
                       : result.bufferDays<0 ? "Identify tasks that can overlap to compress the schedule" : "Protect the critical path from scope creep",
@@ -1588,17 +1600,21 @@ function ResultsContent() {
                     color:C.purple, score:rScore,
                     triVals:[rScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50)/100,1), Math.min(result.teamSize/Math.max(result.criticalPath.length,1),1)],
                     triLabels:["OWNERS","CAPACITY","RISK"],
-                    plain: rScore>=70
-                      ? `Work is spread across ${result.teamSize} team member${result.teamSize!==1?"s":""}. No single person is carrying an outsized share of critical tasks.`
-                      : rScore>=45
-                        ? `Some team members have multiple critical tasks. If they fall behind, everything waiting on them is delayed.`
-                        : `High concentration risk. One or two people own most of the critical work — if they get stuck, the project stalls.`,
-                    fix: rScore<70
-                      ? `${result.criticalPath.length} tasks on the critical path — confirm each owner has the capacity to deliver on schedule`
-                      : "Team capacity looks well distributed",
-                    fixColor: rScore>=70?C.green:rScore>=45?C.amber:C.red,
+                    plain: result.teamSize<=1
+                      ? `This is a solo project — you own all ${result.totalTasks} tasks. That's normal for contractors. The risk is if you get blocked: there's no one to pick up the slack. Make sure your critical path tasks are clearly time-boxed.`
+                      : rScore>=70
+                        ? `Work is spread across ${result.teamSize} people. No single person is carrying an outsized share of critical tasks.`
+                        : rScore>=45
+                          ? `Some team members have multiple critical tasks. If they fall behind, everything waiting on them is delayed.`
+                          : `High concentration risk. One or two people own most of the critical work — if they get stuck, the project stalls.`,
+                    fix: result.teamSize<=1
+                      ? `${result.criticalPath.length} tasks on the critical path — time-box each one and build in a personal buffer for your highest-risk task`
+                      : rScore<70
+                        ? `${result.criticalPath.length} tasks on the critical path — confirm each owner has the capacity to deliver on schedule`
+                        : "Team capacity looks well distributed",
+                    fixColor: result.teamSize<=1?C.amber:rScore>=70?C.green:rScore>=45?C.amber:C.red,
                     stats:[
-                      {name:"Team size", val:result.teamSize+" people", color:result.teamSize>=3?C.green:result.teamSize>=2?C.amber:C.red},
+                      {name:"Team size", val:result.teamSize+(result.teamSize===1?" person":" people"), color:C.amber},
                       {name:"Critical tasks", val:result.criticalPath.length+" tasks", color:result.criticalPath.length<=3?C.green:result.criticalPath.length<=6?C.amber:C.red},
                       {name:"Tasks per person", val:Math.round(result.totalTasks/Math.max(result.teamSize,1))+" avg", color:result.totalTasks/Math.max(result.teamSize,1)<=4?C.green:C.amber},
                     ],
@@ -1609,7 +1625,7 @@ function ResultsContent() {
                     triVals:[oScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)/100,1), overrunCost>0?0.2:0.85],
                     triLabels:["STRUCTURE","EFFICIENCY","BUDGET"],
                     plain: result.shuffleOps.length>0
-                      ? `${result.shuffleOps.length} task${result.shuffleOps.length!==1?"s":""} are running back-to-back that could run at the same time. That's ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days left on the table.`
+                      ? `${result.shuffleOps.length} task${result.shuffleOps.length!==1?"s are":" is"} running back-to-back that could run at the same time. That's ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days left on the table.`
                       : overrunCost>0
                         ? `Schedule is tight and costs are at risk. At $${Math.round(dailyBurn)}/day, the ${Math.abs(result.bufferDays)}-day overrun adds $${Math.round(overrunCost).toLocaleString()} in exposure.`
                         : "Plan is well-structured. Tasks are sequenced efficiently and no major scheduling gaps were found.",
