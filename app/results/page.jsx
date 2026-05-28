@@ -748,12 +748,15 @@ function NodeDetailPanel({ nodeId, tasks, result, onClose, onSimulate }) {
 
   return (
     <div style={{
-      width: 280, flexShrink: 0,
+      width: typeof window!=="undefined"&&window.innerWidth<768?"100%":280,
+      flexShrink: 0,
       background: C.surface,
-      borderLeft: "1px solid " + C.border,
+      borderLeft: typeof window!=="undefined"&&window.innerWidth>=768?"1px solid "+C.border:"none",
+      borderTop: typeof window!=="undefined"&&window.innerWidth<768?"1px solid "+C.border:"none",
       display: "flex", flexDirection: "column",
       animation: "slideIn 0.2s ease both",
       overflowY: "auto",
+      maxHeight: typeof window!=="undefined"&&window.innerWidth<768?"60vh":"none",
     }}>
       <style>{`@keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}`}</style>
 
@@ -1033,7 +1036,22 @@ function ResultsContent() {
     @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
     @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes navSlideIn{from{opacity:0;transform:translateX(-100%)}to{opacity:1;transform:translateX(0)}}
     ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
+    @media(max-width:768px){
+      .topbar-right-label{display:none !important}
+      .topbar-project-name{display:none !important}
+      .hero-5col{grid-template-columns:1fr !important}
+      .grid-2col{grid-template-columns:1fr !important}
+      .grid-3col{grid-template-columns:1fr !important}
+      .grid-6col{grid-template-columns:repeat(2,1fr) !important}
+      .grid-briefing{grid-template-columns:1fr !important}
+      .details-header{grid-template-columns:1fr 60px 50px !important}
+      .details-row{grid-template-columns:1fr 60px 50px !important}
+      .details-owner{display:none !important}
+      .details-start{display:none !important}
+      .main-pad{padding:0.75rem !important}
+    }
   `;
 
   const card = (extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
@@ -1042,7 +1060,7 @@ function ResultsContent() {
 
   // Graph section with interactive panel
   const GraphSection = ({ preview = false }) => (
-    <div style={{ display: "flex", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
+    <div style={{ display: "flex", flexDirection: typeof window!=="undefined"&&window.innerWidth<768?"column":"row", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <DependencyGraph
           tasks={data.tasks}
@@ -1076,38 +1094,37 @@ function ResultsContent() {
       <style>{style}</style>
 
       {/* ── TOP BAR ── */}
-      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,height:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 1.25rem",position:"sticky",top:0,zIndex:200,gap:"1rem",flexShrink:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
-          <button onClick={()=>setNavCollapsed(v=>!v)} style={{background:"transparent",border:"none",color:C.textMid,cursor:"pointer",fontSize:"1rem",padding:"0.25rem"}}>☰</button>
-          <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,height:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.75rem",position:"sticky",top:0,zIndex:200,gap:"0.5rem",flexShrink:0,overflow:"hidden"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",minWidth:0,flex:1}}>
+          <button onClick={()=>setNavCollapsed(v=>!v)} style={{background:"transparent",border:"none",color:C.textMid,cursor:"pointer",fontSize:"1.1rem",padding:"0.25rem",flexShrink:0}}>☰</button>
+          <svg width="16" height="16" viewBox="0 0 32 32" fill="none" style={{flexShrink:0}}>
             <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" fill="none"/>
             <circle cx="4" cy="24" r="3" fill={C.green}/>
             <circle cx="15" cy="14" r="2.5" fill={C.green} opacity="0.7"/>
             <circle cx="26" cy="6" r="2.5" fill={C.green} opacity="0.5"/>
             <circle cx="31" cy="14" r="2.5" fill={C.green} opacity="0.9"/>
           </svg>
-          <span style={{fontWeight:700,color:C.text,fontSize:"0.9rem"}}>Path<span style={{color:C.purple}}>flo</span></span>
-          <span style={{color:C.border,fontSize:"1rem"}}>|</span>
-          <span style={{color:C.textMid,fontSize:"0.85rem",maxWidth:260,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{data.name}</span>
-          <span style={{background:verdColor+"20",color:verdColor,fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.08em",padding:"0.2rem 0.6rem",borderRadius:100,border:"1px solid "+verdColor+"40",flexShrink:0}}>{result.verdict}</span>
+          <span style={{fontWeight:700,color:C.text,fontSize:"0.9rem",flexShrink:0}}>Path<span style={{color:C.green}}>flo</span></span>
+          <span className="topbar-project-name" style={{color:C.textMid,fontSize:"0.78rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{data.name}</span>
+          <span style={{background:verdColor+"20",color:verdColor,fontSize:"0.58rem",fontWeight:700,letterSpacing:"0.06em",padding:"0.18rem 0.5rem",borderRadius:100,border:"1px solid "+verdColor+"40",flexShrink:0,whiteSpace:"nowrap"}}>{result.verdict}</span>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.78rem",color:C.textMid}}>
-            <span style={{color:verdColor,fontWeight:700,fontSize:"1rem"}}>{confScore}%</span>
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:"0.3rem",fontSize:"0.75rem",color:C.textMid,flexShrink:0}}>
+            <span style={{color:verdColor,fontWeight:700}}>{confScore}%</span>
             <span style={{color:C.textDim}}>→</span>
-            <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
-            <span>if optimized</span>
+            <span style={{color:C.green,fontWeight:700}}>{confScoreOptimized}%</span>
+            <span className="topbar-right-label" style={{color:C.textDim,fontSize:"0.7rem"}}>optimized</span>
           </div>
-          <a href="/" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none"}}>New Project</a>
+          <a href="/" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
         </div>
       </div>
 
       {/* ── MAIN LAYOUT ── */}
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
 
-        {/* ── LEFT NAV ── */}
+        {/* ── LEFT NAV — overlay on mobile, push on desktop ── */}
         {!navCollapsed && (
-          <nav style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
+          <nav style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0,position:typeof window!=="undefined"&&window.innerWidth<768?"fixed":"relative",top:typeof window!=="undefined"&&window.innerWidth<768?52:0,left:0,bottom:0,zIndex:typeof window!=="undefined"&&window.innerWidth<768?300:1,animation:"navSlideIn 0.2s ease both"}}>
             <div style={{padding:"0 0.75rem 0.75rem",fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase"}}>{entityName}</div>
             {navItems.map(n => (
               <button key={n.id} onClick={()=>setActiveNav(n.id)} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.6rem 0.75rem",background:activeNav===n.id?C.greenDim:"transparent",border:"none",borderLeft:activeNav===n.id?`2px solid ${C.green}`:"2px solid transparent",color:activeNav===n.id?C.green:C.textMid,fontFamily:"inherit",fontSize:"0.82rem",fontWeight:activeNav===n.id?600:400,cursor:"pointer",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
@@ -1126,8 +1143,13 @@ function ResultsContent() {
           </nav>
         )}
 
+        {/* Mobile nav backdrop */}
+        {!navCollapsed && typeof window!=="undefined" && window.innerWidth<768 && (
+          <div onClick={()=>setNavCollapsed(true)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:299,top:52}}/>
+        )}
+
         {/* ── MAIN CONTENT ── */}
-        <main style={{flex:1,overflowY:"auto",padding:"1.5rem",minWidth:0}}>
+        <main className="main-pad" style={{flex:1,overflowY:"auto",padding:"1.5rem",minWidth:0,overflowX:"hidden"}}>
 
           {/* ══ EXECUTIVE OVERVIEW ══ */}
           {activeNav==="overview" && (
@@ -1145,7 +1167,7 @@ function ResultsContent() {
               {/* HERO METRICS BANNER */}
               <div style={{...card(),padding:"1.25rem",marginBottom:"1rem",border:"1px solid "+verdColor+"40",position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${verdColor},transparent)`}}/>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:"1rem",alignItems:"center"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"1rem",alignItems:"start"}}>
                   <div>
                     <div style={label(C.textDim)}>ON-TIME DELIVERY CONFIDENCE</div>
                     <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem",marginBottom:"0.4rem"}}>
@@ -1198,7 +1220,7 @@ function ResultsContent() {
               </div>
 
               {/* AI BRIEFING + KEY INSIGHT */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:"1rem",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
                     <span style={{color:C.purple}}>✦</span>
@@ -1239,7 +1261,7 @@ function ResultsContent() {
               {/* INTELLIGENCE PILLARS */}
               <div style={{...card(),padding:"1.25rem",marginBottom:"1rem"}}>
                 <div style={label(C.purple)}>EXECUTION INTELLIGENCE PILLARS</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"1rem"}}>
                   {[
                     { title:"1. Timeline Health", color:C.blue, vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50, 70], labels:["DEPENDENCY","CRITICAL","FORECAST"], score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50, scoreLabel:"ACCURACY", stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}] },
                     { title:"2. Resource Health", color:C.purple, vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50, result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, 60], labels:["OVERLOAD","OWNER","APPROVAL"], score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50, scoreLabel:"CAPACITY", stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}] },
@@ -1262,7 +1284,7 @@ function ResultsContent() {
               </div>
 
               {/* BOTTLENECKS + OPPORTUNITIES */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
                     <span style={{color:C.red}}>⚠</span>
@@ -1300,7 +1322,7 @@ function ResultsContent() {
               </div>
 
               {/* DEPENDENCY GRAPH PREVIEW + GANTT PREVIEW */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:"1rem",marginBottom:"1rem"}}>
                 <div style={{...card(),padding:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
                     <div style={label(C.purple)}>DEPENDENCY INTELLIGENCE GRAPH</div>
@@ -1319,7 +1341,7 @@ function ResultsContent() {
 
               {/* AT A GLANCE FOOTER */}
               <div style={{...card(),padding:"1rem"}}>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"0.75rem",textAlign:"center"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:"0.75rem",textAlign:"center"}}>
                   {[
                     {label:"TASKS",val:result.totalTasks,sub:"On Track",subColor:verdColor},
                     {label:"CRITICAL PATH TASKS",val:result.criticalPath.length,sub:"At Risk",subColor:C.red},
@@ -1436,7 +1458,7 @@ function ResultsContent() {
                 <div style={{fontSize:"1.2rem",fontWeight:700}}>Intelligence Pillars</div>
                 <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Three dimensions of execution health across timeline, resource, and operational axes.</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"1rem",marginBottom:"1rem"}}>
                 {[
                   {title:"Timeline Health",color:C.blue,vals:[result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50,result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50,70],labels:["DEPENDENCY","CRITICAL","FORECAST"],score:result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50,scoreLabel:"ACCURACY",desc:"How your schedule holds under execution pressure. Dependency compression, critical path stability, and forecast accuracy.",stats:[{name:"Dependency Compression",val:result.bufferDays<5?"Moderate":"Good",color:result.bufferDays<5?C.amber:C.green},{name:"Critical Path Stability",val:result.criticalPath.length<5?"Good":"Tight",color:result.criticalPath.length<5?C.green:C.amber},{name:"Forecast Accuracy",val:"81%",color:C.blue}]},
                   {title:"Resource Health",color:C.purple,vals:[result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50,result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50,60],labels:["OVERLOAD","OWNER","APPROVAL"],score:result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50,scoreLabel:"CAPACITY",desc:"Who is overloaded, who is a single point of failure, and where approval bottlenecks exist.",stats:[{name:"Team Overload",val:"Moderate",color:C.amber},{name:"Single Owner Risk",val:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?"Elevated":"Low",color:result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score<50?C.amber:C.green},{name:"Approval Capacity",val:result.totalTasks>8?"Limited":"Good",color:result.totalTasks>8?C.amber:C.green}]},
@@ -1550,7 +1572,7 @@ function ResultsContent() {
                 </div>
                 <GanttChart tasks={data.tasks} result={result} startDate={data.startDate}/>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"1rem"}}>
                 <div style={{...card({border:"1px solid "+verdColor+"30"}),padding:"1rem"}}>
                   <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>PROJECTED FINISH</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:"1.3rem",color:C.text}}>{result.projectedDate}</div>
@@ -1621,7 +1643,7 @@ function ResultsContent() {
                   {overrunCost>0?`At $${Math.round(dailyBurn).toLocaleString()}/day, ${Math.abs(result.bufferDays)} extra days costs $${Math.round(overrunCost).toLocaleString()} more than mapped.`:
                   `Daily burn of $${Math.round(dailyBurn).toLocaleString()}/day is sustainable within the current plan.`}
                 </p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"0.75rem"}}>
                   {[{label:"MAPPED COSTS",val:"$"+totalCost.toLocaleString(),color:C.text},{label:"DAILY BURN",val:"$"+Math.round(dailyBurn).toLocaleString()+"/day",color:C.textMid},{label:"OVERRUN EXPOSURE",val:overrunCost>0?"$"+Math.round(overrunCost).toLocaleString():"None",color:overrunCost>0?C.red:C.green},{label:"PLAN DURATION",val:result.projectDuration+"d",color:C.text}].map((s,i)=>(
                     <div key={i} style={{...card({background:C.surface2}),padding:"0.85rem 1rem"}}>
                       <div style={{fontSize:"0.6rem",color:C.textDim,fontFamily:"monospace",letterSpacing:"0.08em",marginBottom:"0.3rem"}}>{s.label}</div>
@@ -1679,11 +1701,11 @@ function ResultsContent() {
                 </div>
               </div>
               <div style={{...card(),padding:"0"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"1rem",padding:"0.6rem 1.25rem",borderBottom:"1px solid "+C.border,fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 70px 60px",gap:"0.5rem",padding:"0.6rem 1rem",borderBottom:"1px solid "+C.border,fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>
                   <span>MILESTONE</span><span>OWNER</span><span>DAYS</span><span>START</span><span>FLOAT</span>
                 </div>
                 {result.tasks.map((t,i)=>(
-                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 100px 70px 80px 80px",gap:"1rem",padding:"0.75rem 1.25rem",borderBottom:i<result.tasks.length-1?"1px solid "+C.border2:"none",alignItems:"center"}}>
+                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 70px 60px",gap:"0.5rem",padding:"0.65rem 1rem",borderBottom:i<result.tasks.length-1?"1px solid "+C.border2:"none",alignItems:"center"}}>
                     <div>
                       <div style={{fontSize:"0.85rem",color:t.slack===0?C.red:C.text,fontWeight:t.slack===0?600:400}}>{t.slack===0?"◆ ":""}{t.name}</div>
                       {t.concurrent&&<div style={{fontSize:"0.65rem",color:C.green,marginTop:"0.15rem"}}>↑ runs concurrently</div>}
