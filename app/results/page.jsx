@@ -632,7 +632,14 @@ function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
 
       ctx.fillStyle = dimmed ? "#3a3f46" : C.textDim;
       ctx.font = "400 9px system-ui";
-      ctx.fillText(`${t.days}d · ${t.owner || "?"}`.slice(0, 18), pos.x + 8, pos.y + 30);
+      // Show "Blocked by X" only if this task is critical AND has a critical predecessor
+      const critPred = isCrit && t.predecessors.length > 0
+        ? t.predecessors.map(pid => tasks.find(p => p.id === pid)).find(p => p && criticalIds.has(p.id))
+        : null;
+      const subLabel = critPred
+        ? `Blocked by ${critPred.name}`.slice(0, 20)
+        : `${t.days}d · ${t.owner || "?"}`.slice(0, 18);
+      ctx.fillText(subLabel, pos.x + 8, pos.y + 30);
 
       const dot = isCrit ? C.red : C.green;
       ctx.fillStyle = dimmed ? "#3a3f46" : dot;
