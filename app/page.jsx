@@ -53,10 +53,12 @@ function DependencyGraph({ tasks, result, height = 340, dark = true }) {
     const canvas = canvasRef.current;
     if (!canvas || !tasks.length) return;
     const dpr = window.devicePixelRatio || 1;
-    const W = canvas.parentElement.clientWidth || 700;
+    const containerW = canvas.parentElement.clientWidth || 700;
+    const W = Math.max(containerW, tasks.length * 135 + 80);
     const H = height;
     canvas.style.width = W + "px";
     canvas.style.height = H + "px";
+    canvas.style.minWidth = W + "px";
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     const ctx = canvas.getContext("2d");
@@ -239,7 +241,14 @@ function DependencyGraph({ tasks, result, height = 340, dark = true }) {
       // Owner
       ctx.fillStyle = dark ? COLORS.textDim : "#9CA3AF";
       ctx.font = "400 8px system-ui";
-      ctx.fillText(t.owner || "—", pos.x + 9, pos.y + 43);
+      // "Blocked by X" if task is critical and has a critical predecessor
+      const critPredLp = isCrit && t.predecessors.length > 0
+        ? t.predecessors.map(pid => tasks.find(p => p.id === pid)).find(p => p && criticalIds.has(p.id))
+        : null;
+      const ownerLabel = critPredLp
+        ? `Blocked by ${critPredLp.name}`.slice(0, 20)
+        : (t.owner || "—");
+      ctx.fillText(ownerLabel, pos.x + 9, pos.y + 43);
 
       // Duration badge
       ctx.fillStyle = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
@@ -508,7 +517,7 @@ export default function Home() {
         </div>
 
         {/* Graph card — same visual language as results page */}
-        <div style={{ background: T.surface, border: "1px solid " + T.border2, borderRadius: "16px", overflow: "hidden", boxShadow: T.shadow }}>
+        <div style={{ background: T.surface, border: "1px solid " + T.border2, borderRadius: "16px", overflow: "visible", boxShadow: T.shadow }}>
 
           {/* Top bar */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", borderBottom: "1px solid " + T.border, flexWrap: "wrap", gap: "0.5rem" }}>
@@ -529,10 +538,12 @@ export default function Home() {
           </div>
 
           {/* Graph body — left: canvas graph | right: detail panel */}
-          <div className="graph-body" style={{ display: "grid", gridTemplateColumns: "1fr 288px" }}>
+          <div className="graph-body" style={{ display: "grid", gridTemplateColumns: "1fr 288px", overflow: "visible" }}>
 
-            {/* Real canvas graph — same component as results page */}
-            <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT} height={typeof window !== "undefined" && window.innerWidth < 600 ? 260 : 360} dark={dark} />
+            {/* Real canvas graph — scrollable horizontally */}
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT} height={typeof window !== "undefined" && window.innerWidth < 600 ? 260 : 360} dark={dark} />
+            </div>
 
             {/* Right panel */}
             <div className="graph-right-panel" style={{ borderLeft: "1px solid " + T.border, padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
