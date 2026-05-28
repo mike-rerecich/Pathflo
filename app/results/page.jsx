@@ -155,13 +155,53 @@ function computeCPM(tasks, startDate, targetDate, budget) {
   const criticalPath = tasks.filter(t=>byId[t.id].slack===0).map(t=>t.name);
   const totalTasks = tasks.length;
   const ownersSet = new Set(tasks.map(t=>t.owner).filter(Boolean));
+  // Find SIBLING tasks — same predecessor, don't depend on each other
+  // These can genuinely run concurrently (unlike parent→child which cannot)
   const concOps = [];
-  tasks.forEach(t => {
-    if (!t.concurrent && t.predecessors.length && byId[t.id].slack===0) {
-      const pred = tasks.find(p=>p.id===t.predecessors[0]);
-      if (pred) concOps.push({ task: t.name, predecessor: pred.name, daysSaved: Math.floor((parseInt(t.days)||1)*0.5), reason: `"${t.name}" can start while "${pred.name}" is finishing.` });
-    }
+  const seen = new Set();
+  tasks.forEach(taskA => {
+    if (byId[taskA.id].slack !== 0) return; // only care about critical path
+    tasks.forEach(taskB => {
+      if (taskA.id === taskB.id) return;
+      if (seen.has(taskA.id + "_" + taskB.id) || seen.has(taskB.id + "_" + taskA.id)) return;
+      // They must share at least one predecessor
+      const sharedPreds = taskA.predecessors.filter(pid => taskB.predecessors.includes(pid));
+      if (sharedPreds.length === 0) return;
+      // Neither can be a predecessor of the other
+      if (taskA.predecessors.includes(taskB.id) || taskB.predecessors.includes(taskA.id)) return;
+      // Neither can already be concurrent
+      if (taskA.concurrent || taskB.concurrent) return;
+      seen.add(taskA.id + "_" + taskB.id);
+      const sharedPred = tasks.find(p => p.id === sharedPreds[0]);
+      const daysSaved = Math.min(parseInt(taskB.days)||1, parseInt(taskA.days)||1);
+      concOps.push({
+        task: taskB.name,
+        predecessor: taskA.name,
+        sharedPredecessor: sharedPred?.name,
+        daysSaved: Math.floor(daysSaved * 0.5),
+        reason: sharedPred
+          ? `"${taskA.name}" and "${taskB.name}" both start after "${sharedPred.name}" — they can run at the same time instead of back-to-back.`
+          : `"${taskA.name}" and "${taskB.name}" can run in parallel — they don't depend on each other.`,
+      });
+    });
   });
+  // If no sibling ops found, look for tasks that could start earlier (partial overlap)
+  if (concOps.length === 0) {
+    tasks.forEach(t => {
+      if (!t.concurrent && t.predecessors.length && byId[t.id].slack === 0) {
+        const pred = tasks.find(p => p.id === t.predecessors[0]);
+        // Only suggest overlap if the predecessor is long enough to allow a head start
+        if (pred && (parseInt(pred.days)||1) >= 4) {
+          concOps.push({
+            task: t.name,
+            predecessor: pred.name,
+            daysSaved: Math.floor((parseInt(pred.days)||1) * 0.3),
+            reason: `"${t.name}" could start in the final days of "${pred.name}" — a partial overlap instead of waiting for full completion.`,
+          });
+        }
+      }
+    });
+  }
   const shuffleOps = concOps.slice(0,3);
   // Current score — plan as entered, no changes made
   const confidence = computeConfidence(tasks, availableDays, projectDuration, budget||"Flexible", bufferDays, shuffleOps, byId);
@@ -1490,146 +1530,179 @@ function ResultsContent() {
             </div>
           )}
 
-          {/* ══ INTELLIGENCE PILLARS — plain language full screen ══ */}
+          {/* ══ INTELLIGENCE PILLARS ══ */}
           {activeNav==="intelligence" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
               <div style={{marginBottom:"1.25rem"}}>
                 <div style={{fontSize:"1.2rem",fontWeight:700}}>Intelligence Pillars</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Three plain-language questions that explain your on-time delivery confidence score.</div>
+                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Three scores that explain exactly why your confidence is {confScore}%. Each one is a different kind of risk.</div>
               </div>
 
-              {/* Overall score banner */}
+              {/* Overall score */}
               <div style={{...card({border:"1px solid "+verdColor+"40"}),padding:"1.25rem",marginBottom:"1rem",position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:verdColor}}/>
-                <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.5rem"}}>YOUR ON-TIME DELIVERY CONFIDENCE</div>
-                <div style={{display:"flex",alignItems:"baseline",gap:"0.75rem",marginBottom:"0.5rem"}}>
-                  <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:verdColor,lineHeight:1,fontWeight:400}}>{confScore}%</span>
+                <div style={{display:"flex",alignItems:"center",gap:"1.25rem",flexWrap:"wrap"}}>
                   <div>
-                    <div style={{fontSize:"0.82rem",color:C.text,fontWeight:600}}>{confScore>=75?"Looking good":"Needs attention"}</div>
-                    <div style={{fontSize:"0.72rem",color:C.textMid}}>If changes applied: <strong style={{color:C.green}}>{confScoreOptimized}%</strong> (+{confScoreOptimized-confScore} pts)</div>
+                    <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>ON-TIME DELIVERY CONFIDENCE</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:"3.5rem",color:verdColor,lineHeight:1}}>{confScore}<span style={{fontSize:"1.5rem"}}>%</span></div>
+                  </div>
+                  <div style={{flex:1,minWidth:180}}>
+                    <div style={{height:8,background:C.border2,borderRadius:4,marginBottom:"0.5rem"}}>
+                      <div style={{height:"100%",width:confScore+"%",background:verdColor,borderRadius:4,transition:"width 1s ease"}}/>
+                    </div>
+                    <div style={{fontSize:"0.82rem",color:C.textMid,lineHeight:1.6}}>{result.confidence.reason}.</div>
+                    <div style={{fontSize:"0.78rem",color:C.green,marginTop:"0.4rem",fontWeight:600}}>With Pathflo's fixes: {confScoreOptimized}% (+{confScoreOptimized-confScore} pts)</div>
                   </div>
                 </div>
-                <div style={{height:8,background:C.border2,borderRadius:4}}>
-                  <div style={{height:"100%",width:confScore+"%",background:verdColor,borderRadius:4,transition:"width 1s ease"}}/>
-                </div>
-                <div style={{fontSize:"0.75rem",color:C.textMid,marginTop:"0.5rem"}}>{result.confidence.reason}.</div>
               </div>
 
-              {/* Three questions */}
+              {/* Three pillars */}
               {(() => {
-                const tScore = result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50;
-                const rScore = result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50;
-                const sScore = result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50;
-                const oScore = result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50;
-                const opScore = Math.round((sScore + oScore) / 2);
+                const tScore = Math.round(result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50);
+                const rScore = Math.round(((result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50) + (result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50)) / 2);
+                const oScore = Math.round(((result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50) + (result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)) / 2);
 
-                const questions = [
+                const pillars = [
                   {
-                    n:"Q1", color:C.blue,
-                    question:"Will this finish on time?",
-                    score: tScore,
-                    answer: tScore>=75
-                      ? `Yes — your schedule has ${result.bufferDays} days of buffer. Even if a task slips, the plan can absorb it.`
-                      : tScore>=45
-                        ? result.bufferDays>=0
-                          ? `Tight. Only ${result.bufferDays} day${result.bufferDays!==1?"s":""} of buffer on the critical path. One slip and the deadline moves.`
-                          : `At risk. The critical path already runs ${Math.abs(result.bufferDays)} days over your target deadline.`
-                        : `High risk. The plan has no buffer — the critical path overruns your deadline by ${Math.abs(result.bufferDays)} days.`,
-                    fixes: result.shuffleOps.length>0
-                      ? [`Run "${result.shuffleOps[0].task}" at the same time as "${result.shuffleOps[0].predecessor}" — saves ~${result.shuffleOps[0].daysSaved} days`]
-                      : ["Protect critical path tasks from scope creep"],
-                    weight: 25,
+                    id:"time", n:"01", title:"Timeline Health", subtitle:"Will it finish on time?",
+                    color:C.blue, score:tScore,
+                    triVals:[tScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)/100,1), Math.min(result.bufferDays>=0?0.8:0.2,1)],
+                    triLabels:["BUFFER","SEQUENCE","RISK"],
+                    plain: result.bufferDays>=5
+                      ? `${result.bufferDays} days of buffer on the critical path. The schedule can absorb minor slips without blowing the deadline.`
+                      : result.bufferDays>=0
+                        ? `Only ${result.bufferDays} day${result.bufferDays!==1?"s":""} of buffer. One task slips and the deadline moves.`
+                        : `The critical path already runs ${Math.abs(result.bufferDays)} days past your target. The deadline is at risk as-is.`,
+                    fix: result.shuffleOps[0]
+                      ? `Run "${result.shuffleOps[0].task}" parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" — recovers ~${result.shuffleOps[0].daysSaved}d`
+                      : result.bufferDays<0 ? "Identify tasks that can overlap to compress the schedule" : "Protect the critical path from scope creep",
+                    fixColor: result.bufferDays>=5?C.green:C.amber,
+                    stats:[
+                      {name:"Buffer days", val:result.bufferDays>=0?result.bufferDays+"d buffer":Math.abs(result.bufferDays)+"d over", color:result.bufferDays>=5?C.green:result.bufferDays>=0?C.amber:C.red},
+                      {name:"Critical path tasks", val:result.criticalPath.length, color:result.criticalPath.length<=3?C.green:result.criticalPath.length<=6?C.amber:C.red},
+                      {name:"Schedule type", val:result.tasks.filter(t=>t.concurrent).length>0?"Has parallel work":"Fully sequential", color:result.tasks.filter(t=>t.concurrent).length>0?C.green:C.amber},
+                    ],
                   },
                   {
-                    n:"Q2", color:C.purple,
-                    question:"Can your team handle the workload?",
-                    score: rScore,
-                    answer: rScore>=75
-                      ? `Yes — work is distributed well. No single person is carrying an outsized portion of the critical path.`
+                    id:"resource", n:"02", title:"Resource Health", subtitle:"Can your team handle this?",
+                    color:C.purple, score:rScore,
+                    triVals:[rScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50)/100,1), Math.min(result.teamSize/Math.max(result.criticalPath.length,1),1)],
+                    triLabels:["OWNERS","CAPACITY","RISK"],
+                    plain: rScore>=70
+                      ? `Work is spread across ${result.teamSize} team member${result.teamSize!==1?"s":""}. No single person is carrying an outsized share of critical tasks.`
                       : rScore>=45
-                        ? `Borderline. Some team members have multiple critical tasks. If they fall behind, it delays everything after them.`
-                        : `Risky. One or two people own most of the critical work. That's a single point of failure — if they get stuck, the project stalls.`,
-                    fixes: result.criticalPath.length>0
-                      ? [`${result.criticalPath.length} task${result.criticalPath.length!==1?"s are":" is"} on the critical path — confirm each owner has capacity`, "Consider redistributing tasks if one owner appears multiple times"]
-                      : ["Team capacity looks balanced"],
-                    weight: 33,
+                        ? `Some team members have multiple critical tasks. If they fall behind, everything waiting on them is delayed.`
+                        : `High concentration risk. One or two people own most of the critical work — if they get stuck, the project stalls.`,
+                    fix: rScore<70
+                      ? `${result.criticalPath.length} tasks on the critical path — confirm each owner has the capacity to deliver on schedule`
+                      : "Team capacity looks well distributed",
+                    fixColor: rScore>=70?C.green:rScore>=45?C.amber:C.red,
+                    stats:[
+                      {name:"Team size", val:result.teamSize+" people", color:result.teamSize>=3?C.green:result.teamSize>=2?C.amber:C.red},
+                      {name:"Critical tasks", val:result.criticalPath.length+" tasks", color:result.criticalPath.length<=3?C.green:result.criticalPath.length<=6?C.amber:C.red},
+                      {name:"Tasks per person", val:Math.round(result.totalTasks/Math.max(result.teamSize,1))+" avg", color:result.totalTasks/Math.max(result.teamSize,1)<=4?C.green:C.amber},
+                    ],
                   },
                   {
-                    n:"Q3", color:C.green,
-                    question:"Is the plan structured efficiently?",
-                    score: opScore,
-                    answer: result.shuffleOps.length>0
-                      ? `Not fully. There ${result.shuffleOps.length===1?"is":"are"} ${result.shuffleOps.length} task${result.shuffleOps.length!==1?"s":""} running back-to-back that could run at the same time. This is leaving ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days on the table at zero extra cost.`
-                      : `Yes — tasks are sequenced well. No obvious scheduling improvements were found.`,
-                    fixes: result.shuffleOps.map(op=>`Run "${op.task}" at the same time as "${op.predecessor}" → saves ~${op.daysSaved} days`),
-                    weight: 42,
+                    id:"ops", n:"03", title:"Operational Health", subtitle:"Is the plan built to succeed?",
+                    color:C.green, score:oScore,
+                    triVals:[oScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)/100,1), overrunCost>0?0.2:0.85],
+                    triLabels:["STRUCTURE","EFFICIENCY","BUDGET"],
+                    plain: result.shuffleOps.length>0
+                      ? `${result.shuffleOps.length} task${result.shuffleOps.length!==1?"s":""} are running back-to-back that could run at the same time. That's ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days left on the table.`
+                      : overrunCost>0
+                        ? `Schedule is tight and costs are at risk. At $${Math.round(dailyBurn)}/day, the ${Math.abs(result.bufferDays)}-day overrun adds $${Math.round(overrunCost).toLocaleString()} in exposure.`
+                        : "Plan is well-structured. Tasks are sequenced efficiently and no major scheduling gaps were found.",
+                    fix: result.shuffleOps.length>0
+                      ? result.shuffleOps[0].reason
+                      : overrunCost>0
+                        ? "Compress the schedule to reduce cost exposure"
+                        : "No major structural improvements needed",
+                    fixColor: result.shuffleOps.length>0||overrunCost>0?C.amber:C.green,
+                    stats:[
+                      {name:"Parallel opportunities", val:result.shuffleOps.length>0?result.shuffleOps.length+" found":"None needed", color:result.shuffleOps.length>0?C.amber:C.green},
+                      {name:"Days recoverable", val:result.shuffleOps.length>0?result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)+"d at zero cost":"—", color:result.shuffleOps.length>0?C.amber:C.textDim},
+                      {name:"Budget status", val:overrunCost>0?"At risk":"On track", color:overrunCost>0?C.red:C.green},
+                    ],
                   },
                 ];
 
+                const size=120, cx=size/2, cy=size/2, r=42, n=3;
+                function makeTriangle(vals, color, labels, scoreText) {
+                  const outerPts = Array.from({length:n},(_,i)=>{ const a=(i*2*Math.PI/n)-Math.PI/2; return {x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)}; });
+                  const innerPts = vals.map((v,i)=>{ const a=(i*2*Math.PI/n)-Math.PI/2; const d=r*Math.max(v,0.08); return {x:cx+d*Math.cos(a),y:cy+d*Math.sin(a)}; });
+                  const labelPts = outerPts.map((p,i)=>({ x:cx+(r+16)*Math.cos((i*2*Math.PI/n)-Math.PI/2), y:cy+(r+16)*Math.sin((i*2*Math.PI/n)-Math.PI/2) }));
+                  const poly = pts => pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+                  return (
+                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{overflow:"visible",display:"block",margin:"0 auto"}}>
+                      <polygon points={poly(outerPts)} fill="none" stroke={color} strokeWidth="1" opacity="0.2"/>
+                      <polygon points={poly(innerPts)} fill={color} fillOpacity="0.18" stroke={color} strokeWidth="2"/>
+                      {outerPts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3.5" fill={color} opacity="0.35"/>)}
+                      {innerPts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3" fill={color}/>)}
+                      {labelPts.map((p,i)=>(
+                        <text key={i} x={p.x.toFixed(1)} y={p.y.toFixed(1)} textAnchor="middle" dominantBaseline="middle"
+                          fontSize="7.5" fontFamily="system-ui" fill={color} fontWeight="700" opacity="0.7">{labels[i]}</text>
+                      ))}
+                      <text x={cx} y={cy-5} textAnchor="middle" fontSize="22" fontFamily="Georgia,serif" fill={color} fontWeight="400">{scoreText}</text>
+                      <text x={cx} y={cy+10} textAnchor="middle" fontSize="8" fontFamily="system-ui" fill={color} fontWeight="600" opacity="0.6">/ 100</text>
+                    </svg>
+                  );
+                }
+
                 return (
-                  <div style={{display:"flex",flexDirection:"column",gap:"1rem",marginBottom:"1rem"}}>
-                    {questions.map((q,i) => {
-                      const pct = Math.min(Math.max(q.score,2),98);
-                      const barColor = pct>=70?C.green:pct>=45?C.amber:C.red;
-                      const rating = pct>=70?"Good":pct>=45?"At Risk":"Critical";
+                  <div style={{display:"flex",flexDirection:"column",gap:"1rem"}}>
+                    {pillars.map((p,i)=>{
+                      const barColor = p.score>=70?C.green:p.score>=45?C.amber:C.red;
+                      const rating = p.score>=70?"Good":p.score>=45?"At Risk":"Critical";
                       return (
-                        <div key={i} style={{...card(),padding:"1.25rem",borderLeft:"3px solid "+q.color,borderRadius:"0 12px 12px 0"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.6rem"}}>
-                            <div style={{fontSize:"0.6rem",color:q.color,fontWeight:700,letterSpacing:"0.1em"}}>{q.n} · {Math.round(q.weight)}% OF SCORE</div>
-                            <span style={{fontSize:"0.68rem",fontWeight:700,padding:"0.2rem 0.65rem",borderRadius:100,background:barColor+"20",color:barColor,border:"1px solid "+barColor+"40"}}>{rating}</span>
-                          </div>
-                          <div style={{fontSize:"1rem",fontWeight:700,color:C.text,marginBottom:"0.75rem"}}>{q.question}</div>
-                          <div style={{height:6,background:C.border2,borderRadius:3,marginBottom:"0.75rem"}}>
-                            <div style={{height:"100%",width:pct+"%",background:barColor,borderRadius:3,transition:"width 0.8s ease"}}/>
-                          </div>
-                          <p style={{fontSize:"0.85rem",color:C.textMid,lineHeight:1.7,marginBottom:q.fixes.length>0?"0.75rem":0}}>{q.answer}</p>
-                          {q.fixes.length>0 && (
-                            <div style={{borderTop:"1px solid "+C.border,paddingTop:"0.65rem",display:"flex",flexDirection:"column",gap:"0.4rem"}}>
-                              <div style={{fontSize:"0.6rem",color:C.green,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.2rem"}}>PATHFLO FIX</div>
-                              {q.fixes.map((fix,j)=>(
-                                <div key={j} style={{fontSize:"0.78rem",color:C.text,lineHeight:1.5}}>→ {fix}</div>
-                              ))}
+                        <div key={i} style={{...card(),padding:"1.25rem",borderTop:"2px solid "+p.color}}>
+                          {/* Header row */}
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",gap:"0.75rem"}}>
+                            <div>
+                              <div style={{fontSize:"0.6rem",color:p.color,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.25rem"}}>{p.n} · {p.title.toUpperCase()}</div>
+                              <div style={{fontSize:"0.95rem",fontWeight:700,color:C.text}}>{p.subtitle}</div>
                             </div>
-                          )}
+                            <span style={{fontSize:"0.68rem",fontWeight:700,padding:"0.22rem 0.7rem",borderRadius:100,background:barColor+"20",color:barColor,border:"1px solid "+barColor+"40",flexShrink:0,whiteSpace:"nowrap"}}>{rating}</span>
+                          </div>
+
+                          {/* Triangle + score side by side */}
+                          <div style={{display:"flex",alignItems:"center",gap:"1.5rem",marginBottom:"1rem",flexWrap:"wrap"}}>
+                            <div style={{flexShrink:0}}>
+                              {makeTriangle(p.triVals, p.color, p.triLabels, p.score)}
+                            </div>
+                            <div style={{flex:1,minWidth:160}}>
+                              <div style={{fontFamily:"Georgia,serif",fontSize:"2.8rem",color:barColor,lineHeight:1,marginBottom:"0.3rem"}}>{p.score}<span style={{fontSize:"1.2rem",color:C.textDim}}>/100</span></div>
+                              <div style={{height:6,background:C.border2,borderRadius:3,marginBottom:"0.6rem"}}>
+                                <div style={{height:"100%",width:p.score+"%",background:barColor,borderRadius:3,transition:"width 0.8s ease"}}/>
+                              </div>
+                              <p style={{fontSize:"0.82rem",color:C.textMid,lineHeight:1.65}}>{p.plain}</p>
+                            </div>
+                          </div>
+
+                          {/* Stats row */}
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                            {p.stats.map((s,j)=>(
+                              <div key={j} style={{background:C.surface2,borderRadius:8,padding:"0.5rem 0.65rem"}}>
+                                <div style={{fontSize:"0.58rem",color:C.textDim,marginBottom:"0.2rem"}}>{s.name}</div>
+                                <div style={{fontSize:"0.8rem",fontWeight:700,color:s.color}}>{s.val}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Fix */}
+                          <div style={{borderTop:"1px solid "+C.border,paddingTop:"0.75rem"}}>
+                            <div style={{fontSize:"0.6rem",color:p.fixColor,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.25rem"}}>PATHFLO {p.score>=70?"INSIGHT":"FIX"}</div>
+                            <div style={{fontSize:"0.8rem",color:C.text,lineHeight:1.6}}>→ {p.fix}</div>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 );
               })()}
-
-              {/* Score breakdown */}
-              <div style={{...card(),padding:"1.25rem"}}>
-                <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>FULL CONFIDENCE SCORE BREAKDOWN — what drives the {confScore}%</div>
-                <div style={{display:"flex",flexDirection:"column",gap:"0.65rem"}}>
-                  {result.confidence.breakdown.map((f,i)=>{
-                    const labels = {
-                      "Timeline tightness":"How much buffer is on the critical path",
-                      "Budget pressure":"Whether budget limits your ability to recover",
-                      "Scope vs capacity":"Whether the team has enough people for the work",
-                      "External dependencies":"Tasks that depend on multiple things going right",
-                      "Owner concentration":"Whether one person owns too many critical tasks",
-                      "Plan sequencing":"Whether tasks run in parallel where possible",
-                      "Optimization gaps":"Scheduling improvements that could recover days",
-                    };
-                    const col = f.score<40?C.red:f.score<65?C.amber:C.green;
-                    return (
-                      <div key={i}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.25rem",alignItems:"baseline"}}>
-                          <span style={{fontSize:"0.78rem",color:C.text,fontWeight:500,textTransform:"capitalize"}}>{f.name}</span>
-                          <span style={{fontSize:"0.68rem",color:col,fontFamily:"monospace",flexShrink:0,marginLeft:"0.5rem"}}>{f.score}/100 · {f.weight}% weight</span>
-                        </div>
-                        <div style={{fontSize:"0.7rem",color:C.textDim,marginBottom:"0.3rem"}}>{labels[f.name]||f.name}</div>
-                        <div style={{height:5,background:C.border2,borderRadius:3}}>
-                          <div style={{height:"100%",width:f.score+"%",background:col,borderRadius:3,transition:"width 0.8s ease"}}/>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           )}
+
 
           {/* ══ BOTTLENECKS ══ */}
           {activeNav==="bottlenecks" && (
