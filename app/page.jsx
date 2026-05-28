@@ -11,28 +11,38 @@ const Logo = ({ color = "#3ECB6F", size = 18 }) => (
   </svg>
 );
 
-// ── DEMO TASKS (Northstar Nutrition — matches results page demo) ──────────────
+// ── DEMO TASKS (Northstar Nutrition — realistic cascade risk scenario) ──────────
+// Development is the bottleneck: it's delayed, causing QA and Launch to be at risk.
+// The project has buffer but Development's slip is about to eat it.
 const DEMO_TASKS = [
-  { id:"t0", name:"Strategy & Planning", days:5,  owner:"Marcus",  predecessors:[], concurrent:false, slack:0 },
-  { id:"t1", name:"Content & Copy",      days:8,  owner:"Sarah",   predecessors:["t0"], concurrent:false, slack:0 },
-  { id:"t2", name:"Product Photography", days:6,  owner:"James",   predecessors:["t0"], concurrent:true,  slack:4 },
-  { id:"t3", name:"Design",              days:10, owner:"Marcus",  predecessors:["t1","t2"], concurrent:false, slack:0 },
-  { id:"t4", name:"Klaviyo Setup",       days:4,  owner:"Sarah",   predecessors:["t3"], concurrent:true,  slack:6 },
-  { id:"t5", name:"Development",         days:12, owner:"Dev Team",predecessors:["t3"], concurrent:false, slack:0 },
-  { id:"t6", name:"SEO Setup",           days:4,  owner:"Sarah",   predecessors:["t0"], concurrent:false, slack:8 },
-  { id:"t7", name:"QA & Testing",        days:5,  owner:"Dev Team",predecessors:["t5","t4"], concurrent:false, slack:0 },
-  { id:"t8", name:"Launch",              days:1,  owner:"Marcus",  predecessors:["t7","t6"], concurrent:false, slack:0 },
+  { id:"t0", name:"Strategy & Planning", days:5,  owner:"Marcus",  predecessors:[], concurrent:false },
+  { id:"t1", name:"Content & Copy",      days:8,  owner:"Sarah",   predecessors:["t0"], concurrent:false },
+  { id:"t2", name:"Product Photography", days:6,  owner:"James",   predecessors:["t0"], concurrent:true },
+  { id:"t3", name:"Design",              days:10, owner:"Marcus",  predecessors:["t1","t2"], concurrent:false },
+  { id:"t4", name:"Klaviyo Setup",       days:4,  owner:"Sarah",   predecessors:["t3"], concurrent:true },
+  { id:"t5", name:"Development",         days:12, owner:"Dev Team",predecessors:["t3"], concurrent:false },
+  { id:"t6", name:"SEO Setup",           days:4,  owner:"Sarah",   predecessors:["t0"], concurrent:false },
+  { id:"t7", name:"QA & Testing",        days:5,  owner:"Dev Team",predecessors:["t5","t4"], concurrent:false },
+  { id:"t8", name:"Launch",              days:1,  owner:"Marcus",  predecessors:["t7","t6"], concurrent:false },
 ];
 
-// Override slack for demo — Development is delayed (critical, 0 float, blocked)
+// Demo result: project has 2 days buffer but Development is delayed — cascade risk building
+// Only QA & Testing and Launch are blocked (they directly depend on Development)
+// Strategy, Content, Design, Photography are done or on track — NOT blocked
 const DEMO_RESULT = {
-  bufferDays: -3,
+  bufferDays: 2,  // Still positive — cascade RISK, not yet overrun
   bottleneck: { name: "Development" },
-  tasks: DEMO_TASKS.map(t => ({
-    ...t,
-    es: 0, ef: 0, ls: 0, lf: 0,
-    slack: ["t0","t1","t3","t5","t7","t8"].includes(t.id) ? 0 : t.slack,
-  })),
+  tasks: [
+    { id:"t0", name:"Strategy & Planning", days:5,  owner:"Marcus",  predecessors:[], concurrent:false, es:0,  ef:5,  slack:0  }, // done, critical
+    { id:"t1", name:"Content & Copy",      days:8,  owner:"Sarah",   predecessors:["t0"], concurrent:false, es:5,  ef:13, slack:0  }, // done, critical
+    { id:"t2", name:"Product Photography", days:6,  owner:"James",   predecessors:["t0"], concurrent:true,  es:5,  ef:11, slack:4  }, // on track, has float
+    { id:"t3", name:"Design",              days:10, owner:"Marcus",  predecessors:["t1","t2"], concurrent:false, es:13, ef:23, slack:0  }, // critical
+    { id:"t4", name:"Klaviyo Setup",       days:4,  owner:"Sarah",   predecessors:["t3"], concurrent:true,  es:23, ef:27, slack:6  }, // on track, has float
+    { id:"t5", name:"Development",         days:12, owner:"Dev Team",predecessors:["t3"], concurrent:false, es:23, ef:35, slack:0  }, // BOTTLENECK — critical, at risk
+    { id:"t6", name:"SEO Setup",           days:4,  owner:"Sarah",   predecessors:["t0"], concurrent:false, es:5,  ef:9,  slack:8  }, // on track, has float
+    { id:"t7", name:"QA & Testing",        days:5,  owner:"Dev Team",predecessors:["t5","t4"], concurrent:false, es:35, ef:40, slack:0  }, // blocked by Development
+    { id:"t8", name:"Launch",              days:1,  owner:"Marcus",  predecessors:["t7","t6"], concurrent:false, es:40, ef:41, slack:0  }, // at risk
+  ],
 };
 
 // ── SHARED DEPENDENCY GRAPH CANVAS COMPONENT ─────────────────────────────────
@@ -121,7 +131,7 @@ function DependencyGraph({ tasks, result, height = 340, dark = true }) {
       ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = "rgba(239,68,68,0.75)";
       ctx.font = "700 9px system-ui";
-      ctx.fillText("CASCADE IMPACT ZONE — +5 to 7 days if Development slips", minX + 10, minY + 14);
+      ctx.fillText("CASCADE RISK — Development delay flows into QA & Launch", minX + 10, minY + 14);
     }
 
     // ── EDGES ──
@@ -241,12 +251,12 @@ function DependencyGraph({ tasks, result, height = 340, dark = true }) {
       // Owner
       ctx.fillStyle = dark ? COLORS.textDim : "#9CA3AF";
       ctx.font = "400 8px system-ui";
-      // "Blocked by X" if task is critical and has a critical predecessor
-      const critPredLp = isCrit && t.predecessors.length > 0
-        ? t.predecessors.map(pid => tasks.find(p => p.id === pid)).find(p => p && criticalIds.has(p.id))
-        : null;
-      const ownerLabel = critPredLp
-        ? `Blocked by ${critPredLp.name}`.slice(0, 20)
+      // "Blocked by X" only if predecessor IS the named bottleneck
+      const bottleneckName = result.bottleneck?.name || "";
+      const isBlockedByBottleneck = result.bufferDays < 0 && isCrit
+        && t.predecessors.some(pid => { const p = tasks.find(t => t.id === pid); return p && p.name === bottleneckName; });
+      const ownerLabel = isBlockedByBottleneck
+        ? `Blocked by ${bottleneckName}`.slice(0, 20)
         : (t.owner || "—");
       ctx.fillText(ownerLabel, pos.x + 9, pos.y + 43);
 
@@ -551,8 +561,8 @@ export default function Home() {
               <div>
                 <div style={{ fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#EF4444", marginBottom: "0.5rem" }}>BIGGEST RISK</div>
                 <div style={{ background: dark ? "#160404" : "#FEE2E2", border: "1px solid rgba(239,68,68,0.25)", borderRadius: "10px", padding: "0.85rem" }}>
-                  <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#EF4444", marginBottom: "0.3rem" }}>⚠ Development is 3 days late</div>
-                  <div style={{ fontSize: "0.78rem", lineHeight: 1.6, color: T.textMid }}>Backend QA depends on it. Cascades into Launch with zero float — deadline moves from Jul 22 to Jul 29.</div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#EF4444", marginBottom: "0.3rem" }}>⚠ Development is the critical bottleneck</div>
+                  <div style={{ fontSize: "0.78rem", lineHeight: 1.6, color: T.textMid }}>QA & Testing can't start until it's done. Only 2 days of buffer remain — any slip cascades into Launch.</div>
                 </div>
               </div>
 
@@ -576,8 +586,8 @@ export default function Home() {
               <div>
                 <div style={{ fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: dark ? "#22C55E" : "#16A34A", marginBottom: "0.5rem" }}>PATHFLO RECOMMENDATION</div>
                 <div style={{ background: dark ? "#0D2818" : "#E8F5EE", border: "1px solid " + (dark ? "#1A4A28" : "#C8E8D4"), borderRadius: "10px", padding: "0.85rem" }}>
-                  <div style={{ fontSize: "0.72rem", fontWeight: 700, color: dark ? "#22C55E" : "#16A34A", marginBottom: "0.4rem" }}>+ Move Product Photography earlier</div>
-                  <div style={{ fontSize: "0.78rem", lineHeight: 1.6, color: T.textMid }}>Run concurrently with Design. Recovers 4 days and removes the primary bottleneck at zero additional cost.</div>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 700, color: dark ? "#22C55E" : "#16A34A", marginBottom: "0.4rem" }}>+ Run Product Photography in parallel with Design</div>
+                  <div style={{ fontSize: "0.78rem", lineHeight: 1.6, color: T.textMid }}>They share the same predecessor (Strategy). Running them at the same time recovers 4 days and protects the deadline.</div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.7rem" }}>
                     <div style={{ fontSize: "0.6rem", fontWeight: 600, color: T.textDim, whiteSpace: "nowrap" }}>Confidence</div>
                     <div style={{ flex: 1, height: 4, borderRadius: 2, background: T.border2, overflow: "hidden" }}>
