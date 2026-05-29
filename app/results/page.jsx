@@ -1,4 +1,4 @@
-"use client";
+l"use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -406,16 +406,19 @@ function CascadeSimulator({ tasks, result, simulatorTaskId, onTaskChange, startD
   );
 }
 
-// ── DEPENDENCY GRAPH — P1-1 INTERACTIVE ──────────────────────────────────────
-function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
-  const canvasRef = useRef(null);
-  const nodePositionsRef = useRef({});
-  const hoveredRef = useRef(null);
-  const selectedRef = useRef(null);
 
-  // Build node positions — extracted so both draw + hit-test can use
-  const buildLayout = useCallback((W, H) => {
-    const nodeW = 110, nodeH = 46, padX = 60;
+// ── SVG DEPENDENCY GRAPH — drop-in replacement for canvas version ─────────────
+// Pure SVG: pixel-perfect on all screens, native touch, no DPR math
+function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [hoveredId, setHoveredId] = useState(null);
+  const containerRef = useRef(null);
+
+  // ── LAYOUT ENGINE ────────────────────────────────────────────────────────────
+  const layout = useMemo(() => {
+    if (!tasks.length || !result) return { positions: {}, W: 600, H: 300, levels: {} };
+
+    // Assign column levels via topological sort
     const levels = {};
     function assignLevel(id, lvl) {
       if (levels[id] !== undefined && levels[id] >= lvl) return;
@@ -425,338 +428,403 @@ function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
     tasks.filter(t => t.predecessors.length === 0).forEach(t => assignLevel(t.id, 0));
     tasks.forEach(t => { if (levels[t.id] === undefined) assignLevel(t.id, 0); });
 
-    const maxLevel = Math.max(...Object.values(levels), 0);
-    const levelGroups = {};
+    // Group by level
+    const byLevel = {};
     tasks.forEach(t => {
-      const lvl = levels[t.id] || 0;
-      if (!levelGroups[lvl]) levelGroups[lvl] = [];
-      levelGroups[lvl].push(t);
+      const l = levels[t.id] || 0;
+      if (!byLevel[l]) byLevel[l] = [];
+      byLevel[l].push(t);
     });
 
-    const totalLevels = maxLevel + 1;
-    const colW = Math.max(nodeW + padX, (W - 40) / totalLevels);
+    const maxLevel = Math.max(...Object.values(levels), 0);
+    const numCols = maxLevel + 1;
+    const maxInCol = Math.max(...Object.values(byLevel).map(g => g.length), 1);
+
+    // Node dimensions
+    const NW = 124, NH = 52, GAP_X = 72, GAP_Y = 20;
+    const colW = NW + GAP_X;
+    const W = Math.max(numCols * colW + GAP_X, 400);
+    const H = Math.max(maxInCol * (NH + GAP_Y) + 80, 200);
+
+    // Position each node centered in its column
     const positions = {};
-    Object.entries(levelGroups).forEach(([lvl, group]) => {
-      const x = 20 + lvl * colW + colW / 2 - nodeW / 2;
-      const totalH = group.length * (nodeH + 16) - 16;
+    Object.entries(byLevel).forEach(([lvl, group]) => {
+      const x = GAP_X / 2 + parseInt(lvl) * colW;
+      const totalH = group.length * (NH + GAP_Y) - GAP_Y;
       const startY = (H - totalH) / 2;
       group.forEach((t, i) => {
-        positions[t.id] = { x, y: Math.max(28, startY) + i * (nodeH + 16), w: nodeW, h: nodeH };
-      });
-    });
-    return positions;
-  }, [tasks]);
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !result || !tasks.length) return;
-    const dpr = window.devicePixelRatio || 1;
-    const containerW = canvas.parentElement.clientWidth || 700;
-    // On mobile, use minimum width so nodes don't crunch — allow horizontal scroll
-    const minW = Math.max(containerW, tasks.length * 130 + 80);
-    const W = minW;
-    const H = 420;
-    canvas.style.width = W + "px";
-    canvas.style.height = H + "px";
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, W, H);
-
-    const byId = {};
-    result.tasks.forEach(t => { byId[t.id] = t; });
-
-    const positions = buildLayout(W, H);
-    nodePositionsRef.current = positions;
-
-    const criticalIds = new Set(result.tasks.filter(t => t.slack === 0).map(t => t.id));
-    const hoveredId = hoveredRef.current;
-    const selectedId = selectedRef.current;
-
-    // Connected node sets for hover highlight
-    const upstreamOf = (id) => {
-      const set = new Set();
-      function walk(tid) {
-        const t = tasks.find(t => t.id === tid);
-        if (!t) return;
-        t.predecessors.forEach(pid => { if (!set.has(pid)) { set.add(pid); walk(pid); } });
-      }
-      walk(id);
-      return set;
-    };
-    const downstreamOf = (id) => {
-      const set = new Set();
-      function walk(tid) {
-        tasks.filter(t => t.predecessors.includes(tid)).forEach(t => {
-          if (!set.has(t.id)) { set.add(t.id); walk(t.id); }
-        });
-      }
-      walk(id);
-      return set;
-    };
-
-    const focusId = hoveredId || selectedId;
-    const upstream = focusId ? upstreamOf(focusId) : new Set();
-    const downstream = focusId ? downstreamOf(focusId) : new Set();
-    const connected = new Set([...upstream, ...downstream]);
-
-    // Cascade zone
-    const cascadeNodes = [...criticalIds].map(id => positions[id]).filter(Boolean);
-    if (cascadeNodes.length > 2) {
-      const minX = Math.min(...cascadeNodes.map(n => n.x)) - 12;
-      const minY = Math.min(...cascadeNodes.map(n => n.y)) - 12;
-      const maxX = Math.max(...cascadeNodes.map(n => n.x + 110)) + 12;
-      const maxY = Math.max(...cascadeNodes.map(n => n.y + 46)) + 12;
-      ctx.fillStyle = "rgba(239,68,68,0.04)";
-      ctx.strokeStyle = "rgba(239,68,68,0.35)";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([6, 4]);
-      ctx.beginPath();
-      ctx.roundRect(minX, minY, maxX - minX, maxY - minY, 12);
-      ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = "rgba(239,68,68,0.7)";
-      ctx.font = "700 9px system-ui";
-      ctx.fillText("CASCADE IMPACT ZONE", minX + 8, minY + 14);
-    }
-
-    // Draw edges
-    tasks.forEach(t => {
-      t.predecessors.forEach(pid => {
-        const from = positions[pid];
-        const to = positions[t.id];
-        if (!from || !to) return;
-        const isCritEdge = criticalIds.has(pid) && criticalIds.has(t.id);
-        const isConnectedEdge = focusId && (
-          (pid === focusId || t.id === focusId) ||
-          (upstream.has(pid) && upstream.has(t.id)) ||
-          (downstream.has(pid) && downstream.has(t.id)) ||
-          (upstream.has(pid) && t.id === focusId) ||
-          (pid === focusId && downstream.has(t.id))
-        );
-        const dimmed = focusId && !isConnectedEdge;
-
-        ctx.strokeStyle = dimmed
-          ? "rgba(72,79,88,0.15)"
-          : isConnectedEdge
-            ? (isCritEdge ? "rgba(239,68,68,0.9)" : "rgba(124,58,237,0.7)")
-            : (isCritEdge ? "rgba(239,68,68,0.5)" : "rgba(139,148,158,0.3)");
-        ctx.lineWidth = isConnectedEdge ? 2.5 : (isCritEdge ? 2 : 1.5);
-        ctx.setLineDash(t.concurrent ? [5, 4] : []);
-
-        const fx = from.x + 110, fy = from.y + 23;
-        const tx2 = to.x, ty = to.y + 23;
-        const cp = (tx2 - fx) * 0.45;
-        ctx.beginPath();
-        ctx.moveTo(fx, fy);
-        ctx.bezierCurveTo(fx + cp, fy, tx2 - cp, ty, tx2, ty);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Arrowhead
-        const ang = Math.atan2(ty - fy, tx2 - fx);
-        ctx.fillStyle = dimmed
-          ? "rgba(72,79,88,0.15)"
-          : isConnectedEdge
-            ? (isCritEdge ? "rgba(239,68,68,0.9)" : "rgba(124,58,237,0.7)")
-            : (isCritEdge ? "rgba(239,68,68,0.7)" : "rgba(139,148,158,0.4)");
-        ctx.beginPath();
-        ctx.moveTo(tx2, ty);
-        ctx.lineTo(tx2 - 8 * Math.cos(ang - 0.35), ty - 8 * Math.sin(ang - 0.35));
-        ctx.lineTo(tx2 - 8 * Math.cos(ang + 0.35), ty - 8 * Math.sin(ang + 0.35));
-        ctx.closePath(); ctx.fill();
+        positions[t.id] = {
+          x, y: Math.max(36, startY + i * (NH + GAP_Y)),
+          cx: x + NW / 2, cy: Math.max(36, startY + i * (NH + GAP_Y)) + NH / 2,
+          w: NW, h: NH,
+        };
       });
     });
 
-    // Draw nodes
-    tasks.forEach(t => {
-      const pos = positions[t.id];
-      if (!pos) return;
-      const task = result.tasks.find(rt => rt.id === t.id);
-      const isCrit = task?.slack === 0;
-      const isBottleneck = task && result.bottleneck?.name === t.name;
-      const isHovered = t.id === hoveredId;
-      const isSelected = t.id === selectedId;
-      const isUpstream = upstream.has(t.id);
-      const isDownstream = downstream.has(t.id);
-      const dimmed = focusId && t.id !== focusId && !connected.has(t.id);
+    return { positions, W, H, levels };
+  }, [tasks, result]);
 
-      let bg, border, textColor;
-      if (t.id === simulatorTaskId) {
-        bg = "rgba(245,158,11,0.2)"; border = C.amber; textColor = C.amber;
-      } else if (isSelected) {
-        bg = "rgba(124,58,237,0.25)"; border = C.purple; textColor = C.purpleLight;
-      } else if (isUpstream) {
-        bg = "rgba(59,130,246,0.15)"; border = "rgba(59,130,246,0.8)"; textColor = C.blue;
-      } else if (isDownstream) {
-        bg = "rgba(239,68,68,0.12)"; border = "rgba(239,68,68,0.6)"; textColor = "#F87171";
-      } else if (isCrit && result.bufferDays < 0) {
-        bg = "rgba(239,68,68,0.15)"; border = C.red; textColor = C.red;
-      } else if (isCrit) {
-        bg = "rgba(239,68,68,0.1)"; border = "rgba(239,68,68,0.7)"; textColor = "#F87171";
-      } else if (t.concurrent) {
-        bg = "rgba(34,197,94,0.08)"; border = "rgba(34,197,94,0.4)"; textColor = C.green;
-      } else {
-        bg = "rgba(28,33,40,0.8)"; border = C.border; textColor = C.textMid;
-      }
+  // ── DERIVED STATE ─────────────────────────────────────────────────────────────
+  const focusId = hoveredId || selectedId;
 
-      if (dimmed) { bg = "rgba(22,27,34,0.4)"; border = "rgba(48,54,61,0.3)"; textColor = C.textDim; }
-
-      if (isBottleneck && !dimmed) { ctx.shadowColor = C.amber; ctx.shadowBlur = 12; }
-      if (isHovered && !isSelected) { ctx.shadowColor = C.purple; ctx.shadowBlur = 10; }
-
-      ctx.fillStyle = bg;
-      ctx.strokeStyle = border;
-      ctx.lineWidth = (isSelected || isHovered) ? 2.5 : (isCrit ? 2 : 1);
-      ctx.beginPath();
-      ctx.roundRect(pos.x, pos.y, 110, 46, 8);
-      ctx.fill(); ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // Selected ring
-      if (isSelected) {
-        ctx.strokeStyle = C.purple;
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.4;
-        ctx.beginPath();
-        ctx.roundRect(pos.x - 3, pos.y - 3, 116, 52, 11);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
-
-      ctx.fillStyle = dimmed ? C.textDim : textColor;
-      ctx.font = `${(isCrit || isSelected) ? "700" : "500"} 10px system-ui`;
-      ctx.textAlign = "left";
-      const name = t.name.length > 14 ? t.name.slice(0, 13) + "…" : t.name;
-      ctx.fillText(name, pos.x + 8, pos.y + 17);
-
-      ctx.fillStyle = dimmed ? "#3a3f46" : C.textDim;
-      ctx.font = "400 9px system-ui";
-      // Show "Blocked by X" only if this task is critical AND has a critical predecessor
-      const critPred = isCrit && t.predecessors.length > 0
-        ? t.predecessors.map(pid => tasks.find(p => p.id === pid)).find(p => p && criticalIds.has(p.id))
-        : null;
-      const subLabel = critPred
-        ? `Blocked by ${critPred.name}`.slice(0, 20)
-        : `${t.days}d · ${t.owner || "?"}`.slice(0, 18);
-      ctx.fillText(subLabel, pos.x + 8, pos.y + 30);
-
-      const dot = isCrit ? C.red : C.green;
-      ctx.fillStyle = dimmed ? "#3a3f46" : dot;
-      ctx.beginPath();
-      ctx.arc(pos.x + 100, pos.y + 10, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (task?.slack > 0 && !dimmed) {
-        ctx.fillStyle = "rgba(34,197,94,0.2)";
-        ctx.beginPath();
-        ctx.roundRect(pos.x + 82, pos.y + 32, 22, 10, 3);
-        ctx.fill();
-        ctx.fillStyle = C.green;
-        ctx.font = "600 7.5px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText(`+${task.slack}d`, pos.x + 93, pos.y + 40);
-      }
-      ctx.textAlign = "left";
-    });
-
-    // Legend
-    const legend = [
-      { color: C.red, label: "Critical" },
-      { color: C.green, label: "On Track" },
-      { color: C.amber, label: "Bottleneck" },
-      { color: C.blue, label: "Upstream" },
-      { color: C.purple, label: "Selected" },
-    ];
-    legend.forEach((l, i) => {
-      const lx = 12 + i * 90, ly = H - 14;
-      ctx.fillStyle = l.color;
-      ctx.beginPath();
-      ctx.arc(lx + 5, ly + 3, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = C.textDim;
-      ctx.font = "400 9px system-ui";
-      ctx.fillText(l.label, lx + 14, ly + 6);
-    });
-
-    // Click hint if nothing selected
-    if (!selectedId) {
-      ctx.fillStyle = "rgba(139,148,158,0.4)";
-      ctx.font = "400 9px system-ui";
-      ctx.textAlign = "right";
-      ctx.fillText("Click any node for details", W - 12, H - 12);
-      ctx.textAlign = "left";
+  const upstream = useMemo(() => {
+    if (!focusId) return new Set();
+    const set = new Set();
+    function walk(id) {
+      const t = tasks.find(t => t.id === id);
+      if (!t) return;
+      t.predecessors.forEach(pid => { if (!set.has(pid)) { set.add(pid); walk(pid); } });
     }
-  }, [tasks, result, buildLayout]);
+    walk(focusId);
+    return set;
+  }, [focusId, tasks]);
 
-  useEffect(() => { draw(); }, [draw]);
-  useEffect(() => {
-    const h = () => draw();
-    window.addEventListener("resize", h);
-    return () => window.removeEventListener("resize", h);
-  }, [draw]);
-
-  // Hit test
-  const hitTest = useCallback((clientX, clientY) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    const positions = nodePositionsRef.current;
-    for (const [id, pos] of Object.entries(positions)) {
-      if (x >= pos.x && x <= pos.x + 110 && y >= pos.y && y <= pos.y + 46) {
-        return id;
-      }
+  const downstream = useMemo(() => {
+    if (!focusId) return new Set();
+    const set = new Set();
+    function walk(id) {
+      tasks.filter(t => t.predecessors.includes(id)).forEach(t => {
+        if (!set.has(t.id)) { set.add(t.id); walk(t.id); }
+      });
     }
-    return null;
-  }, []);
+    walk(focusId);
+    return set;
+  }, [focusId, tasks]);
 
-  const handleMouseMove = useCallback((e) => {
-    const id = hitTest(e.clientX, e.clientY);
-    if (id !== hoveredRef.current) {
-      hoveredRef.current = id;
-      canvasRef.current.style.cursor = id ? "pointer" : "default";
-      draw();
-    }
-  }, [hitTest, draw]);
+  const criticalIds = useMemo(() =>
+    new Set(result?.tasks?.filter(t => t.slack === 0).map(t => t.id) || [])
+  , [result]);
 
-  const handleMouseLeave = useCallback(() => {
-    if (hoveredRef.current !== null) {
-      hoveredRef.current = null;
-      draw();
-    }
-  }, [draw]);
+  const bottleneckName = result?.bottleneck?.name || "";
 
-  const handleClick = useCallback((e) => {
-    const id = hitTest(e.clientX, e.clientY);
-    if (id === selectedRef.current) {
-      // Deselect on second click
-      selectedRef.current = null;
-      onNodeClick && onNodeClick(null);
-    } else {
-      selectedRef.current = id;
-      onNodeClick && onNodeClick(id);
-    }
-    draw();
-  }, [hitTest, draw, onNodeClick]);
+  // ── NODE CLICK / TAP ──────────────────────────────────────────────────────────
+  function handleNodeClick(id) {
+    const next = id === selectedId ? null : id;
+    setSelectedId(next);
+    onNodeClick && onNodeClick(next);
+  }
+
+  // ── EDGE PATH ─────────────────────────────────────────────────────────────────
+  function edgePath(from, to) {
+    const fx = from.x + from.w;
+    const fy = from.cy;
+    const tx = to.x;
+    const ty = to.cy;
+    const cp = (tx - fx) * 0.5;
+    return `M ${fx} ${fy} C ${fx + cp} ${fy}, ${tx - cp} ${ty}, ${tx} ${ty}`;
+  }
+
+  // ── CASCADE ZONE RECT ─────────────────────────────────────────────────────────
+  const cascadeRect = useMemo(() => {
+    if (!result || criticalIds.size < 2) return null;
+    const pts = [...criticalIds].map(id => layout.positions[id]).filter(Boolean);
+    if (pts.length < 2) return null;
+    const pad = 14;
+    const minX = Math.min(...pts.map(p => p.x)) - pad;
+    const minY = Math.min(...pts.map(p => p.y)) - pad;
+    const maxX = Math.max(...pts.map(p => p.x + p.w)) + pad;
+    const maxY = Math.max(...pts.map(p => p.y + p.h)) + pad;
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }, [criticalIds, layout.positions, result]);
+
+  if (!tasks.length || !result) return null;
+
+  const { positions, W, H } = layout;
+  const connected = new Set([...upstream, ...downstream]);
 
   return (
-    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-      <canvas
-        ref={canvasRef}
-        style={{ display: "block" }}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        onClick={handleClick}
-        onTouchEnd={(e) => {
-          const touch = e.changedTouches[0];
-          if (touch) handleClick({ clientX: touch.clientX, clientY: touch.clientY });
-        }}
-      />
+    <div
+      ref={containerRef}
+      style={{ overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", width: "100%", cursor: "grab" }}
+    >
+      <svg
+        width={W}
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ display: "block", minWidth: W }}
+      >
+        <defs>
+          {/* Arrowhead markers */}
+          <marker id="arrow-crit" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(239,68,68,0.85)" />
+          </marker>
+          <marker id="arrow-dim" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(72,79,88,0.25)" />
+          </marker>
+          <marker id="arrow-focus" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(124,58,237,0.9)" />
+          </marker>
+          <marker id="arrow-up" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(59,130,246,0.9)" />
+          </marker>
+          <marker id="arrow-down" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(239,68,68,0.7)" />
+          </marker>
+          <marker id="arrow-norm" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(139,148,158,0.5)" />
+          </marker>
+          {/* Glow filter for selected/simulator nodes */}
+          <filter id="glow-amber" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glow-purple" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          {/* Node clip for rounded rect text */}
+          {tasks.map(t => positions[t.id] && (
+            <clipPath key={`clip-${t.id}`} id={`clip-${t.id}`}>
+              <rect x={positions[t.id].x} y={positions[t.id].y} width={positions[t.id].w} height={positions[t.id].h} rx="9" />
+            </clipPath>
+          ))}
+        </defs>
+
+        {/* ── CASCADE IMPACT ZONE ── */}
+        {cascadeRect && (
+          <g>
+            <rect
+              x={cascadeRect.x} y={cascadeRect.y}
+              width={cascadeRect.w} height={cascadeRect.h}
+              rx="12" fill="rgba(239,68,68,0.035)"
+              stroke="rgba(239,68,68,0.3)" strokeWidth="1"
+              strokeDasharray="6 4"
+            />
+            <text
+              x={cascadeRect.x + 10} y={cascadeRect.y + 14}
+              fontSize="8" fontFamily="system-ui" fontWeight="700"
+              fill="rgba(239,68,68,0.6)" letterSpacing="0.08em"
+            >CASCADE IMPACT ZONE</text>
+          </g>
+        )}
+
+        {/* ── EDGES ── */}
+        {tasks.map(t =>
+          t.predecessors.map(pid => {
+            const from = positions[pid];
+            const to = positions[t.id];
+            if (!from || !to) return null;
+
+            const isCritEdge = criticalIds.has(pid) && criticalIds.has(t.id);
+            const isUpEdge = focusId && (upstream.has(pid) && (upstream.has(t.id) || t.id === focusId));
+            const isDownEdge = focusId && (downstream.has(t.id) && (downstream.has(pid) || pid === focusId));
+            const isFocusEdge = focusId && (pid === focusId || t.id === focusId);
+            const isDimmed = focusId && !isUpEdge && !isDownEdge && !isFocusEdge;
+
+            let stroke, strokeW, marker, dashArray;
+
+            if (isDimmed) {
+              stroke = "rgba(72,79,88,0.18)"; strokeW = 1.5; marker = "url(#arrow-dim)"; dashArray = "none";
+            } else if (isUpEdge) {
+              stroke = "rgba(59,130,246,0.85)"; strokeW = 2.5; marker = "url(#arrow-up)"; dashArray = "none";
+            } else if (isDownEdge || isFocusEdge) {
+              stroke = isCritEdge ? "rgba(239,68,68,0.9)" : "rgba(124,58,237,0.8)";
+              strokeW = 2.5; marker = isCritEdge ? "url(#arrow-crit)" : "url(#arrow-focus)";
+              dashArray = "none";
+            } else if (isCritEdge) {
+              stroke = "rgba(239,68,68,0.6)"; strokeW = 2; marker = "url(#arrow-crit)";
+              dashArray = "none";
+            } else {
+              stroke = "rgba(139,148,158,0.3)"; strokeW = 1.5; marker = "url(#arrow-norm)";
+              dashArray = t.concurrent ? "5 4" : "none";
+            }
+
+            return (
+              <path
+                key={`${pid}-${t.id}`}
+                d={edgePath(from, to)}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={strokeW}
+                strokeDasharray={dashArray}
+                markerEnd={marker}
+                style={{ transition: "stroke 0.2s, stroke-width 0.2s" }}
+              />
+            );
+          })
+        )}
+
+        {/* ── NODES ── */}
+        {tasks.map(t => {
+          const pos = positions[t.id];
+          if (!pos) return null;
+
+          const rt = result.tasks.find(r => r.id === t.id);
+          const isCrit = criticalIds.has(t.id);
+          const isSelected = t.id === selectedId;
+          const isHovered = t.id === hoveredId;
+          const isSimulator = t.id === simulatorTaskId;
+          const isUpstream = upstream.has(t.id);
+          const isDownstream = downstream.has(t.id);
+          const isDimmed = focusId && t.id !== focusId && !connected.has(t.id);
+          const isBottleneck = bottleneckName && t.name === bottleneckName;
+
+          // Blocked by label logic
+          const showBlockedBy = result.bufferDays < 0 && isCrit
+            && t.predecessors.some(pid => {
+              const p = tasks.find(tt => tt.id === pid);
+              return p && p.name === bottleneckName;
+            });
+
+          // Colors
+          let fill, stroke, strokeW, textColor, subColor, dotColor;
+          const opacity = isDimmed ? 0.28 : 1;
+
+          if (isSimulator) {
+            fill = "rgba(245,158,11,0.18)"; stroke = "#F59E0B"; strokeW = 2.5;
+            textColor = "#F59E0B"; subColor = "#F59E0B"; dotColor = "#F59E0B";
+          } else if (isSelected) {
+            fill = "rgba(124,58,237,0.2)"; stroke = "#7C3AED"; strokeW = 2.5;
+            textColor = "#A78BFA"; subColor = "#8B949E"; dotColor = "#7C3AED";
+          } else if (isUpstream) {
+            fill = "rgba(59,130,246,0.12)"; stroke = "rgba(59,130,246,0.85)"; strokeW = 2;
+            textColor = "#60A5FA"; subColor = "#8B949E"; dotColor = "#3B82F6";
+          } else if (isDownstream) {
+            fill = "rgba(239,68,68,0.1)"; stroke = "rgba(239,68,68,0.6)"; strokeW = 2;
+            textColor = "#F87171"; subColor = "#8B949E"; dotColor = "#EF4444";
+          } else if (isCrit) {
+            fill = result.bufferDays < 0 ? "rgba(239,68,68,0.14)" : "rgba(239,68,68,0.09)";
+            stroke = result.bufferDays < 0 ? "#EF4444" : "rgba(239,68,68,0.7)";
+            strokeW = 2; textColor = "#F87171"; subColor = "#8B949E"; dotColor = "#EF4444";
+          } else {
+            fill = "rgba(22,27,34,0.85)"; stroke = "#30363D"; strokeW = 1.5;
+            textColor = "#8B949E"; subColor = "#484F58"; dotColor = "#22C55E";
+          }
+
+          // Glow filter
+          const filterAttr = isSimulator ? "url(#glow-amber)" : isSelected ? "url(#glow-purple)" : undefined;
+
+          // Sub-label
+          const subLabel = showBlockedBy
+            ? `Blocked by ${bottleneckName}`.slice(0, 20)
+            : `${t.days}d · ${(t.owner === "UNASSIGNED" ? "Unassigned" : t.owner) || "?"}`.slice(0, 18);
+
+          // Float badge
+          const floatDays = rt?.slack || 0;
+
+          return (
+            <g
+              key={t.id}
+              style={{ cursor: "pointer", opacity, transition: "opacity 0.2s" }}
+              onClick={() => handleNodeClick(t.id)}
+              onMouseEnter={() => setHoveredId(t.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              filter={filterAttr}
+            >
+              {/* Selection ring */}
+              {(isSelected || isSimulator) && (
+                <rect
+                  x={pos.x - 4} y={pos.y - 4}
+                  width={pos.w + 8} height={pos.h + 8}
+                  rx="13" fill="none"
+                  stroke={isSimulator ? "rgba(245,158,11,0.35)" : "rgba(124,58,237,0.3)"}
+                  strokeWidth="2"
+                />
+              )}
+
+              {/* Node body */}
+              <rect
+                x={pos.x} y={pos.y}
+                width={pos.w} height={pos.h}
+                rx="9"
+                fill={fill}
+                stroke={stroke}
+                strokeWidth={strokeW}
+                style={{ transition: "fill 0.2s, stroke 0.2s" }}
+              />
+
+              {/* Top accent bar for critical nodes */}
+              {isCrit && !isDimmed && (
+                <rect
+                  x={pos.x + 1} y={pos.y + 1}
+                  width={pos.w - 2} height="2"
+                  rx="1" fill={dotColor} opacity="0.6"
+                />
+              )}
+
+              {/* Task name */}
+              <text
+                x={pos.x + 10} y={pos.y + 19}
+                fontSize="10.5" fontFamily="system-ui" fontWeight={isCrit || isSelected ? "700" : "500"}
+                fill={isDimmed ? "#484F58" : textColor}
+                style={{ transition: "fill 0.2s" }}
+              >
+                {t.name.length > 14 ? t.name.slice(0, 13) + "…" : t.name}
+              </text>
+
+              {/* Sub-label */}
+              <text
+                x={pos.x + 10} y={pos.y + 34}
+                fontSize="9" fontFamily="system-ui" fontWeight="400"
+                fill={isDimmed ? "#333D33" : (showBlockedBy ? "#EF4444" : subColor)}
+                style={{ transition: "fill 0.2s" }}
+              >
+                {subLabel}
+              </text>
+
+              {/* Status dot */}
+              <circle
+                cx={pos.x + pos.w - 12} cy={pos.y + 13}
+                r="4"
+                fill={isDimmed ? "#252D25" : dotColor}
+                style={{ transition: "fill 0.2s" }}
+              />
+
+              {/* Float badge */}
+              {floatDays > 0 && !isDimmed && (
+                <g>
+                  <rect
+                    x={pos.x + pos.w - 30} y={pos.y + pos.h - 14}
+                    width={26} height={11} rx="3"
+                    fill="rgba(34,197,94,0.18)"
+                  />
+                  <text
+                    x={pos.x + pos.w - 17} y={pos.y + pos.h - 5}
+                    fontSize="7.5" fontFamily="system-ui" fontWeight="700"
+                    fill="#22C55E" textAnchor="middle"
+                  >+{floatDays}d</text>
+                </g>
+              )}
+
+              {/* Simulator label */}
+              {isSimulator && (
+                <text
+                  x={pos.cx} y={pos.y + pos.h - 4}
+                  fontSize="7" fontFamily="system-ui" fontWeight="700"
+                  fill="#F59E0B" textAnchor="middle" letterSpacing="0.06em"
+                >SIMULATING</text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* ── LEGEND ── */}
+        {[
+          { color: "#EF4444", label: "Critical" },
+          { color: "#22C55E", label: "On Track" },
+          { color: "#F59E0B", label: "Simulating" },
+          { color: "#3B82F6", label: "Upstream" },
+          { color: "#7C3AED", label: "Selected" },
+        ].map((l, i) => (
+          <g key={i} transform={`translate(${12 + i * 90}, ${H - 14})`}>
+            <circle cx="5" cy="0" r="4" fill={l.color} opacity="0.8" />
+            <text x="13" y="4" fontSize="9" fontFamily="system-ui" fill="#484F58">{l.label}</text>
+          </g>
+        ))}
+
+        {/* ── TAP HINT ── */}
+        {!selectedId && !simulatorTaskId && (
+          <text
+            x={W - 10} y={H - 14}
+            fontSize="9" fontFamily="system-ui" fill="rgba(72,79,88,0.5)"
+            textAnchor="end"
+          >Tap any node for details</text>
+        )}
+      </svg>
     </div>
   );
 }
+
 
 // ── NODE DETAIL PANEL (P1-1) ──────────────────────────────────────────────────
 function NodeDetailPanel({ nodeId, tasks, result, onClose, onSimulate }) {
@@ -1055,7 +1123,7 @@ function ResultsContent() {
   if (!data||!result) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui"}}>
       <div style={{textAlign:"center"}}>
-        <div style={{width:40,height:40,border:"2px solid "+C.purple,borderTopColor:"transparent",borderRadius:"50%",margin:"0 auto 1rem",animation:"spin 0.8s linear infinite"}}/>
+        <div style={{width:40,height:40,border:"2px solid "+C.green,borderTopColor:"transparent",borderRadius:"50%",margin:"0 auto 1rem",animation:"spin 0.8s linear infinite"}}/>
         <div style={{fontSize:"0.9rem"}}>Building your execution intelligence report...</div>
       </div>
     </div>
@@ -1169,7 +1237,14 @@ function ResultsContent() {
             <span style={{color:C.green,fontWeight:700}}>{confScoreOptimized}%</span>
             <span className="topbar-right-label" style={{color:C.textDim,fontSize:"0.7rem"}}>optimized</span>
           </div>
-          <a href="/" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
+          <button onClick={()=>{
+              const reviseData = encodeURIComponent(JSON.stringify({
+                name: data.name, startDate: data.startDate, targetDate: data.targetDate,
+                budget: data.budget, totalBudget: data.totalBudget || "", tasks: data.tasks
+              }));
+              window.location.href = "/app?revise=" + reviseData;
+            }} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
+          <a href="/app" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
         </div>
       </div>
 
