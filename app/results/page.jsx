@@ -293,7 +293,9 @@ function CascadeSimulator({ tasks, result, simulatorTaskId, onTaskChange, startD
   return (
     <div style={{ border: "1px solid " + C.border, borderRadius: 12, overflow: "hidden", marginTop: "1rem" }}>
       <div style={{ background: C.surface, borderBottom: "1px solid " + C.border, padding: "0.85rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-        <div style={{ fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.12em", color: C.amber, textTransform: "uppercase" }}>⚡ Cascade Impact Simulator</div>
+        <div style={{ fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.12em", color: C.amber, textTransform: "uppercase" }}>
+        <Tooltip text="Pick a task and drag the slider to see what happens if it slips. Pathflo recalculates your entire timeline instantly — new finish date, updated confidence, and which tasks get blocked.">⚡ Cascade Impact Simulator ⓘ</Tooltip>
+      </div>
         <div style={{ fontSize: "0.75rem", color: C.textMid }}>What if a task slips? See the full downstream effect instantly.</div>
       </div>
       <div style={{ padding: "1.25rem", background: C.surface }}>
@@ -1094,12 +1096,101 @@ function GanttChart({ tasks, result, startDate }) {
   return <div style={{overflowX:"auto"}}><canvas ref={canvasRef} style={{display:"block"}}/></div>;
 }
 
+
+// ── METRIC TOOLTIP ────────────────────────────────────────────────────────────
+function Tooltip({ text, children }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <span
+        onClick={() => setShow(s => !s)}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        style={{ cursor: "pointer" }}
+      >{children}</span>
+      {show && (
+        <span style={{
+          position: "absolute", bottom: "calc(100% + 6px)", left: "50%",
+          transform: "translateX(-50%)", background: "#1C2128",
+          border: "1px solid #30363D", borderRadius: 8, padding: "0.5rem 0.7rem",
+          fontSize: "0.75rem", color: "#E6EDF3", lineHeight: 1.55,
+          whiteSpace: "nowrap", maxWidth: 240, whiteSpace: "normal",
+          zIndex: 999, pointerEvents: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          animation: "fadeUp 0.15s ease both",
+        }}>{text}</span>
+      )}
+    </span>
+  );
+}
+
+// ── SHARE LINK ────────────────────────────────────────────────────────────────
+function ShareButton({ data, result, confScore }) {
+  const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  function copyLink() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function copyReadout() {
+    const text = [
+      `${data.name} — Pathflo Execution Intelligence Report`,
+      ``,
+      `On-time delivery confidence: ${confScore}%`,
+      `Verdict: ${result.verdict}`,
+      `Projected completion: ${result.projectedDate}`,
+      `Buffer: ${result.bufferDays >= 0 ? result.bufferDays + " days" : "OVERRUN by " + Math.abs(result.bufferDays) + " days"}`,
+      ``,
+      `Critical path: ${result.criticalPath.join(" → ")}`,
+      `Failure probability: ${result.predictiveRisk?.planProb || 0}%`,
+      ``,
+      result.shuffleOps.length > 0
+        ? `Top recommendation: Run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor || result.shuffleOps[0].predecessor}" — recovers ~${result.shuffleOps[0].daysSaved} days at zero cost.`
+        : "No major scheduling improvements identified.",
+      ``,
+      `Powered by Pathflo — pathflo.ai`,
+    ].join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => { setCopied(false); setOpen(false); }, 2000);
+    });
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ background: "transparent", border: "1px solid #30363D", borderRadius: 8, color: "#8B949E", fontFamily: "inherit", fontWeight: 500, fontSize: "0.75rem", padding: "0.4rem 0.75rem", cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "0.35rem" }}
+      >
+        ↗ Share
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#1C2128", border: "1px solid #30363D", borderRadius: 10, padding: "0.5rem", zIndex: 300, minWidth: 200, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
+          <button onClick={copyLink} style={{ width: "100%", background: "transparent", border: "none", color: "#E6EDF3", fontFamily: "inherit", fontSize: "0.82rem", padding: "0.55rem 0.75rem", cursor: "pointer", textAlign: "left", borderRadius: 6, display: "flex", alignItems: "center", gap: "0.5rem" }}
+            onMouseEnter={e => e.target.style.background = "#21262D"} onMouseLeave={e => e.target.style.background = "transparent"}>
+            🔗 Copy report link
+          </button>
+          <button onClick={copyReadout} style={{ width: "100%", background: "transparent", border: "none", color: "#E6EDF3", fontFamily: "inherit", fontSize: "0.82rem", padding: "0.55rem 0.75rem", cursor: "pointer", textAlign: "left", borderRadius: 6, display: "flex", alignItems: "center", gap: "0.5rem" }}
+            onMouseEnter={e => e.target.style.background = "#21262D"} onMouseLeave={e => e.target.style.background = "transparent"}>
+            📋 Copy text summary
+          </button>
+          {copied && <div style={{ fontSize: "0.72rem", color: "#22C55E", padding: "0.3rem 0.75rem", fontWeight: 600 }}>✓ Copied!</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── RESULTS CONTENT ───────────────────────────────────────────────────────────
 function ResultsContent() {
   const searchParams = useSearchParams();
   const [data, setData] = useState(null);
   const [result, setResult] = useState(null);
-  const [activeNav, setActiveNav] = useState("overview");
+  const [activeNav, setActiveNav] = useState("plan");
   const [aiReadout, setAiReadout] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -1143,6 +1234,7 @@ function ResultsContent() {
     { id:"overview",  label:"Overview",        icon:"⬡" },
     { id:"plan",      label:"Execution Plan",  icon:"◈" },
     { id:"risk",      label:"Risk & Fixes",    icon:"⚠" },
+    { id:"workload",  label:"Workload",         icon:"⊞" },
     { id:"readout",   label:"AI Readout",      icon:"✦" },
   ];
 
@@ -1154,6 +1246,7 @@ function ResultsContent() {
     @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
     @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
     ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
+    .tip-icon{font-size:0.6rem;opacity:0.5;cursor:pointer;user-select:none;vertical-align:middle;margin-left:2px}
     @media(max-width:768px){
       .r-nav{display:none !important}
       .r-hero-grid{grid-template-columns:1fr !important}
@@ -1166,7 +1259,50 @@ function ResultsContent() {
     }
   `;
 
-  const card = (extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
+
+  // ── WORKLOAD INTELLIGENCE ENGINE (P1-3) ──────────────────────────────────────
+  const workloadData = useMemo(() => {
+    if (!result || !data.tasks.length) return null;
+
+    // Group tasks by owner
+    const byOwner = {};
+    data.tasks.forEach(t => {
+      const owner = t.owner === "UNASSIGNED" || !t.owner ? "Unassigned" : t.owner;
+      if (!byOwner[owner]) byOwner[owner] = { name: owner, tasks: [], criticalTasks: [], totalDays: 0, criticalDays: 0 };
+      const rt = result.tasks.find(r => r.id === t.id);
+      byOwner[owner].tasks.push({ ...t, slack: rt?.slack || 0, isCritical: rt?.slack === 0 });
+      byOwner[owner].totalDays += parseInt(t.days) || 0;
+      if (rt?.slack === 0) {
+        byOwner[owner].criticalTasks.push(t.name);
+        byOwner[owner].criticalDays += parseInt(t.days) || 0;
+      }
+    });
+
+    const owners = Object.values(byOwner).sort((a, b) => b.criticalDays - a.criticalDays);
+    const maxDays = Math.max(...owners.map(o => o.totalDays), 1);
+    const totalCritical = result.criticalPath.length;
+
+    // Concentration risk: one owner has >50% of critical tasks
+    const concentrationRisk = owners.find(o => o.criticalTasks.length > totalCritical * 0.5 && totalCritical > 1);
+
+    // Approval bottlenecks: tasks with many dependents
+    const bottlenecks = result.tasks
+      .map(rt => {
+        const dependents = data.tasks.filter(t => t.predecessors.includes(rt.id)).length;
+        const task = data.tasks.find(t => t.id === rt.id);
+        return { ...rt, name: task?.name || rt.name, owner: task?.owner || "Unassigned", dependents };
+      })
+      .filter(t => t.dependents >= 2 && t.slack === 0)
+      .sort((a, b) => b.dependents - a.dependents)
+      .slice(0, 3);
+
+    // Sequential overload: owner has 3+ sequential critical tasks
+    const sequentialRisk = owners.filter(o => o.criticalTasks.length >= 3);
+
+    return { owners, maxDays, concentrationRisk, bottlenecks, sequentialRisk, totalCritical };
+  }, [result, data]);
+
+  const card =(extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
   const label = (color=C.purple) => ({fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color,marginBottom:"0.4rem"});
   const verdColor = result.verdict==="ON TRACK" ? C.green : result.verdict==="AT RISK" ? C.amber : C.red;
 
@@ -1222,6 +1358,7 @@ function ResultsContent() {
             <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
             <span>if optimized</span>
           </div>
+          <ShareButton data={data} result={result} confScore={confScore} />
           <button onClick={()=>{const rd=encodeURIComponent(JSON.stringify({name:data.name,startDate:data.startDate,targetDate:data.targetDate,budget:data.budget,totalBudget:data.totalBudget||"",tasks:data.tasks}));window.location.href="/app?revise="+rd;}} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
           <a href="/app" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
         </div>
@@ -1266,7 +1403,11 @@ function ResultsContent() {
                 {/* Top row: confidence + verdict */}
                 <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:"0.75rem",marginBottom:"1rem"}}>
                   <div>
-                    <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>ON-TIME DELIVERY CONFIDENCE</div>
+                    <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>
+                    <Tooltip text="The probability your project will finish by the deadline. Left number = current plan. Right number = after applying Pathflo's recommendations.">
+                      ON-TIME DELIVERY CONFIDENCE ⓘ
+                    </Tooltip>
+                  </div>
                     <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem"}}>
                       <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:verdColor,lineHeight:1}}>{confScore}</span>
                       <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
@@ -1296,7 +1437,7 @@ function ResultsContent() {
                   {[
                     {label:"Biggest Risk",val:result.bottleneck?.name||result.criticalPath[0]||"—",color:C.red},
                     {label:"Recommended Fix",val:result.shuffleOps[0]?`Run "${result.shuffleOps[0].task}" in parallel — saves ~${result.shuffleOps[0].daysSaved}d`:"Validate critical path owners",color:C.green,nav:"risk"},
-                    {label:"Failure Probability",val:(result.predictiveRisk?.planProb||0)+"%",color:result.predictiveRisk?.planBand||C.amber},
+                    {label:"Failure Probability",val:(result.predictiveRisk?.planProb||0)+"%",color:result.predictiveRisk?.planBand||C.amber,tip:"Pathflo's estimate of the chance your project misses the deadline without any changes. Driven by critical path length, owner concentration, and buffer."},
                   ].map((s,i)=>(
                     <div key={i} style={{background:C.surface2,borderRadius:8,padding:"0.65rem 0.75rem"}}>
                       <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.2rem"}}>{s.label}</div>
@@ -1353,13 +1494,15 @@ function ResultsContent() {
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(80px,1fr))",gap:"0.5rem",textAlign:"center"}}>
                   {[
                     {label:"TASKS",val:result.totalTasks,nav:"plan"},
-                    {label:"CRITICAL",val:result.criticalPath.length,color:C.red,nav:"plan"},
+                    {label:"CRITICAL PATH",val:result.criticalPath.length,color:C.red,nav:"plan",tip:"Tasks with zero buffer. If any one of these slips, your deadline moves. Tap to see them."},
                     {label:"TEAM",val:result.teamSize},
                     {label:"BUFFER",val:result.bufferDays>=0?result.bufferDays+"d":"Over",color:result.bufferDays>=0?C.green:C.red,nav:"risk"},
                     {label:"DEPS",val:data.tasks.filter(t=>t.predecessors.length>0).length,nav:"plan"},
                   ].map((s,i)=>(
                     <div key={i} onClick={s.nav?()=>setActiveNav(s.nav):undefined} style={{cursor:s.nav?"pointer":"default"}}>
-                      <div style={{fontSize:"0.52rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.2rem"}}>{s.label}</div>
+                      <div style={{fontSize:"0.52rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.2rem"}}>
+                        {s.tip ? <Tooltip text={s.tip}>{s.label} ⓘ</Tooltip> : s.label}
+                      </div>
                       <div style={{fontSize:"1rem",fontWeight:700,color:s.color||C.text}}>{s.val}</div>
                     </div>
                   ))}
@@ -1548,13 +1691,13 @@ function ResultsContent() {
                 const opScore = Math.round((sScore+oScore)/2);
 
                 const pillars = [
-                  { n:"01", title:"Will it finish on time?", color:C.blue, score:tScore,
+                  { n:"01", title:"Will it finish on time?", tip:"Based on how many buffer days are between your critical path and your deadline. More buffer = more room to absorb slips.", color:C.blue, score:tScore,
                     answer: buf>=7?`${buf} days of buffer on the critical path. Schedule has breathing room.`:buf>=3?`Only ${buf} days of buffer. One slip and the deadline moves.`:buf>=0?`Dangerously thin — ${buf} day${buf!==1?"s":""} of buffer remaining.`:`${Math.abs(buf)} days past your deadline. Plan needs compression.`,
                     fix: result.shuffleOps[0]?`Run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" — recovers ~${result.shuffleOps[0].daysSaved}d`:"Protect critical path from scope additions." },
-                  { n:"02", title:"Can your team handle this?", color:C.purple, score:rScore,
+                  { n:"02", title:"Can your team handle this?", tip:"Based on how ownership is distributed across critical tasks. If one person owns most of the critical work, that's a single point of failure.", color:C.purple, score:rScore,
                     answer: result.teamSize<=1?`Solo project — you own all ${result.totalTasks} tasks. Time-box critical path tasks and build in personal buffer.`:rScore>=70?`Work is distributed across ${result.teamSize} people. No single point of failure.`:rScore>=45?`Some team members carry multiple critical tasks. If they fall behind, it delays everything after them.`:`High concentration risk. One or two people own most of the critical work.`,
                     fix: result.teamSize<=1?`${result.criticalPath.length} tasks on the critical path. Build a 10–15% personal buffer on each.`:`Confirm each critical path owner has the capacity to deliver on schedule.` },
-                  { n:"03", title:"Is the plan efficient?", color:C.green, score:opScore,
+                  { n:"03", title:"Is the plan efficient?", tip:"Based on whether tasks that could run in parallel are currently running back-to-back. Inefficiency here = free days left on the table.", color:C.green, score:opScore,
                     answer: result.shuffleOps.length>0?`${result.shuffleOps.length} task${result.shuffleOps.length!==1?"s":""} running back-to-back that could run at the same time. That's ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days left on the table.`:`Plan is well-sequenced. No obvious scheduling improvements found.`,
                     fix: result.shuffleOps.length>0?result.shuffleOps[0].reason:"Monitor for scope creep on critical path tasks." },
                 ];
@@ -1567,7 +1710,9 @@ function ResultsContent() {
                       return(
                         <div key={i} style={{...card(),padding:"1rem",borderLeft:"3px solid "+p.color}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.5rem"}}>
-                            <div style={{fontSize:"0.88rem",fontWeight:700,color:C.text}}>{p.title}</div>
+                            <div style={{fontSize:"0.88rem",fontWeight:700,color:C.text}}>
+                            <Tooltip text={p.tip||p.title}>{p.title} ⓘ</Tooltip>
+                          </div>
                             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexShrink:0}}>
                               <span style={{fontFamily:"Georgia,serif",fontSize:"1.4rem",color:bc}}>{p.score}</span>
                               <span style={{fontSize:"0.62rem",fontWeight:700,padding:"0.18rem 0.55rem",borderRadius:100,background:bc+"20",color:bc,border:"1px solid "+bc+"40"}}>{rating}</span>
@@ -1633,28 +1778,287 @@ function ResultsContent() {
           )}
 
 
-          {/* ══ AI READOUT ══ */}
-          {activeNav==="readout" && (
+
+          {/* ══ WORKLOAD INTELLIGENCE (P1-3) ══ */}
+          {activeNav==="workload" && workloadData && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
               <div style={{marginBottom:"1rem"}}>
-                <div style={{fontSize:"1.1rem",fontWeight:700}}>AI Readout</div>
-                <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Copy and paste into an email, Slack, or client update.</div>
+                <div style={{fontSize:"1.1rem",fontWeight:700}}>Workload Intelligence</div>
+                <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Who's carrying the most risk — and where a single person getting stuck would stall everything.</div>
               </div>
 
-              {/* Bullet summary — always shown */}
+              {/* Concentration risk alert */}
+              {workloadData.concentrationRisk && (
+                <div style={{...card({border:"1px solid "+C.red+"40",background:C.redDim}),padding:"1rem",marginBottom:"0.75rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.red,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.4rem"}}>⚠ SINGLE POINT OF FAILURE</div>
+                  <div style={{fontSize:"0.88rem",color:C.text,fontWeight:600,marginBottom:"0.2rem"}}>{workloadData.concentrationRisk.name} owns {workloadData.concentrationRisk.criticalTasks.length} of {workloadData.totalCritical} critical path tasks</div>
+                  <div style={{fontSize:"0.78rem",color:C.textMid,lineHeight:1.6}}>If they get stuck, blocked, or unavailable — everything waiting on them stops. That's {workloadData.concentrationRisk.criticalDays} days of critical work on one person.</div>
+                  <div style={{marginTop:"0.6rem",fontSize:"0.75rem",color:C.green,fontWeight:600}}>→ Review whether any of their critical tasks can be redistributed or started earlier by someone else.</div>
+                </div>
+              )}
+
+              {/* Approval bottlenecks */}
+              {workloadData.bottlenecks.length > 0 && (
+                <div style={{...card(),padding:"1rem",marginBottom:"0.75rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.6rem"}}>APPROVAL BOTTLENECKS — tasks that gate the most work</div>
+                  {workloadData.bottlenecks.map((b,i) => (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:i<workloadData.bottlenecks.length-1?"1px solid "+C.border2:"none"}}>
+                      <div style={{width:38,height:38,borderRadius:"50%",background:C.amber+"18",border:"1px solid "+C.amber+"40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:C.amber,flexShrink:0}}>{b.dependents}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text}}>{b.name}</div>
+                        <div style={{fontSize:"0.72rem",color:C.textDim}}>{b.owner} · {b.dependents} tasks waiting on this · zero float</div>
+                        <div style={{fontSize:"0.75rem",color:C.amber,marginTop:"0.15rem"}}>This task gates {b.dependents} others — prioritize it</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Owner workload breakdown */}
+              <div style={{...card(),padding:"1rem",marginBottom:"0.75rem"}}>
+                <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>WORKLOAD BY OWNER</div>
+                {workloadData.owners.map((owner, i) => {
+                  const loadPct = Math.round(owner.totalDays / workloadData.maxDays * 100);
+                  const critPct = Math.round(owner.criticalDays / workloadData.maxDays * 100);
+                  const isOverloaded = owner.criticalTasks.length >= 3 || loadPct > 70;
+                  const ownerColor = isOverloaded ? C.red : owner.criticalTasks.length >= 2 ? C.amber : C.green;
+                  return (
+                    <div key={i} style={{marginBottom:"0.85rem"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.3rem"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                          <div style={{width:28,height:28,borderRadius:"50%",background:ownerColor+"18",border:"1px solid "+ownerColor+"40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:ownerColor,flexShrink:0}}>
+                            {owner.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text}}>{owner.name}</div>
+                            <div style={{fontSize:"0.68rem",color:C.textDim}}>{owner.tasks.length} milestone{owner.tasks.length!==1?"s":""} · {owner.totalDays} days total</div>
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          {isOverloaded && <div style={{fontSize:"0.6rem",color:C.red,fontWeight:700,background:C.red+"15",borderRadius:4,padding:"0.1rem 0.4rem",marginBottom:"0.15rem"}}>HIGH LOAD</div>}
+                          <div style={{fontSize:"0.72rem",color:owner.criticalTasks.length>0?C.red:C.textDim}}>{owner.criticalTasks.length} critical</div>
+                        </div>
+                      </div>
+                      {/* Workload bar */}
+                      <div style={{height:6,background:C.border2,borderRadius:3,overflow:"hidden"}}>
+                        <div style={{height:"100%",display:"flex"}}>
+                          <div style={{width:critPct+"%",background:C.red,borderRadius:"3px 0 0 3px",transition:"width 0.8s ease"}}/>
+                          <div style={{width:Math.max(0,loadPct-critPct)+"%",background:C.blue+"80",transition:"width 0.8s ease"}}/>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:"0.75rem",marginTop:"0.25rem",fontSize:"0.62rem",color:C.textDim}}>
+                        {owner.criticalTasks.length>0&&<span style={{color:C.red}}>◆ Critical: {owner.criticalTasks.slice(0,2).join(", ")}{owner.criticalTasks.length>2?` +${owner.criticalTasks.length-2} more`:""}</span>}
+                        {owner.tasks.filter(t=>!t.isCritical).length>0&&<span>Also: {owner.tasks.filter(t=>!t.isCritical).length} non-critical</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{display:"flex",gap:"0.75rem",marginTop:"0.25rem",flexWrap:"wrap"}}>
+                  {[{color:C.red,label:"Critical path tasks"},{color:C.blue+"80",label:"Non-critical tasks"}].map((l,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.3rem",fontSize:"0.68rem",color:C.textMid}}>
+                      <div style={{width:10,height:4,background:l.color,borderRadius:2}}/>{l.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sequential overload warnings */}
+              {workloadData.sequentialRisk.length > 0 && (
+                <div style={{...card({border:"1px solid "+C.amber+"30"}),padding:"1rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.5rem"}}>SEQUENTIAL OVERLOAD</div>
+                  {workloadData.sequentialRisk.map((o,i)=>(
+                    <div key={i} style={{fontSize:"0.82rem",color:C.textMid,lineHeight:1.65,marginBottom:"0.4rem"}}>
+                      <strong style={{color:C.text}}>{o.name}</strong> has {o.criticalTasks.length} critical tasks in sequence: {o.criticalTasks.join(" → ")}. If they fall behind on the first, everything after moves too.
+                    </div>
+                  ))}
+                  <div style={{fontSize:"0.75rem",color:C.amber,fontWeight:600,marginTop:"0.4rem"}}>→ Build explicit check-ins at each handoff point for these owners.</div>
+                </div>
+              )}
+
+              {/* Team health summary */}
+              {!workloadData.concentrationRisk && workloadData.bottlenecks.length === 0 && workloadData.sequentialRisk.length === 0 && (
+                <div style={{...card({border:"1px solid "+C.green+"30",background:C.greenDim}),padding:"1rem"}}>
+                  <div style={{fontSize:"0.88rem",fontWeight:600,color:C.green,marginBottom:"0.3rem"}}>✓ Team workload looks balanced</div>
+                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.65}}>No single person is carrying an outsized share of the critical work. No approval bottlenecks detected.</div>
+                </div>
+              )}
+            </div>
+          )}
+
+
+          {/* ══ AI READOUT (P1-4) ══ */}
+          {activeNav==="readout" && (
+            <div style={{animation:"fadeUp 0.3s ease both"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",flexWrap:"wrap",gap:"0.5rem"}}>
+                <div>
+                  <div style={{fontSize:"1.1rem",fontWeight:700}}>AI Readout</div>
+                  <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Ready to forward. Copy and send — no editing needed.</div>
+                </div>
+                <div style={{display:"flex",gap:"0.4rem"}}>
+                  <button onClick={()=>{
+                    const lines = [
+                      `PATHFLO EXECUTION REPORT — ${data.name}`,
+                      `Generated ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}`,
+                      ``,
+                      `━━━ VERDICT ━━━`,
+                      `${result.verdict} · ${confScore}% on-time confidence`,
+                      `Projected completion: ${result.projectedDate}`,
+                      `Buffer: ${result.bufferDays>=0?result.bufferDays+" days":Math.abs(result.bufferDays)+" days over deadline"}`,
+                      `With fixes applied: ${confScoreOptimized}% confidence`,
+                      ``,
+                      `━━━ CRITICAL PATH ━━━`,
+                      result.criticalPath.join(" → "),
+                      `${result.criticalPath.length} tasks · zero float on each`,
+                      ``,
+                      `━━━ BIGGEST RISK ━━━`,
+                      result.predictiveRisk?.top3[0]?`${result.predictiveRisk.top3[0].name} — ${result.predictiveRisk.top3[0].reason}`:"See dependency graph",
+                      `${result.predictiveRisk?.planProb||0}% probability of missing deadline without changes`,
+                      ``,
+                      `━━━ TOP RECOMMENDATION ━━━`,
+                      result.shuffleOps[0]
+                        ? `Run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" → recovers ~${result.shuffleOps[0].daysSaved} days at zero cost`
+                        : "Validate critical path owner availability before work begins",
+                      ``,
+                      `━━━ TEAM WORKLOAD ━━━`,
+                      `${result.teamSize} team member${result.teamSize!==1?"s":" "} · ${result.criticalPath.length} tasks on critical path`,
+                      workloadData?.concentrationRisk?`⚠ ${workloadData.concentrationRisk.name} owns ${workloadData.concentrationRisk.criticalTasks.length}/${workloadData.totalCritical} critical tasks — single point of failure`:"Workload appears balanced",
+                      ``,
+                      `Powered by Pathflo · pathflo.ai`,
+                    ].join("
+");
+                    navigator.clipboard.writeText(lines).then(()=>{});
+                  }} style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:8,color:C.green,fontFamily:"inherit",fontWeight:600,fontSize:"0.72rem",padding:"0.4rem 0.85rem",cursor:"pointer"}}>📋 Copy full report</button>
+                </div>
+              </div>
+
+              {/* Shareable card — visual report */}
+              <div style={{...card({border:"1px solid "+verdColor+"40"}),padding:"1.25rem",marginBottom:"0.75rem",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${verdColor},${C.green})`}}/>
+
+                {/* Header */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",flexWrap:"wrap",gap:"0.5rem"}}>
+                  <div>
+                    <div style={{fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.2rem"}}>PATHFLO EXECUTION REPORT</div>
+                    <div style={{fontSize:"1rem",fontWeight:700,color:C.text}}>{data.name}</div>
+                    <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.1rem"}}>{new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
+                  </div>
+                  <div style={{background:verdColor+"20",color:verdColor,fontSize:"0.78rem",fontWeight:700,padding:"0.3rem 0.85rem",borderRadius:100,border:"1px solid "+verdColor+"40",whiteSpace:"nowrap"}}>{result.verdict}</div>
+                </div>
+
+                {/* Confidence */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"0.65rem",marginBottom:"1rem"}}>
+                  {[
+                    {label:"Confidence (now)",val:confScore+"%",color:verdColor,sub:"current plan"},
+                    {label:"Confidence (optimized)",val:confScoreOptimized+"%",color:C.green,sub:"with fixes applied"},
+                    {label:"Projected finish",val:result.projectedRange,color:C.text,sub:result.bufferDays>=0?result.bufferDays+"d buffer":Math.abs(result.bufferDays)+"d over"},
+                    {label:"Failure probability",val:(result.predictiveRisk?.planProb||0)+"%",color:result.predictiveRisk?.planBand||C.amber,sub:"without intervention"},
+                  ].map((s,i)=>(
+                    <div key={i} style={{background:C.surface2,borderRadius:8,padding:"0.65rem 0.75rem"}}>
+                      <div style={{fontSize:"0.55rem",color:C.textDim,fontWeight:700,marginBottom:"0.2rem"}}>{s.label.toUpperCase()}</div>
+                      <div style={{fontSize:"1rem",fontWeight:700,color:s.color,lineHeight:1}}>{s.val}</div>
+                      <div style={{fontSize:"0.62rem",color:C.textDim,marginTop:"0.2rem"}}>{s.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Critical path */}
+                <div style={{marginBottom:"0.85rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.red,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.4rem"}}>CRITICAL PATH</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",alignItems:"center"}}>
+                    {result.criticalPath.map((name,i)=>(
+                      <span key={i} style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                        <span style={{background:C.red+"12",border:"1px solid "+C.red+"30",borderRadius:5,color:C.red,fontSize:"0.72rem",padding:"0.18rem 0.5rem",fontWeight:600}}>{name}</span>
+                        {i<result.criticalPath.length-1&&<span style={{color:C.red,opacity:0.35,fontSize:"0.65rem"}}>→</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Biggest risk + fix */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.65rem",marginBottom:"0.85rem"}}>
+                  <div style={{background:C.redDim,border:"1px solid "+C.red+"25",borderRadius:8,padding:"0.75rem"}}>
+                    <div style={{fontSize:"0.55rem",color:C.red,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.3rem"}}>BIGGEST RISK</div>
+                    <div style={{fontSize:"0.82rem",fontWeight:600,color:C.text,marginBottom:"0.2rem"}}>{result.predictiveRisk?.top3[0]?.name||result.bottleneck?.name||"—"}</div>
+                    <div style={{fontSize:"0.72rem",color:C.textMid,lineHeight:1.5}}>{result.predictiveRisk?.top3[0]?.reason||result.bottleneck?.reason||""}</div>
+                  </div>
+                  <div style={{background:C.greenDim,border:"1px solid "+C.green+"25",borderRadius:8,padding:"0.75rem"}}>
+                    <div style={{fontSize:"0.55rem",color:C.green,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.3rem"}}>RECOMMENDED FIX</div>
+                    <div style={{fontSize:"0.82rem",color:C.text,lineHeight:1.5}}>
+                      {result.shuffleOps[0]
+                        ? `Run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" — saves ~${result.shuffleOps[0].daysSaved}d`
+                        : "Validate critical path owner availability before work begins"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Workload snapshot */}
+                {workloadData && (
+                  <div style={{marginBottom:"0.85rem"}}>
+                    <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.5rem"}}>TEAM WORKLOAD</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:"0.35rem"}}>
+                      {workloadData.owners.slice(0,4).map((o,i)=>{
+                        const pct = Math.round(o.criticalDays / Math.max(workloadData.maxDays,1) * 100);
+                        const color = o.criticalTasks.length>=3?C.red:o.criticalTasks.length>=2?C.amber:C.green;
+                        return(
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                            <div style={{width:22,height:22,borderRadius:"50%",background:color+"18",border:"1px solid "+color+"40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.65rem",fontWeight:700,color,flexShrink:0}}>{o.name.charAt(0)}</div>
+                            <div style={{fontSize:"0.78rem",color:C.textMid,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.name}</div>
+                            <div style={{width:80,height:5,background:C.border2,borderRadius:3,flexShrink:0}}>
+                              <div style={{height:"100%",width:pct+"%",background:color,borderRadius:3}}/>
+                            </div>
+                            <div style={{fontSize:"0.68rem",color,flexShrink:0,minWidth:24,textAlign:"right"}}>{o.criticalTasks.length}✦</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {workloadData.concentrationRisk&&<div style={{fontSize:"0.72rem",color:C.red,marginTop:"0.4rem",fontWeight:600}}>⚠ {workloadData.concentrationRisk.name} is a single point of failure</div>}
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div style={{borderTop:"1px solid "+C.border,paddingTop:"0.65rem",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"0.4rem"}}>
+                  <div style={{fontSize:"0.65rem",color:C.textDim}}>Generated by Pathflo · pathflo.ai · Operational execution intelligence</div>
+                  <div style={{fontSize:"0.65rem",color:C.textDim}}>{new Date().toLocaleDateString()}</div>
+                </div>
+              </div>
+
+              {/* AI narrative */}
               <div style={{...card(),padding:"1.25rem",marginBottom:"0.75rem"}}>
-                <div style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>KEY TAKEAWAYS</div>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
+                  <span style={{color:C.green}}>✦</span>
+                  <span style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em"}}>EXECUTIVE NARRATIVE</span>
+                  <span style={{fontSize:"0.65rem",color:C.textDim,marginLeft:"auto"}}>Copy and paste into email or Slack</span>
+                </div>
+                {aiLoading?(
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",color:C.textMid,fontSize:"0.82rem"}}>
+                    <span>Writing</span>{[0,1,2].map(i=><span key={i} style={{width:4,height:4,background:C.green,borderRadius:"50%",display:"inline-block",animation:`dotBlink 1.4s ${i*0.22}s infinite`}}/>)}
+                  </div>
+                ):aiReadout?(
+                  <p style={{fontSize:"0.9rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif"}}>{aiReadout}</p>
+                ):(
+                  <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.8}}>
+                    {data.name} has a <strong style={{color:verdColor}}>{confScore}% chance of delivering on time</strong> as currently planned. {result.confidence.reason}. The critical path runs through {result.criticalPath.length} tasks — {result.criticalPath.slice(0,3).join(", ")}{result.criticalPath.length>3?`, and ${result.criticalPath.length-3} more`:""} — with {result.bufferDays>=0?result.bufferDays+" days of buffer":Math.abs(result.bufferDays)+" days of overrun"}.
+                    {result.shuffleOps.length>0&&` ${result.shuffleOps.length} scheduling optimization${result.shuffleOps.length>1?"s are":" is"} available: running "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" recovers approximately ${result.shuffleOps[0].daysSaved} days at zero additional cost.`}
+                    {` With recommended changes applied, on-time confidence rises to ${confScoreOptimized}% — a +${confScoreOptimized-confScore} point improvement.`}
+                    <span style={{display:"block",marginTop:"0.75rem",fontSize:"0.7rem",color:C.textDim,fontStyle:"italic"}}>Add your Anthropic API key to Vercel for a fully AI-generated narrative.</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Key bullets — for quick copy */}
+              <div style={{...card(),padding:"1.25rem"}}>
+                <div style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>KEY TAKEAWAYS — quick copy</div>
                 <div style={{display:"flex",flexDirection:"column",gap:"0.55rem"}}>
                   {[
-                    {icon:"◈", text:`**${data.name}** — ${result.verdict}. On-time confidence: **${confScore}%** (optimized: **${confScoreOptimized}%**).`, color:verdColor},
-                    {icon:"⚠", text:`Critical path: **${result.criticalPath.length} tasks** — ${result.criticalPath.slice(0,3).join(" → ")}${result.criticalPath.length>3?" → ...":""}. Buffer: **${result.bufferDays>=0?result.bufferDays+"d":"OVERRUN by "+Math.abs(result.bufferDays)+"d"}**.`, color:result.bufferDays>=0?C.amber:C.red},
-                    {icon:"⚡", text:`Biggest risk: **${result.predictiveRisk?.top3[0]?.name||result.bottleneck?.name||"—"}** — ${result.predictiveRisk?.top3[0]?.reason||result.bottleneck?.reason||"critical path constraint"}. **${result.predictiveRisk?.planProb||0}%** chance of missing deadline.`, color:C.red},
-                    ...(result.shuffleOps.length>0?[{icon:"✓", text:`**${result.shuffleOps.length} scheduling fix${result.shuffleOps.length>1?"es":""}** identified: run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}". Recovers **~${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero cost**.`, color:C.green}]:[]),
-                    {icon:"→", text:`Projected delivery: **${result.projectedRange}**.${result.bufferDays<0?" Schedule compression required before this can hold.":""}`, color:C.textMid},
+                    {icon:"◈",text:`**${data.name}** — ${result.verdict}. On-time confidence: **${confScore}%** → **${confScoreOptimized}%** with fixes.`,color:verdColor},
+                    {icon:"⚠",text:`Critical path: **${result.criticalPath.length} tasks**${result.criticalPath.length>0?" — "+result.criticalPath.slice(0,2).join(", ")+(result.criticalPath.length>2?"...":""):""}. Buffer: **${result.bufferDays>=0?result.bufferDays+"d":"OVERRUN "+Math.abs(result.bufferDays)+"d"}**.`,color:result.bufferDays>=0?C.amber:C.red},
+                    {icon:"⚡",text:`Highest risk: **${result.predictiveRisk?.top3[0]?.name||"—"}** — ${result.predictiveRisk?.top3[0]?.reason||""}. **${result.predictiveRisk?.planProb||0}%** chance of missing deadline.`,color:C.red},
+                    ...(result.shuffleOps.length>0?[{icon:"✓",text:`Fix: Run **"${result.shuffleOps[0].task}"** in parallel — recovers **~${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero cost**.`,color:C.green}]:[]),
+                    {icon:"→",text:`Delivery window: **${result.projectedRange}**.`,color:C.textMid},
                   ].map((b,i)=>(
                     <div key={i} style={{display:"flex",gap:"0.65rem",alignItems:"flex-start"}}>
                       <span style={{color:b.color,fontWeight:700,fontSize:"0.85rem",flexShrink:0,marginTop:"0.1rem"}}>{b.icon}</span>
-                      <div style={{fontSize:"0.85rem",color:C.textMid,lineHeight:1.65}}>
+                      <div style={{fontSize:"0.84rem",color:C.textMid,lineHeight:1.65}}>
                         {b.text.split(/(\*\*[^*]+\*\*)/).map((p,j)=>
                           p.startsWith("**")?<strong key={j} style={{color:C.text}}>{p.slice(2,-2)}</strong>:p
                         )}
@@ -1664,35 +2068,25 @@ function ResultsContent() {
                 </div>
               </div>
 
-              {/* AI narrative — if available */}
-              <div style={{...card(),padding:"1.25rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                  <span style={{color:C.green}}>✦</span>
-                  <span style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em"}}>AI EXECUTIVE NARRATIVE</span>
-                </div>
-                {aiLoading?(
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",color:C.textMid,fontSize:"0.82rem"}}>
-                    <span>Writing</span>{[0,1,2].map(i=><span key={i} style={{width:4,height:4,background:C.green,borderRadius:"50%",display:"inline-block",animation:`dotBlink 1.4s ${i*0.22}s infinite`}}/>)}
-                  </div>
-                ):aiReadout?(
-                  <p style={{fontSize:"0.9rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif"}}>{aiReadout}</p>
-                ):(
-                  <p style={{fontSize:"0.85rem",color:C.textMid,lineHeight:1.8}}>
-                    {data.name} has a {confScore}% probability of delivering on time as planned. {result.confidence.reason}. The critical path runs through {result.criticalPath.length} tasks with {result.bufferDays>=0?result.bufferDays+" days of buffer":Math.abs(result.bufferDays)+" days of overrun"}.
-                    {result.shuffleOps.length>0?` ${result.shuffleOps.length} concurrency fix${result.shuffleOps.length>1?"es":""} could recover ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days. Immediate action: run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}".`:" No major scheduling optimizations identified."}
-                    {" "}With recommended changes applied, on-time confidence reaches {confScoreOptimized}%.
-                    <span style={{display:"block",marginTop:"0.75rem",fontSize:"0.72rem",color:C.textDim,fontStyle:"italic"}}>Add your Anthropic API key to Vercel to enable AI-generated narratives.</span>
-                  </p>
-                )}
-              </div>
             </div>
           )}
 
 
 
-
         </main>
       </div>
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      <style>{`@media(max-width:768px){.bnav{display:flex!important;} .r-nav{display:none!important;} .r-main{padding:0.75rem!important;padding-bottom:72px!important;}}`}</style>
+      <div className="bnav" style={{ display: "none", position: "fixed", bottom: 0, left: 0, right: 0, background: C.surface, borderTop: "1px solid " + C.border, zIndex: 250, height: 56, alignItems: "center", justifyContent: "space-around", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        {navItems.map(n => (
+          <button key={n.id} onClick={() => setActiveNav(n.id)} style={{ flex: 1, background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", cursor: "pointer", padding: "0.4rem 0", color: activeNav === n.id ? C.green : C.textDim, fontFamily: "inherit" }}>
+            <span style={{ fontSize: "1rem" }}>{n.icon}</span>
+            <span style={{ fontSize: "0.55rem", fontWeight: activeNav === n.id ? 700 : 400, letterSpacing: "0.04em" }}>{n.label.split(" ")[0]}</span>
+          </button>
+        ))}
+      </div>
+
     </div>
   );
 }
