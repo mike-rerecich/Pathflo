@@ -1602,8 +1602,7 @@ function ResultsContent() {
                   <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>ALL MILESTONES</div>
                   <button onClick={()=>{
                     const rows=[["Milestone","Owner","Days","Start","Float","Critical"],...result.tasks.map(t=>[t.name,t.owner||"",t.days,"Day "+(t.es+1),t.slack===0?"No float":t.slack+"d",result.criticalPath.includes(t.name)?"Yes":"No"])];
-                    const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("
-");
+                    const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
                     const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=(data.name||"pathflo").replace(/\s+/g,"-").toLowerCase()+".csv";a.click();
                   }} style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:100,color:C.green,fontFamily:"inherit",fontSize:"0.7rem",fontWeight:600,padding:"0.3rem 0.75rem",cursor:"pointer"}}>↓ CSV</button>
                 </div>
