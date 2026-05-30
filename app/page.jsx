@@ -45,45 +45,31 @@ const DEMO_RESULT = {
   ],
 };
 
-// ── SHARED DEPENDENCY GRAPH CANVAS COMPONENT ─────────────────────────────────
-function DependencyGraph({ tasks, result, height = 340, dark = true }) {
-  const canvasRef = useRef(null);
+// ── SVG DEPENDENCY GRAPH — landing page ─────────────────────────────────────
+function DependencyGraph({ tasks, result, dark = true }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [hoveredId, setHoveredId] = useState(null);
 
-  const COLORS = dark ? {
-    bg: "#0D1117", surface: "#161B22", surface2: "#1C2128",
-    border: "#30363D", text: "#E6EDF3", textDim: "#484F58", textMid: "#8B949E",
-    red: "#EF4444", amber: "#F59E0B", green: "#22C55E", green: "#3ECB6F",
+  const C = dark ? {
+    bg: "transparent", nodeFill: "rgba(22,27,34,0.85)", nodeBorder: "#30363D",
+    text: "#E6EDF3", textDim: "#8B949E", textSub: "#484F58",
+    crit: "#EF4444", critFill: "rgba(239,68,68,0.1)",
+    green: "#22C55E", greenFill: "rgba(34,197,94,0.08)",
+    purple: "#7C3AED", blue: "#3B82F6",
+    amber: "#F59E0B",
+    cascadeFill: "rgba(239,68,68,0.04)", cascadeStroke: "rgba(239,68,68,0.35)",
   } : {
-    bg: "#F7F8F5", surface: "#FFFFFF", surface2: "#F2F3EF",
-    border: "#D4D6CC", text: "#0F140F", textDim: "#9AA49A", textMid: "#4A5A4A",
-    red: "#DC2626", amber: "#D97706", green: "#16A34A", green: "#1E8A45",
+    bg: "transparent", nodeFill: "rgba(255,255,255,0.9)", nodeBorder: "#D1D5DB",
+    text: "#111827", textDim: "#6B7280", textSub: "#9CA3AF",
+    crit: "#DC2626", critFill: "rgba(220,38,38,0.08)",
+    green: "#16A34A", greenFill: "rgba(22,163,74,0.06)",
+    purple: "#7C3AED", blue: "#2563EB",
+    amber: "#D97706",
+    cascadeFill: "rgba(220,38,38,0.04)", cascadeStroke: "rgba(220,38,38,0.3)",
   };
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !tasks.length) return;
-    const dpr = window.devicePixelRatio || 1;
-    const containerW = canvas.parentElement.clientWidth || 700;
-    const W = Math.max(containerW, tasks.length * 135 + 80);
-    const H = height;
-    canvas.style.width = W + "px";
-    canvas.style.height = H + "px";
-    canvas.style.minWidth = W + "px";
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, W, H);
-
-    // Background
-    ctx.fillStyle = COLORS.bg;
-    ctx.fillRect(0, 0, W, H);
-
-    const byId = {};
-    result.tasks.forEach(t => { byId[t.id] = t; });
-    const criticalIds = new Set(result.tasks.filter(t => t.slack === 0).map(t => t.id));
-
-    // ── LAYOUT: topological level assignment ──
+  const layout = useMemo(() => {
+    if (!tasks.length || !result) return { positions: {}, W: 600, H: 300 };
     const levels = {};
     function assignLevel(id, lvl) {
       if (levels[id] !== undefined && levels[id] >= lvl) return;
@@ -92,235 +78,153 @@ function DependencyGraph({ tasks, result, height = 340, dark = true }) {
     }
     tasks.filter(t => t.predecessors.length === 0).forEach(t => assignLevel(t.id, 0));
     tasks.forEach(t => { if (levels[t.id] === undefined) assignLevel(t.id, 0); });
-
+    const byLevel = {};
+    tasks.forEach(t => {
+      const l = levels[t.id] || 0;
+      if (!byLevel[l]) byLevel[l] = [];
+      byLevel[l].push(t);
+    });
     const maxLevel = Math.max(...Object.values(levels), 0);
-    const levelGroups = {};
-    tasks.forEach(t => {
-      const lvl = levels[t.id] || 0;
-      if (!levelGroups[lvl]) levelGroups[lvl] = [];
-      levelGroups[lvl].push(t);
-    });
-
-    const NODE_W = 118, NODE_H = 58, PAD_X = 52, PAD_Y = 18;
-    const totalLevels = maxLevel + 1;
-    const colW = Math.max(NODE_W + PAD_X, (W - 32) / totalLevels);
-
-    const nodePos = {};
-    Object.entries(levelGroups).forEach(([lvl, group]) => {
-      const x = 16 + Number(lvl) * colW + (colW / 2) - (NODE_W / 2);
-      const totalH = group.length * (NODE_H + PAD_Y) - PAD_Y;
-      const startY = Math.max(12, (H - totalH) / 2);
+    const maxInCol = Math.max(...Object.values(byLevel).map(g => g.length), 1);
+    const NW = 118, NH = 50, GAP_X = 64, GAP_Y = 18;
+    const colW = NW + GAP_X;
+    const W = Math.max((maxLevel + 1) * colW + GAP_X, 400);
+    const H = Math.max(maxInCol * (NH + GAP_Y) - GAP_Y + 80, 200);
+    const positions = {};
+    Object.entries(byLevel).forEach(([lvl, group]) => {
+      const x = GAP_X / 2 + parseInt(lvl) * colW;
+      const totalH = group.length * (NH + GAP_Y) - GAP_Y;
+      const startY = (H - totalH) / 2;
       group.forEach((t, i) => {
-        nodePos[t.id] = { x, y: startY + i * (NODE_H + PAD_Y) };
+        positions[t.id] = { x, y: Math.max(32, startY + i * (NH + GAP_Y)), w: NW, h: NH, cx: x + NW/2, cy: Math.max(32, startY + i * (NH + GAP_Y)) + NH/2 };
       });
     });
+    return { positions, W, H };
+  }, [tasks, result]);
 
-    // ── CASCADE ZONE ──
-    const cascadeNodes = [...criticalIds].map(id => nodePos[id]).filter(Boolean);
-    if (cascadeNodes.length > 1) {
-      const minX = Math.min(...cascadeNodes.map(n => n.x)) - 14;
-      const minY = Math.min(...cascadeNodes.map(n => n.y)) - 14;
-      const maxX = Math.max(...cascadeNodes.map(n => n.x + NODE_W)) + 14;
-      const maxY = Math.max(...cascadeNodes.map(n => n.y + NODE_H)) + 14;
-      ctx.fillStyle = "rgba(239,68,68,0.05)";
-      ctx.strokeStyle = "rgba(239,68,68,0.4)";
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([6, 4]);
-      ctx.beginPath();
-      ctx.roundRect(minX, minY, maxX - minX, maxY - minY, 14);
-      ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = "rgba(239,68,68,0.75)";
-      ctx.font = "700 9px system-ui";
-      ctx.fillText("CASCADE RISK — Development delay flows into QA & Launch", minX + 10, minY + 14);
-    }
+  const criticalIds = useMemo(() => new Set(result?.tasks?.filter(t => t.slack === 0).map(t => t.id) || []), [result]);
+  const focusId = hoveredId || selectedId;
+  const upstream = useMemo(() => {
+    if (!focusId) return new Set();
+    const set = new Set();
+    function walk(id) { const t = tasks.find(t => t.id === id); if (!t) return; t.predecessors.forEach(pid => { if (!set.has(pid)) { set.add(pid); walk(pid); } }); }
+    walk(focusId); return set;
+  }, [focusId, tasks]);
+  const downstream = useMemo(() => {
+    if (!focusId) return new Set();
+    const set = new Set();
+    function walk(id) { tasks.filter(t => t.predecessors.includes(id)).forEach(t => { if (!set.has(t.id)) { set.add(t.id); walk(t.id); } }); }
+    walk(focusId); return set;
+  }, [focusId, tasks]);
+  const connected = new Set([...upstream, ...downstream]);
 
-    // ── EDGES ──
-    tasks.forEach(t => {
-      t.predecessors.forEach(pid => {
-        const from = nodePos[pid];
-        const to = nodePos[t.id];
-        if (!from || !to) return;
-        const isCrit = criticalIds.has(pid) && criticalIds.has(t.id);
-        const isBlocked = isCrit && result.bufferDays < 0;
+  const bottleneckName = result?.bottleneck?.name || "";
 
-        ctx.strokeStyle = isBlocked
-          ? "rgba(239,68,68,0.9)"
-          : isCrit
-            ? "rgba(239,68,68,0.65)"
-            : t.concurrent
-              ? "rgba(34,197,94,0.45)"
-              : "rgba(139,148,158,0.35)";
-        ctx.lineWidth = isBlocked ? 2.8 : isCrit ? 2.2 : 1.5;
-        ctx.setLineDash(t.concurrent ? [5, 4] : []);
+  function edgePath(from, to) {
+    const fx = from.x + from.w, fy = from.cy, tx = to.x, ty = to.cy;
+    const cp = (tx - fx) * 0.5;
+    return `M ${fx} ${fy} C ${fx + cp} ${fy}, ${tx - cp} ${ty}, ${tx} ${ty}`;
+  }
 
-        const fx = from.x + NODE_W, fy = from.y + NODE_H / 2;
-        const tx = to.x, ty = to.y + NODE_H / 2;
-        const cp = (tx - fx) * 0.42;
-        ctx.beginPath();
-        ctx.moveTo(fx, fy);
-        ctx.bezierCurveTo(fx + cp, fy, tx - cp, ty, tx, ty);
-        ctx.stroke();
-        ctx.setLineDash([]);
+  const cascadeRect = useMemo(() => {
+    if (!result || criticalIds.size < 2) return null;
+    const pts = [...criticalIds].map(id => layout.positions[id]).filter(Boolean);
+    if (pts.length < 2) return null;
+    const pad = 12;
+    return {
+      x: Math.min(...pts.map(p => p.x)) - pad,
+      y: Math.min(...pts.map(p => p.y)) - pad,
+      w: Math.max(...pts.map(p => p.x + p.w)) + pad - (Math.min(...pts.map(p => p.x)) - pad),
+      h: Math.max(...pts.map(p => p.y + p.h)) + pad - (Math.min(...pts.map(p => p.y)) - pad),
+    };
+  }, [criticalIds, layout.positions, result]);
 
-        // Arrowhead
-        const ang = Math.atan2(ty - fy, tx - fx);
-        const ac = isBlocked ? "rgba(239,68,68,0.9)" : isCrit ? "rgba(239,68,68,0.65)" : "rgba(139,148,158,0.45)";
-        ctx.fillStyle = ac;
-        ctx.beginPath();
-        ctx.moveTo(tx, ty);
-        ctx.lineTo(tx - 9 * Math.cos(ang - 0.38), ty - 9 * Math.sin(ang - 0.38));
-        ctx.lineTo(tx - 9 * Math.cos(ang + 0.38), ty - 9 * Math.sin(ang + 0.38));
-        ctx.closePath(); ctx.fill();
-      });
-    });
-
-    // ── NODES ──
-    tasks.forEach(t => {
-      const pos = nodePos[t.id];
-      if (!pos) return;
-      const task = result.tasks.find(rt => rt.id === t.id) || t;
-      const isCrit = criticalIds.has(t.id);
-      const isBlocked = isCrit && result.bufferDays < 0 && t.name === "Development";
-      const isBottleneck = result.bottleneck?.name === t.name;
-
-      // Node fill + border
-      let bg, border, nameColor, statusColor, statusText;
-      if (isBlocked || t.name === "Development") {
-        bg = dark ? "rgba(239,68,68,0.18)" : "rgba(239,68,68,0.12)";
-        border = COLORS.red; nameColor = COLORS.red;
-        statusColor = COLORS.red; statusText = "3 days late · BLOCKED";
-      } else if (isCrit && result.bufferDays < 0) {
-        bg = dark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.07)";
-        border = "rgba(239,68,68,0.7)"; nameColor = dark ? "#F87171" : COLORS.red;
-        statusColor = COLORS.red; statusText = "Blocked by Dev";
-      } else if (isCrit) {
-        bg = dark ? "rgba(245,158,11,0.1)" : "rgba(245,158,11,0.07)";
-        border = "rgba(245,158,11,0.7)"; nameColor = dark ? COLORS.text : "#0F140F";
-        statusColor = COLORS.amber; statusText = "At risk · 0d float";
-      } else if (t.concurrent) {
-        bg = dark ? "rgba(34,197,94,0.08)" : "rgba(34,197,94,0.07)";
-        border = "rgba(34,197,94,0.5)"; nameColor = dark ? COLORS.text : "#0F140F";
-        statusColor = COLORS.green; statusText = "On track · concurrent";
-      } else if (task.slack > 3) {
-        bg = dark ? COLORS.surface2 : "#F0F4F0";
-        border = COLORS.border; nameColor = dark ? COLORS.textMid : "#6B7280";
-        statusColor = dark ? COLORS.textDim : "#9CA3AF";
-        statusText = t.slack > 0 ? `Done · ${t.days}d` : `On track · ${t.days}d`;
-      } else {
-        bg = dark ? "rgba(34,197,94,0.07)" : "rgba(34,197,94,0.06)";
-        border = "rgba(34,197,94,0.45)"; nameColor = dark ? COLORS.text : "#0F140F";
-        statusColor = COLORS.green; statusText = "On track";
-      }
-
-      // Bottleneck glow ring
-      if (isBottleneck) {
-        ctx.shadowColor = COLORS.red;
-        ctx.shadowBlur = 16;
-      }
-
-      // Draw node
-      ctx.fillStyle = bg;
-      ctx.strokeStyle = border;
-      ctx.lineWidth = (isBlocked || isBottleneck) ? 2.2 : isCrit ? 1.8 : 1.2;
-      ctx.beginPath();
-      ctx.roundRect(pos.x, pos.y, NODE_W, NODE_H, 9);
-      ctx.fill(); ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // Extra glow ring for blocked/bottleneck
-      if (isBlocked) {
-        ctx.strokeStyle = "rgba(239,68,68,0.25)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(pos.x - 4, pos.y - 4, NODE_W + 8, NODE_H + 8, 13);
-        ctx.stroke();
-      }
-
-      // Task name
-      ctx.fillStyle = nameColor;
-      ctx.font = `${isCrit ? "700" : "500"} 10.5px system-ui`;
-      ctx.textAlign = "left";
-      const nameStr = t.name.length > 16 ? t.name.slice(0, 15) + "…" : t.name;
-      ctx.fillText(nameStr, pos.x + 9, pos.y + 18);
-
-      // Status line
-      ctx.fillStyle = statusColor;
-      ctx.font = "500 8.5px system-ui";
-      ctx.fillText(statusText, pos.x + 9, pos.y + 31);
-
-      // Owner
-      ctx.fillStyle = dark ? COLORS.textDim : "#9CA3AF";
-      ctx.font = "400 8px system-ui";
-      // "Blocked by X" only if predecessor IS the named bottleneck
-      const bottleneckName = result.bottleneck?.name || "";
-      const isBlockedByBottleneck = result.bufferDays < 0 && isCrit
-        && t.predecessors.some(pid => { const p = tasks.find(t => t.id === pid); return p && p.name === bottleneckName; });
-      const ownerLabel = isBlockedByBottleneck
-        ? `Blocked by ${bottleneckName}`.slice(0, 20)
-        : (t.owner || "—");
-      ctx.fillText(ownerLabel, pos.x + 9, pos.y + 43);
-
-      // Duration badge
-      ctx.fillStyle = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-      ctx.beginPath();
-      ctx.roundRect(pos.x + NODE_W - 30, pos.y + NODE_H - 16, 24, 11, 3);
-      ctx.fill();
-      ctx.fillStyle = dark ? COLORS.textMid : "#6B7280";
-      ctx.font = "600 7.5px system-ui";
-      ctx.textAlign = "center";
-      ctx.fillText(`${t.days}d`, pos.x + NODE_W - 18, pos.y + NODE_H - 7);
-
-      // Status dot
-      const dotColor = isBlocked ? COLORS.red : isCrit && result.bufferDays < 0 ? COLORS.red : isCrit ? COLORS.amber : COLORS.green;
-      ctx.fillStyle = dotColor;
-      ctx.beginPath();
-      ctx.arc(pos.x + NODE_W - 9, pos.y + 10, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.textAlign = "left";
-    });
-
-    // ── LEGEND ──
-    const legendY = H - 18;
-    const legendItems = [
-      { color: COLORS.red, label: "Critical / Zero float" },
-      { color: COLORS.amber, label: "At risk" },
-      { color: COLORS.green, label: "On track" },
-      { color: dark ? COLORS.textMid : "#9CA3AF", label: "Completed" },
-    ];
-    legendItems.forEach((l, i) => {
-      const lx = 16 + i * 148;
-      ctx.fillStyle = l.color;
-      ctx.beginPath();
-      ctx.arc(lx + 5, legendY, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = dark ? COLORS.textDim : "#9CA3AF";
-      ctx.font = "400 9px system-ui";
-      ctx.fillText(l.label, lx + 14, legendY + 3.5);
-    });
-
-    // Click hint
-    ctx.fillStyle = dark ? "rgba(139,148,158,0.35)" : "rgba(100,116,139,0.5)";
-    ctx.font = "400 8.5px system-ui";
-    ctx.textAlign = "right";
-    ctx.fillText("Click any node in the app for full cascade analysis →", W - 14, legendY + 3.5);
-    ctx.textAlign = "left";
-
-  }, [tasks, result, height, dark, COLORS]);
-
-  useEffect(() => { draw(); }, [draw]);
-  useEffect(() => {
-    const h = () => draw();
-    window.addEventListener("resize", h);
-    return () => window.removeEventListener("resize", h);
-  }, [draw]);
+  const { positions, W, H } = layout;
+  if (!tasks.length || !result) return null;
 
   return (
-    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: "0 0 12px 12px" }}>
-      <canvas ref={canvasRef} style={{ display: "block" }} />
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block", minWidth: W }}>
+        <defs>
+          <marker id="lp-arr-c" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.crit} opacity="0.85"/></marker>
+          <marker id="lp-arr-n" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.textSub} opacity="0.5"/></marker>
+          <marker id="lp-arr-u" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.blue} opacity="0.9"/></marker>
+          <marker id="lp-arr-d" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.crit} opacity="0.7"/></marker>
+          <marker id="lp-arr-dim" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.textSub} opacity="0.2"/></marker>
+          <filter id="lp-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        {cascadeRect && (
+          <g>
+            <rect x={cascadeRect.x} y={cascadeRect.y} width={cascadeRect.w} height={cascadeRect.h} rx="10" fill={C.cascadeFill} stroke={C.cascadeStroke} strokeWidth="1" strokeDasharray="6 4"/>
+            <text x={cascadeRect.x + 9} y={cascadeRect.y + 13} fontSize="7.5" fontFamily="system-ui" fontWeight="700" fill={C.cascadeStroke.replace("0.35","0.7")} letterSpacing="0.08em">CASCADE IMPACT ZONE</text>
+          </g>
+        )}
+
+        {tasks.map(t => t.predecessors.map(pid => {
+          const from = positions[pid], to = positions[t.id];
+          if (!from || !to) return null;
+          const isCritE = criticalIds.has(pid) && criticalIds.has(t.id);
+          const isUp = focusId && upstream.has(pid) && (upstream.has(t.id) || t.id === focusId);
+          const isDown = focusId && downstream.has(t.id) && (downstream.has(pid) || pid === focusId);
+          const isDim = focusId && !isUp && !isDown && pid !== focusId && t.id !== focusId;
+          const stroke = isDim ? `${C.textSub}33` : isUp ? C.blue : isDown ? C.crit : isCritE ? `${C.crit}AA` : `${C.textSub}55`;
+          const marker = isDim ? "url(#lp-arr-dim)" : isUp ? "url(#lp-arr-u)" : isDown ? "url(#lp-arr-d)" : isCritE ? "url(#lp-arr-c)" : "url(#lp-arr-n)";
+          return <path key={`${pid}-${t.id}`} d={edgePath(from, to)} fill="none" stroke={stroke} strokeWidth={isDim ? 1 : isCritE || isUp || isDown ? 2 : 1.5} markerEnd={marker} strokeDasharray={t.concurrent ? "5 4" : "none"} style={{ transition: "stroke 0.2s" }}/>;
+        }))}
+
+        {tasks.map(t => {
+          const pos = positions[t.id];
+          if (!pos) return null;
+          const rt = result.tasks.find(r => r.id === t.id);
+          const isCrit = criticalIds.has(t.id);
+          const isSelected = t.id === selectedId;
+          const isUp = upstream.has(t.id);
+          const isDown = downstream.has(t.id);
+          const isDim = focusId && t.id !== focusId && !connected.has(t.id);
+          const showBlocked = result.bufferDays < 0 && isCrit && t.predecessors.some(pid => { const p = tasks.find(tt => tt.id === pid); return p && p.name === bottleneckName; });
+          const floatDays = rt?.slack || 0;
+          const fill = isDim ? (dark ? "rgba(15,20,15,0.5)" : "rgba(240,242,240,0.5)") : isSelected ? `${C.purple}22` : isUp ? `${C.blue}18` : isDown ? `${C.crit}12` : isCrit ? C.critFill : t.concurrent ? C.greenFill : C.nodeFill;
+          const stroke = isDim ? (dark ? "#1E251E" : "#E5E7EB") : isSelected ? C.purple : isUp ? C.blue : isDown ? C.crit : isCrit ? C.crit : C.nodeBorder;
+          const strokeW = isDim ? 1 : (isSelected || isUp || isDown || isCrit) ? 2 : 1.5;
+          const textFill = isDim ? C.textSub : isSelected ? C.purple : isUp ? C.blue : isDown ? C.crit : isCrit ? C.crit : C.text;
+          const subFill = isDim ? C.textSub : showBlocked ? C.crit : isUp ? `${C.blue}CC` : isDown ? `${C.crit}CC` : C.textDim;
+          const dotFill = isDim ? (dark ? "#252D25" : "#D1D5DB") : isCrit ? C.crit : C.green;
+          const subLabel = showBlocked ? `Blocked by ${bottleneckName}`.slice(0,20) : `${t.days}d · ${(t.owner === "UNASSIGNED" ? "Unassigned" : t.owner) || "?"}`.slice(0,18);
+          return (
+            <g key={t.id} style={{ cursor: "pointer", opacity: isDim ? 0.3 : 1, transition: "opacity 0.2s" }}
+              onClick={() => { const next = t.id === selectedId ? null : t.id; setSelectedId(next); }}
+              onMouseEnter={() => setHoveredId(t.id)} onMouseLeave={() => setHoveredId(null)}
+              filter={isSelected ? "url(#lp-glow)" : undefined}
+            >
+              {isSelected && <rect x={pos.x-4} y={pos.y-4} width={pos.w+8} height={pos.h+8} rx="13" fill="none" stroke={`${C.purple}33`} strokeWidth="2"/>}
+              <rect x={pos.x} y={pos.y} width={pos.w} height={pos.h} rx="8" fill={fill} stroke={stroke} strokeWidth={strokeW} style={{ transition: "fill 0.2s, stroke 0.2s" }}/>
+              {isCrit && !isDim && <rect x={pos.x+1} y={pos.y+1} width={pos.w-2} height="2" rx="1" fill={C.crit} opacity="0.55"/>}
+              <text x={pos.x+9} y={pos.y+18} fontSize="10" fontFamily="system-ui" fontWeight={isCrit ? "700" : "500"} fill={isDim ? C.textSub : textFill} style={{ transition: "fill 0.2s" }}>
+                {t.name.length > 14 ? t.name.slice(0,13)+"…" : t.name}
+              </text>
+              <text x={pos.x+9} y={pos.y+32} fontSize="8.5" fontFamily="system-ui" fontWeight="400" fill={isDim ? C.textSub : subFill} style={{ transition: "fill 0.2s" }}>
+                {subLabel}
+              </text>
+              <circle cx={pos.x+pos.w-11} cy={pos.y+12} r="3.5" fill={dotFill} style={{ transition: "fill 0.2s" }}/>
+              {floatDays > 0 && !isDim && (
+                <g>
+                  <rect x={pos.x+pos.w-28} y={pos.y+pos.h-13} width={24} height={10} rx="3" fill={dark ? "rgba(34,197,94,0.18)" : "rgba(22,163,74,0.12)"}/>
+                  <text x={pos.x+pos.w-16} y={pos.y+pos.h-5} fontSize="7" fontFamily="system-ui" fontWeight="700" fill={C.green} textAnchor="middle">+{floatDays}d</text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
+
+
 
 export default function Home() {
   const [dark, setDark] = useState(true);
@@ -371,11 +275,12 @@ export default function Home() {
   ];
 
   const comparison = [
-    { pm: "Store your tasks", pathflo: "Predict your outcomes" },
-    { pm: "Tell you you are behind", pathflo: "Tell you why — before it happens" },
-    { pm: "Track what exists", pathflo: "Forecast what is coming" },
-    { pm: "Show you a Gantt chart", pathflo: "Tell you if the plan will actually work" },
-    { pm: "Require a PM to interpret", pathflo: "Built for owners without one" },
+    { pm: "Store your tasks", pathflo: "Predict your outcomes before work begins" },
+    { pm: "Tell you you're behind", pathflo: "Tell you why — before it happens" },
+    { pm: "Show you a Gantt chart", pathflo: "Show you the critical path, cascade risks, and what to fix" },
+    { pm: "Track what exists", pathflo: "Forecast what's coming — confidence score, failure probability, buffer" },
+    { pm: "No workload visibility", pathflo: "Flags who's overloaded and who's a single point of failure" },
+    { pm: "Require a PM to read the output", pathflo: "One-tap shareable report — forward it from your phone" },
     { pm: "React to problems", pathflo: "Prevent them" },
   ];
 
@@ -383,7 +288,7 @@ export default function Home() {
     {
       name: "Solo", price: "$49", period: "/mo", tag: null,
       desc: "For contractors and independent operators running client projects.",
-      items: ["1 active project", "Critical path engine", "Risk score + bottleneck report", "Leadership readout", "CSV export"],
+      items: ["1 active project", "Critical path + dependency graph", "Cascade simulator", "Workload intelligence", "Shareable readout", "Risk & bottleneck detection", "CSV export"],
       cta: "Start free", primary: false,
     },
     {
@@ -487,7 +392,7 @@ export default function Home() {
           <a href="#why" className="btns" style={btnSecondary}>See why it works</a>
         </div>
         <div className="h4 hero-stats" style={{ display: "flex", justifyContent: "center", gap: "3.5rem" }}>
-          {[{ val: "5 min", label: "To your first risk score" }, { val: "3 pillars", label: "Of execution intelligence" }, { val: "1 readout", label: "Leadership can act on" }].map(({ val, label }) => (
+          {[{ val: "5 min", label: "To your first risk report" }, { val: "5 screens", label: "Of execution intelligence" }, { val: "1 tap", label: "To share with a client" }].map(({ val, label }) => (
             <div key={val} style={{ textAlign: "center" }}>
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: "1.75rem", fontWeight: 700, color: T.text }}>{val}</div>
               <div style={{ fontSize: "0.72rem", color: T.textDim, fontWeight: 500, letterSpacing: "0.06em", marginTop: "0.2rem" }}>{label}</div>
@@ -501,7 +406,7 @@ export default function Home() {
         <div style={{ textAlign: "center", marginBottom: "3rem" }}>
           <div style={{ fontSize: "0.7rem", color: T.green, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "0.75rem" }}>WHY IT WORKS</div>
           <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(2rem, 5vw, 3rem)", fontWeight: 700, lineHeight: 1.1, letterSpacing: "-0.02em" }}>
-            The four questions every business<br />owner is already asking.
+            Four questions you already have.<br /><em style={{ color: T.green, fontStyle: "italic" }}>Pathflo answers all of them.</em>
           </h2>
         </div>
         <div className="qgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
@@ -550,10 +455,8 @@ export default function Home() {
           {/* Graph body — left: canvas graph | right: detail panel */}
           <div className="graph-body" style={{ display: "grid", gridTemplateColumns: "1fr 288px", overflow: "visible" }}>
 
-            {/* Real canvas graph — scrollable horizontally */}
-            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-              <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT} height={typeof window !== "undefined" && window.innerWidth < 600 ? 260 : 360} dark={dark} />
-            </div>
+            {/* SVG dependency graph — responsive, no canvas */}
+            <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT} dark={dark} />
 
             {/* Right panel */}
             <div className="graph-right-panel" style={{ borderLeft: "1px solid " + T.border, padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
@@ -624,10 +527,10 @@ export default function Home() {
         <div style={{ textAlign: "center", marginBottom: "3rem" }}>
           <div style={{ fontSize: "0.7rem", color: T.green, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "0.75rem" }}>EXECUTION INTELLIGENCE</div>
           <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(2rem, 5vw, 3rem)", fontWeight: 700, lineHeight: 1.1, letterSpacing: "-0.02em", marginBottom: "1rem" }}>
-            Three dimensions of<br /><em style={{ color: T.green, fontStyle: "italic" }}>operational health.</em>
+            Five outputs of<br /><em style={{ color: T.green, fontStyle: "italic" }}>execution intelligence.</em>
           </h2>
           <p style={{ color: T.textMid, fontSize: "1rem", fontWeight: 300, lineHeight: 1.75, maxWidth: "500px", margin: "0 auto" }}>
-            Every project is analyzed across three intelligence pillars. Each one tells a different story about what's at risk.
+            Every project you enter is scored across five intelligence dimensions. Each one answers a different question — in plain English, not PM jargon.t what's at risk.
           </p>
         </div>
         <div className="pillars-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.75rem" }}>
@@ -639,7 +542,7 @@ export default function Home() {
               stats: [{ name: "Dependency Compression", val: "Moderate", color: "#F59E0B" }, { name: "Critical Path Stability", val: "Good", color: "#22C55E" }, { name: "Forecast Accuracy", val: "81%", color: "#3B82F6" }],
             },
             {
-              n: "02 · Resource Health", title: "Who's overloaded, who's a single point of failure",
+              n: "02 · Workload Intel", title: "Who's overloaded and who's a single point of failure",
               color: T.green, vals: [0.62, 0.55, 0.80], labels: ["OVERLOAD", "CAPACITY", "APPROVAL"],
               pct: "62%", pctLabel: "CAPACITY",
               stats: [{ name: "Team Overload", val: "High", color: "#EF4444" }, { name: "Single Owner Risk", val: "Elevated", color: "#F59E0B" }, { name: "Approval Capacity", val: "Limited", color: "#F59E0B" }],
