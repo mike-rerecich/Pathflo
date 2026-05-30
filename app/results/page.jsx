@@ -1,4 +1,4 @@
-l"use client";
+"use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -1140,16 +1140,11 @@ function ResultsContent() {
   const planRisk = result.predictiveRisk?.planProb || 0;
 
   const navItems = [
-    { id:"overview", label:"Executive Overview", icon:"⬡" },
-    { id:"graph", label:"Dependency Graph", icon:"◈" },
-    { id:"intelligence", label:"Intelligence Pillars", icon:"△" },
-    { id:"bottlenecks", label:"Bottlenecks", icon:"⚠" },
-    { id:"gantt", label:"Timeline", icon:"▤" },
-    { id:"diagnosis", label:"Diagnosis", icon:"◎" },
-    { id:"financials", label:"Financials", icon:"$" },
-    { id:"readout", label:"AI Readout", icon:"✦" },
-    { id:"details", label:"Details", icon:"≡" },
-  ].filter(n => n.id !== "financials" || totalCost > 0);
+    { id:"overview",  label:"Overview",        icon:"⬡" },
+    { id:"plan",      label:"Execution Plan",  icon:"◈" },
+    { id:"risk",      label:"Risk & Fixes",    icon:"⚠" },
+    { id:"readout",   label:"AI Readout",      icon:"✦" },
+  ];
 
   const style = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
@@ -1158,21 +1153,16 @@ function ResultsContent() {
     @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
     @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
-    @keyframes navSlideIn{from{opacity:0;transform:translateX(-100%)}to{opacity:1;transform:translateX(0)}}
     ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
     @media(max-width:768px){
-      .topbar-right-label{display:none !important}
-      .topbar-project-name{display:none !important}
-      .hero-5col{grid-template-columns:1fr !important}
-      .grid-2col{grid-template-columns:1fr !important}
-      .grid-3col{grid-template-columns:1fr !important}
-      .grid-6col{grid-template-columns:repeat(2,1fr) !important}
-      .grid-briefing{grid-template-columns:1fr !important}
-      .details-header{grid-template-columns:1fr 60px 50px !important}
-      .details-row{grid-template-columns:1fr 60px 50px !important}
-      .details-owner{display:none !important}
-      .details-start{display:none !important}
-      .main-pad{padding:0.75rem !important}
+      .r-nav{display:none !important}
+      .r-hero-grid{grid-template-columns:1fr !important}
+      .r-2col{grid-template-columns:1fr !important}
+      .r-3col{grid-template-columns:1fr !important}
+      .r-briefing{grid-template-columns:1fr !important}
+      .r-graph-wrap{flex-direction:column !important}
+      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #30363D !important;max-height:60vh}
+      .r-main{padding:0.75rem !important}
     }
   `;
 
@@ -1182,16 +1172,15 @@ function ResultsContent() {
 
   // Graph section with interactive panel
   const GraphSection = ({ preview = false }) => (
-    <div style={{ display: "flex", flexDirection: typeof window!=="undefined"&&window.innerWidth<768?"column":"row", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
+    <div style={{ display: "flex", overflow: "hidden", borderRadius: 12, border: "1px solid " + C.border }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <DependencyGraph
           tasks={data.tasks}
           result={result}
-          simulatorTaskId={simulatorTaskId}
           onNodeClick={(id) => {
             setSelectedNodeId(id);
-            if (id !== simulatorTaskId) setSimulatorTaskId(null);
-            if (preview && id) setActiveNav("graph");
+            // Auto-switch to graph tab if in preview mode
+            if (preview && id) setActiveNav("plan");
           }}
         />
       </div>
@@ -1201,11 +1190,6 @@ function ResultsContent() {
           tasks={data.tasks}
           result={result}
           onClose={() => setSelectedNodeId(null)}
-          onSimulate={(id) => {
-            setSimulatorTaskId(id);
-            setSelectedNodeId(null);
-            if (preview) setActiveNav("graph");
-          }}
         />
       )}
     </div>
@@ -1216,44 +1200,39 @@ function ResultsContent() {
       <style>{style}</style>
 
       {/* ── TOP BAR ── */}
-      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,height:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.75rem",position:"sticky",top:0,zIndex:200,gap:"0.5rem",flexShrink:0,overflow:"hidden"}}>
-        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",minWidth:0,flex:1}}>
-          <button onClick={()=>setNavCollapsed(v=>!v)} style={{background:"transparent",border:"none",color:C.textMid,cursor:"pointer",fontSize:"1.1rem",padding:"0.25rem",flexShrink:0}}>☰</button>
-          <svg width="16" height="16" viewBox="0 0 32 32" fill="none" style={{flexShrink:0}}>
+      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,minHeight:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.75rem",position:"sticky",top:0,zIndex:200,gap:"0.5rem",flexShrink:0,flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <button onClick={()=>setNavCollapsed(v=>!v)} style={{background:"transparent",border:"none",color:C.textMid,cursor:"pointer",fontSize:"1rem",padding:"0.25rem"}}>☰</button>
+          <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
             <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" fill="none"/>
             <circle cx="4" cy="24" r="3" fill={C.green}/>
             <circle cx="15" cy="14" r="2.5" fill={C.green} opacity="0.7"/>
             <circle cx="26" cy="6" r="2.5" fill={C.green} opacity="0.5"/>
             <circle cx="31" cy="14" r="2.5" fill={C.green} opacity="0.9"/>
           </svg>
-          <span style={{fontWeight:700,color:C.text,fontSize:"0.9rem",flexShrink:0}}>Path<span style={{color:C.green}}>flo</span></span>
-          <span className="topbar-project-name" style={{color:C.textMid,fontSize:"0.78rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{data.name}</span>
-          <span style={{background:verdColor+"20",color:verdColor,fontSize:"0.58rem",fontWeight:700,letterSpacing:"0.06em",padding:"0.18rem 0.5rem",borderRadius:100,border:"1px solid "+verdColor+"40",flexShrink:0,whiteSpace:"nowrap"}}>{result.verdict}</span>
+          <span style={{fontWeight:700,color:C.text,fontSize:"0.9rem"}}>Path<span style={{color:C.green}}>flo</span></span>
+          <span style={{color:C.border,fontSize:"1rem"}}>|</span>
+          <span style={{color:C.textMid,fontSize:"0.85rem",maxWidth:260,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{data.name}</span>
+          <span style={{background:verdColor+"20",color:verdColor,fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.08em",padding:"0.2rem 0.6rem",borderRadius:100,border:"1px solid "+verdColor+"40",flexShrink:0}}>{result.verdict}</span>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexShrink:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:"0.3rem",fontSize:"0.75rem",color:C.textMid,flexShrink:0}}>
-            <span style={{color:verdColor,fontWeight:700}}>{confScore}%</span>
+        <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.78rem",color:C.textMid}}>
+            <span style={{color:verdColor,fontWeight:700,fontSize:"1rem"}}>{confScore}%</span>
             <span style={{color:C.textDim}}>→</span>
-            <span style={{color:C.green,fontWeight:700}}>{confScoreOptimized}%</span>
-            <span className="topbar-right-label" style={{color:C.textDim,fontSize:"0.7rem"}}>optimized</span>
+            <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
+            <span>if optimized</span>
           </div>
-          <button onClick={()=>{
-              const reviseData = encodeURIComponent(JSON.stringify({
-                name: data.name, startDate: data.startDate, targetDate: data.targetDate,
-                budget: data.budget, totalBudget: data.totalBudget || "", tasks: data.tasks
-              }));
-              window.location.href = "/app?revise=" + reviseData;
-            }} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
-          <a href="/app" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
+          <button onClick={()=>{const rd=encodeURIComponent(JSON.stringify({name:data.name,startDate:data.startDate,targetDate:data.targetDate,budget:data.budget,totalBudget:data.totalBudget||"",tasks:data.tasks}));window.location.href="/app?revise="+rd;}} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
+          <a href="/app" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
         </div>
       </div>
 
       {/* ── MAIN LAYOUT ── */}
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
 
-        {/* ── LEFT NAV — overlay on mobile, push on desktop ── */}
+        {/* ── LEFT NAV ── */}
         {!navCollapsed && (
-          <nav style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0,position:typeof window!=="undefined"&&window.innerWidth<768?"fixed":"relative",top:typeof window!=="undefined"&&window.innerWidth<768?52:0,left:0,bottom:0,zIndex:typeof window!=="undefined"&&window.innerWidth<768?300:1,animation:"navSlideIn 0.2s ease both"}}>
+          <nav style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"0 0.75rem 0.75rem",fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase"}}>{entityName}</div>
             {navItems.map(n => (
               <button key={n.id} onClick={()=>setActiveNav(n.id)} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.6rem 0.75rem",background:activeNav===n.id?C.greenDim:"transparent",border:"none",borderLeft:activeNav===n.id?`2px solid ${C.green}`:"2px solid transparent",color:activeNav===n.id?C.green:C.textMid,fontFamily:"inherit",fontSize:"0.82rem",fontWeight:activeNav===n.id?600:400,cursor:"pointer",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
@@ -1272,529 +1251,381 @@ function ResultsContent() {
           </nav>
         )}
 
-        {/* Mobile nav backdrop */}
-        {!navCollapsed && typeof window!=="undefined" && window.innerWidth<768 && (
-          <div onClick={()=>setNavCollapsed(true)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:299,top:52}}/>
-        )}
-
         {/* ── MAIN CONTENT ── */}
-        <main className="main-pad" style={{flex:1,overflowY:"auto",padding:"1.5rem",minWidth:0,overflowX:"hidden"}}>
+        <main style={{flex:1,overflowY:"auto",padding:"1.25rem",minWidth:0,overflowX:"hidden"}}>
 
-          {/* ══ EXECUTIVE OVERVIEW ══ */}
+
+          {/* ══ OVERVIEW ══ */}
           {activeNav==="overview" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:"0.75rem"}}>
-                <div>
-                  <div style={{fontSize:"1.3rem",fontWeight:700,color:C.text}}>Executive Overview</div>
-                  <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>AI COO Report · Your project has been analyzed</div>
+
+              {/* HERO CARD */}
+              <div style={{...card({border:"1px solid "+verdColor+"50"}),padding:"1.25rem",marginBottom:"0.75rem",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:verdColor}}/>
+
+                {/* Top row: confidence + verdict */}
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:"0.75rem",marginBottom:"1rem"}}>
+                  <div>
+                    <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>ON-TIME DELIVERY CONFIDENCE</div>
+                    <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem"}}>
+                      <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:verdColor,lineHeight:1}}>{confScore}</span>
+                      <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
+                      <span style={{color:C.textDim,fontSize:"1.2rem"}}>→</span>
+                      <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:C.green,lineHeight:1}}>{confScoreOptimized}</span>
+                      <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
+                    </div>
+                    <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.2rem"}}>As-is → with Pathflo's fixes applied</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{background:verdColor+"20",color:verdColor,fontSize:"0.78rem",fontWeight:700,padding:"0.35rem 0.85rem",borderRadius:100,border:"1px solid "+verdColor+"40",marginBottom:"0.4rem",display:"inline-block"}}>{result.verdict}</div>
+                    <div style={{fontSize:"0.78rem",color:C.textMid}}>{result.projectedRange}</div>
+                    <div style={{fontSize:"0.7rem",color:result.bufferDays>=0?C.green:C.red,marginTop:"0.2rem"}}>{result.bufferDays>=0?result.bufferDays+"d buffer":Math.abs(result.bufferDays)+"d over deadline"}</div>
+                  </div>
                 </div>
-                <div style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.72rem",color:C.green,background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:100,padding:"0.3rem 0.75rem"}}>
-                  <span>✦</span> AI analysis complete
+
+                {/* Confidence bar */}
+                <div style={{marginBottom:"1rem"}}>
+                  <div style={{height:6,background:C.border2,borderRadius:3,marginBottom:"0.25rem"}}>
+                    <div style={{height:"100%",width:confScore+"%",background:verdColor,borderRadius:3,transition:"width 1s ease"}}/>
+                  </div>
+                  <div style={{fontSize:"0.7rem",color:C.textDim}}>{result.confidence.reason}</div>
+                </div>
+
+                {/* 3 key signals */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:"0.5rem"}}>
+                  {[
+                    {label:"Biggest Risk",val:result.bottleneck?.name||result.criticalPath[0]||"—",color:C.red},
+                    {label:"Recommended Fix",val:result.shuffleOps[0]?`Run "${result.shuffleOps[0].task}" in parallel — saves ~${result.shuffleOps[0].daysSaved}d`:"Validate critical path owners",color:C.green,nav:"risk"},
+                    {label:"Failure Probability",val:(result.predictiveRisk?.planProb||0)+"%",color:result.predictiveRisk?.planBand||C.amber},
+                  ].map((s,i)=>(
+                    <div key={i} style={{background:C.surface2,borderRadius:8,padding:"0.65rem 0.75rem"}}>
+                      <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.2rem"}}>{s.label}</div>
+                      <div style={{fontSize:"0.82rem",fontWeight:600,color:s.color,lineHeight:1.4}}>{s.val}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* HERO METRICS BANNER */}
-              <div style={{...card(),padding:"1.25rem",marginBottom:"1rem",border:"1px solid "+verdColor+"40",position:"relative",overflow:"hidden"}}>
-                <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${verdColor},transparent)`}}/>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"1rem",alignItems:"start"}}>
-                  <div>
-                    <div style={label(C.textDim)}>ON-TIME DELIVERY CONFIDENCE</div>
-                    <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem",marginBottom:"0.4rem"}}>
-                      <div style={{fontFamily:"Georgia,serif",fontSize:"2.2rem",fontWeight:400,color:verdColor,lineHeight:1}}>{confScore}<span style={{fontSize:"1rem"}}>%</span></div>
-                      <div style={{color:C.textDim,fontSize:"1.1rem",fontWeight:300}}>→</div>
-                      <div style={{fontFamily:"Georgia,serif",fontSize:"2.2rem",fontWeight:400,color:C.green,lineHeight:1}}>{confScoreOptimized}<span style={{fontSize:"1rem"}}>%</span></div>
-                    </div>
-                    <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                      <span style={{background:verdColor+"20",color:verdColor,fontSize:"0.6rem",fontWeight:700,padding:"0.12rem 0.5rem",borderRadius:100,border:"1px solid "+verdColor+"40"}}>
-                        Current plan
-                      </span>
-                      <span style={{background:C.green+"20",color:C.green,fontSize:"0.6rem",fontWeight:700,padding:"0.12rem 0.5rem",borderRadius:100,border:"1px solid "+C.green+"40"}}>
-                        +{confScoreOptimized - confScore}% if optimized
-                      </span>
-                    </div>
-                    <div style={{fontSize:"0.7rem",color:C.textDim,marginTop:"0.4rem",lineHeight:1.5}}>
-                      Likelihood of hitting your deadline as-is vs. with Pathflo's recommended changes applied
-                    </div>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:"0.6rem"}}>
-                    {[
-                      {label:"DELAY RISK",val:result.delayRisk,color:result.delayRisk==="High"?C.red:result.delayRisk==="Moderate"?C.amber:C.green},
-                      {label:"BOTTLENECK SEVERITY",val:result.bottleneckSeverity,color:result.bottleneckSeverity==="High"?C.red:result.bottleneckSeverity==="Moderate"?C.amber:C.green},
-                      {label:"BUDGET STABILITY",val:overrunCost>0?"At Risk":"Strong",color:overrunCost>0?C.red:C.green},
-                    ].map((s,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                        <span style={{color:s.color}}>{s.val==="High"||s.val==="At Risk"?"⚠":"✓"}</span>
-                        <div><div style={{fontSize:"0.62rem",color:C.textDim}}>{s.label}</div><div style={{fontSize:"0.85rem",fontWeight:600,color:s.color}}>{s.val}</div></div>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <div style={label(C.textDim)}>PROJECTED DELIVERY WINDOW</div>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:"1.4rem",color:C.text,lineHeight:1.2}}>{result.projectedRange}</div>
-                    <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.3rem"}}>{result.bufferDays>=0?`${result.bufferDays} days buffer`:Math.abs(result.bufferDays)+" days over"}</div>
-                  </div>
-                  <div>
-                    <div style={label(C.red)}>MOST LIKELY FAILURE POINT</div>
-                    <div style={{fontSize:"0.85rem",color:C.text,fontWeight:500}}>{result.bottleneck?.name||result.criticalPath[0]||"—"}</div>
-                    <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.2rem"}}>{result.bottleneck?.reason||"Critical path constraint"}</div>
-                  </div>
-                  <div style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:8,padding:"0.75rem"}}>
-                    <div style={label(C.green)}>RECOMMENDED ACTION</div>
-                    <div style={{fontSize:"0.82rem",color:C.green,fontWeight:500,lineHeight:1.5}}>
-                      {result.shuffleOps[0] ? `Run "${result.shuffleOps[0].task}" concurrently — saves ~${result.shuffleOps[0].daysSaved}d` : "Validate critical path owner availability before start"}
-                    </div>
-                    <div style={{color:C.green,marginTop:"0.4rem",fontSize:"0.8rem"}}>→</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* AI BRIEFING + KEY INSIGHT */}
-              <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:"1rem",marginBottom:"1rem"}}>
-                <div style={{...card(),padding:"1.25rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                    <span style={{color:C.purple}}>✦</span>
-                    <span style={{...label(C.purple),marginBottom:0}}>AI EXECUTIVE BRIEFING</span>
-                  </div>
-                  {aiLoading ? (
-                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem",color:C.textMid,fontSize:"0.82rem"}}>
-                      <span>Writing briefing</span>
-                      {[0,1,2].map(i=><span key={i} style={{width:4,height:4,background:C.purple,borderRadius:"50%",display:"inline-block",animation:`dotBlink 1.4s ${i*0.22}s infinite`}}/>)}
-                    </div>
-                  ) : aiReadout ? (
-                    <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.8}}>{aiReadout}</p>
-                  ) : (
-                    <div>
-                      <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.8,marginBottom:"0.75rem"}}>
-                        {data.name} has a <strong style={{color:verdColor}}>{confScore}% chance of hitting its deadline</strong> as the plan currently stands. {result.confidence.reason}.
-                      </p>
-                      <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.8}}>
-                        If Pathflo's recommended changes are applied, on-time confidence rises to <strong style={{color:C.green}}>{confScoreOptimized}%</strong> — a <strong style={{color:C.green}}>+{confScoreOptimized - confScore} point improvement</strong>. {result.shuffleOps.length > 0 ? `${result.shuffleOps.length} concurrency change${result.shuffleOps.length > 1?"s":""} could recover up to ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero additional cost.` : "No major scheduling optimizations identified."}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div style={{...card(),padding:"1.25rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                    <span style={{color:C.purple}}>◈</span>
-                    <span style={{...label(C.purple),marginBottom:0}}>KEY INSIGHT</span>
-                  </div>
-                  <p style={{fontSize:"0.84rem",color:C.textMid,lineHeight:1.75}}>
-                    {result.predictiveRisk && result.predictiveRisk.top3[0] ?
-                      `This project's success hinges on "${result.predictiveRisk.top3[0].name}" — ${result.predictiveRisk.top3[0].reason}. ${result.predictiveRisk.planProb}% probability of missing deadline without intervention.` :
-                      `Critical path integrity depends on ${result.criticalPath.length} sequential milestones. Any single delay propagates forward with no buffer to absorb it.`
-                    }
-                  </p>
-                </div>
-              </div>
-
-              {/* INTELLIGENCE PILLARS — plain language */}
+              {/* PILLAR SCORES — 3 chips */}
               {(() => {
-                const timelineScore = result.confidence.breakdown.find(f=>f.name==="Timeline tightness")?.score||50;
-                const resourceScore = result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50;
-                const opScore = result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50;
-                const pillars = [
-                  {
-                    n:"1", title:"Will this finish on time?", color:C.blue,
-                    score: timelineScore,
-                    what: timelineScore>=75?"Your schedule has breathing room. Even if a task slips a few days, the plan can absorb it.":timelineScore>=45?"Your schedule is tight. The critical path has little room for error — one delay can cascade.":"Your schedule is at serious risk. The critical path is overloaded and has no buffer to absorb slips.",
-                    signal: result.bufferDays>=7?`${result.bufferDays} days of buffer — schedule is solid`:result.bufferDays>=3?`${result.bufferDays} days of buffer — tight but workable`:result.bufferDays>=0?`Only ${result.bufferDays} days of buffer — very tight`:`${Math.abs(result.bufferDays)} days over deadline`,
-                    signalColor: result.bufferDays>=7?C.green:result.bufferDays>=3?C.amber:C.red,
-                  },
-                  {
-                    n:"2", title:"Can your team handle this?", color:C.purple,
-                    score: resourceScore,
-                    what: resourceScore>=75?"Work is spread across your team. No single person is a bottleneck.":resourceScore>=45?"Some team members are carrying too much. If they fall behind, it stalls everyone else.":"One or two people are responsible for most of the critical work. That's a serious single point of failure.",
-                    signal: result.criticalPath.length <= 3 ? "Critical path owned by multiple people" : result.teamSize<=2?"Most critical tasks on 1–2 people":"Check owner concentration below",
-                    signalColor: resourceScore>=65?C.green:resourceScore>=40?C.amber:C.red,
-                  },
-                  {
-                    n:"3", title:"Is the plan built to succeed?", color:C.green,
-                    score: Math.round((opScore + (result.shuffleOps.length>0?70:30)) / 2),
-                    what: result.shuffleOps.length>0?`There are ${result.shuffleOps.length} task${result.shuffleOps.length>1?"s":""} that could run at the same time but currently run back-to-back. Fixing this could save ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero extra cost.`:"Your plan is well-sequenced. Tasks are ordered logically and no obvious scheduling improvements were found.",
-                    signal: result.shuffleOps.length>0?`${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days recoverable at no cost`:"Plan sequencing looks good",
-                    signalColor: result.shuffleOps.length>0?C.amber:C.green,
-                  },
-                ];
+                const buf = result.bufferDays;
+                const tScore = buf>=14?88:buf>=7?75:buf>=3?60:buf>=0?40:buf>=-3?20:8;
+                const ownerConc = result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50;
+                const scopeCap = result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50;
+                const rScore = result.teamSize<=1?Math.round(ownerConc*0.3+scopeCap*0.7):Math.round((ownerConc+scopeCap)/2);
+                const sScore = result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50;
+                const oScore = result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50;
+                const opScore = Math.round((sScore+oScore)/2);
                 return (
-                  <div style={{...card(),padding:"1.25rem",marginBottom:"1rem"}}>
-                    <div style={{fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:C.green,marginBottom:"0.85rem"}}>EXECUTION INTELLIGENCE — 3 KEY QUESTIONS</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-                      {pillars.map((p,i) => {
-                        const pct = Math.min(Math.max(p.score, 2), 98);
-                        const barColor = pct>=70?C.green:pct>=45?C.amber:C.red;
-                        const rating = pct>=70?"Good":pct>=45?"At Risk":"Critical";
-                        return (
-                          <div key={i} style={{background:C.surface2,border:"1px solid "+C.border,borderRadius:10,padding:"1rem",borderLeft:"3px solid "+p.color}}>
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"0.5rem"}}>
-                              <div style={{fontSize:"0.88rem",fontWeight:700,color:C.text,flex:1,paddingRight:"1rem"}}>{p.n}. {p.title}</div>
-                              <span style={{fontSize:"0.68rem",fontWeight:700,padding:"0.2rem 0.6rem",borderRadius:100,background:barColor+"20",color:barColor,border:"1px solid "+barColor+"40",flexShrink:0,whiteSpace:"nowrap"}}>{rating}</span>
-                            </div>
-                            <div style={{height:5,background:C.border2,borderRadius:3,marginBottom:"0.6rem"}}>
-                              <div style={{height:"100%",width:pct+"%",background:barColor,borderRadius:3,transition:"width 0.8s ease"}}/>
-                            </div>
-                            <p style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.65,marginBottom:"0.5rem"}}>{p.what}</p>
-                            <div style={{fontSize:"0.72rem",fontWeight:600,color:p.signalColor}}>→ {p.signal}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:"0.5rem",marginBottom:"0.75rem"}}>
+                    {[
+                      {label:"Timeline",score:tScore,q:"On time?",color:C.blue},
+                      {label:"Resources",score:rScore,q:"Team capacity?",color:C.purple},
+                      {label:"Structure",score:opScore,q:"Plan efficiency?",color:C.green},
+                    ].map((p,i)=>{
+                      const col=p.score>=70?C.green:p.score>=45?C.amber:C.red;
+                      return(
+                        <div key={i} style={{...card({background:C.surface2}),padding:"0.75rem",borderTop:"2px solid "+p.color,cursor:"pointer"}} onClick={()=>setActiveNav("risk")}>
+                          <div style={{fontSize:"0.58rem",color:p.color,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.2rem"}}>{p.label}</div>
+                          <div style={{fontFamily:"Georgia,serif",fontSize:"1.6rem",color:col,lineHeight:1}}>{p.score}</div>
+                          <div style={{fontSize:"0.58rem",color:C.textDim,marginTop:"0.2rem"}}>/100 · {p.q}</div>
+                          <div style={{height:3,background:C.border2,borderRadius:2,marginTop:"0.4rem"}}>
+                            <div style={{height:"100%",width:p.score+"%",background:col,borderRadius:2}}/>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })()}
 
-              {/* BOTTLENECKS + OPPORTUNITIES */}
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:"1rem",marginBottom:"1rem"}}>
-                <div style={{...card(),padding:"1.25rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
-                    <span style={{color:C.red}}>⚠</span>
-                    <div style={label(C.red)}>TOP BOTTLENECKS</div>
-                  </div>
-                  {result.predictiveRisk?.top3.map((m,i) => (
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.65rem 0",borderBottom:i<2?"1px solid "+C.border:"none"}}>
-                      <div style={{width:32,height:32,borderRadius:"50%",background:m.prob>=75?C.red+"20":C.amber+"20",border:"1px solid "+(m.prob>=75?C.red:C.amber),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.65rem",fontWeight:700,color:m.prob>=75?C.red:C.amber,flexShrink:0}}>{m.owner?m.owner.charAt(0).toUpperCase():"?"}</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:"0.82rem",fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name}</div>
-                        <div style={{fontSize:"0.72rem",color:C.textDim}}>{m.reason}</div>
-                      </div>
-                      <div style={{fontSize:"0.72rem",fontWeight:700,color:m.prob>=75?C.red:C.amber,flexShrink:0}}>IMPACT<br/><span style={{fontSize:"0.85rem"}}>{m.prob>=75?"High":"Moderate"}</span></div>
+              {/* KEY INSIGHT */}
+              {result.predictiveRisk?.top3[0] && (
+                <div onClick={()=>setActiveNav("risk")} style={{...card({border:"1px solid "+C.amber+"30",background:C.amberDim}),padding:"1rem",marginBottom:"0.75rem",cursor:"pointer"}}>
+                  <div style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.4rem"}}>⚠ KEY RISK</div>
+                  <div style={{fontSize:"0.88rem",color:C.text,fontWeight:600,marginBottom:"0.2rem"}}>{result.predictiveRisk.top3[0].name}</div>
+                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.6}}>{result.predictiveRisk.top3[0].reason}. {result.predictiveRisk.planProb}% probability of missing the deadline without intervention.</div>
+                </div>
+              )}
+
+              {/* AT A GLANCE STATS */}
+              <div style={{...card(),padding:"0.85rem 1rem"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(80px,1fr))",gap:"0.5rem",textAlign:"center"}}>
+                  {[
+                    {label:"TASKS",val:result.totalTasks,nav:"plan"},
+                    {label:"CRITICAL",val:result.criticalPath.length,color:C.red,nav:"plan"},
+                    {label:"TEAM",val:result.teamSize},
+                    {label:"BUFFER",val:result.bufferDays>=0?result.bufferDays+"d":"Over",color:result.bufferDays>=0?C.green:C.red,nav:"risk"},
+                    {label:"DEPS",val:data.tasks.filter(t=>t.predecessors.length>0).length,nav:"plan"},
+                  ].map((s,i)=>(
+                    <div key={i} onClick={s.nav?()=>setActiveNav(s.nav):undefined} style={{cursor:s.nav?"pointer":"default"}}>
+                      <div style={{fontSize:"0.52rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.2rem"}}>{s.label}</div>
+                      <div style={{fontSize:"1rem",fontWeight:700,color:s.color||C.text}}>{s.val}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{...card(),padding:"1.25rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
-                    <span style={{color:C.green}}>◈</span>
-                    <div style={label(C.green)}>TOP OPTIMIZATION OPPORTUNITIES</div>
+              </div>
+
+            </div>
+          )}
+
+
+          {/* ══ EXECUTION PLAN ══ */}
+          {activeNav==="plan" && (
+            <div style={{animation:"fadeUp 0.3s ease both"}}>
+              <div style={{marginBottom:"1rem"}}>
+                <div style={{fontSize:"1.1rem",fontWeight:700}}>Execution Plan</div>
+                <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Tap any node to see its detail and cascade chain. Use ⚡ to simulate a delay.</div>
+              </div>
+
+              {/* Stat chips */}
+              <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.75rem"}}>
+                {[
+                  {label:"Tasks",val:result.totalTasks},
+                  {label:"Critical path",val:result.criticalPath.length+" tasks",color:C.red},
+                  {label:"Cascade risk",val:(result.predictiveRisk?.planProb||0)+"%",color:C.amber},
+                  {label:"Days recoverable",val:result.shuffleOps.length>0?result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)+"d free":"None",color:result.shuffleOps.length>0?C.green:C.textDim},
+                ].map((s,i)=>(
+                  <div key={i} style={{background:C.surface2,border:"1px solid "+C.border,borderRadius:8,padding:"0.4rem 0.75rem"}}>
+                    <div style={{fontSize:"0.55rem",color:C.textDim,fontWeight:700,letterSpacing:"0.08em"}}>{s.label}</div>
+                    <div style={{fontSize:"0.88rem",fontWeight:700,color:s.color||C.text}}>{s.val}</div>
                   </div>
-                  {result.shuffleOps.length > 0 ? result.shuffleOps.map((op,i) => (
-                    <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"0.75rem",padding:"0.65rem 0",borderBottom:i<result.shuffleOps.length-1?"1px solid "+C.border:"none"}}>
-                      <div style={{width:24,height:24,borderRadius:"50%",background:C.surface3,border:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.72rem",fontWeight:700,color:C.textMid,flexShrink:0}}>{i+1}</div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:"0.82rem",fontWeight:600,color:C.text}}>{op.reason.split('"')[1]||op.task} — run concurrently</div>
-                        <div style={{fontSize:"0.72rem",color:C.textDim}}>{op.reason}</div>
-                      </div>
-                      <div style={{fontSize:"0.72rem",fontWeight:700,color:C.green,flexShrink:0,textAlign:"right"}}>IMPACT<br/><span style={{color:C.green}}>-{Math.round(op.daysSaved/result.projectDuration*100)}% Delay Risk</span></div>
-                    </div>
-                  )) : (
-                    <div style={{fontSize:"0.85rem",color:C.textMid,fontStyle:"italic"}}>No major concurrency opportunities identified. Plan is well-structured.</div>
+                ))}
+                {simulatorTaskId && (
+                  <button onClick={()=>setSimulatorTaskId(null)} style={{background:C.amberDim,border:"1px solid "+C.amber+"40",borderRadius:8,color:C.amber,fontFamily:"inherit",fontSize:"0.72rem",fontWeight:600,padding:"0.4rem 0.75rem",cursor:"pointer",marginLeft:"auto"}}>✕ Clear simulator</button>
+                )}
+              </div>
+
+              {/* Graph */}
+              <div style={{...card(),overflow:"visible",marginBottom:"0.75rem"}}>
+                <div className="r-graph-wrap" style={{display:"flex",flexDirection:"row",overflow:"hidden",borderRadius:12}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <DependencyGraph
+                      tasks={data.tasks} result={result} simulatorTaskId={simulatorTaskId}
+                      onNodeClick={(id)=>{
+                        setSelectedNodeId(id);
+                        if(id!==simulatorTaskId) setSimulatorTaskId(null);
+                      }}
+                    />
+                  </div>
+                  {selectedNodeId && (
+                    <NodeDetailPanel
+                      nodeId={selectedNodeId} tasks={data.tasks} result={result}
+                      onClose={()=>setSelectedNodeId(null)}
+                      onSimulate={(id)=>{ setSimulatorTaskId(id); setSelectedNodeId(null); }}
+                    />
                   )}
                 </div>
               </div>
 
-              {/* DEPENDENCY GRAPH PREVIEW + GANTT PREVIEW */}
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:"1rem",marginBottom:"1rem"}}>
-                <div style={{...card(),padding:"1.25rem"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-                    <div style={label(C.purple)}>DEPENDENCY INTELLIGENCE GRAPH</div>
-                    <button onClick={()=>setActiveNav("graph")} style={{background:"transparent",border:"none",color:C.purple,fontSize:"0.75rem",cursor:"pointer",fontFamily:"inherit"}}>View full graph →</button>
-                  </div>
-                  <GraphSection preview={true} />
-                </div>
-                <div style={{...card(),padding:"1.25rem"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-                    <div style={label(C.purple)}>PROJECT TIMELINE</div>
-                    <button onClick={()=>setActiveNav("gantt")} style={{background:"transparent",border:"none",color:C.purple,fontSize:"0.75rem",cursor:"pointer",fontFamily:"inherit"}}>View full Gantt →</button>
-                  </div>
-                  <GanttChart tasks={data.tasks} result={result} startDate={data.startDate}/>
-                </div>
-              </div>
-
-              {/* AT A GLANCE FOOTER */}
-              <div style={{...card(),padding:"1rem"}}>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:"0.75rem",textAlign:"center"}}>
-                  {[
-                    {label:"TASKS",val:result.totalTasks,sub:"On Track",subColor:verdColor},
-                    {label:"CRITICAL PATH TASKS",val:result.criticalPath.length,sub:"At Risk",subColor:C.red},
-                    {label:"TEAM MEMBERS",val:result.teamSize,sub:"Active",subColor:C.green},
-                    {label:"DEPENDENCIES",val:data.tasks.filter(t=>t.predecessors.length>0).length,sub:`${result.predictiveRisk?.top3.filter(m=>m.prob>60).length||0} Hidden Risks`,subColor:C.amber},
-                    {label:"BUFFER",val:result.bufferDays>=0?result.bufferDays+"d":"Over",sub:result.bufferDays>=0?"Available":"by "+Math.abs(result.bufferDays)+"d",subColor:result.bufferDays>=0?C.green:C.red},
-                    {label:"BUDGET",val:totalCost>0?"$"+Math.round(totalCost/1000)+"k":"N/A",sub:overrunCost>0?"At Risk":"On Track",subColor:overrunCost>0?C.red:C.green},
-                  ].map((s,i) => (
-                    <div key={i}>
-                      <div style={{fontSize:"0.55rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>{s.label}</div>
-                      <div style={{fontSize:"1.1rem",fontWeight:700,color:C.text}}>{s.val}</div>
-                      <div style={{fontSize:"0.65rem",color:s.subColor,fontWeight:600}}>{s.sub}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ══ DEPENDENCY GRAPH (HERO — full interactive) ══ */}
-          {activeNav==="graph" && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1.25rem"}}>
-                <div style={{fontSize:"1.2rem",fontWeight:700}}>Dependency Intelligence Graph</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Click any node to see task detail and cascade chain. Hit <strong style={{color:C.amber}}>⚡ Simulate delay</strong> to run the cascade simulator on any task.</div>
-              </div>
-              <div style={{display:"flex",gap:"1.5rem",marginBottom:"1rem",flexWrap:"wrap"}}>
-                {[{label:"Tasks",val:result.totalTasks},{label:"Dependencies",val:data.tasks.filter(t=>t.predecessors.length>0).length},{label:"Critical Path",val:`${result.criticalPath.length} tasks`},{label:"Cascade Risk",val:`${result.predictiveRisk?.planProb||0}%`}].map((s,i)=>(
-                  <div key={i} style={{...card({background:C.surface2}),padding:"0.65rem 1rem"}}>
-                    <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>{s.label}</div>
-                    <div style={{fontSize:"1rem",fontWeight:700,color:C.text,marginTop:"0.1rem"}}>{s.val}</div>
-                  </div>
-                ))}
-                <div style={{marginLeft:"auto",display:"flex",gap:"0.75rem",flexWrap:"wrap",alignItems:"center"}}>
-                  {[{color:C.red,label:"Critical"},{color:C.blue,label:"Upstream"},{color:"#F87171",label:"Downstream"},{color:C.purple,label:"Selected"},{color:C.green,label:"On Track"}].map((l,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.72rem",color:C.textMid}}>
-                      <div style={{width:10,height:10,borderRadius:2,background:l.color+"30",border:"1px solid "+l.color}}/>
-                      {l.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Full interactive graph + detail panel side by side */}
-              <div style={{...card(),overflow:"visible",marginBottom:"1rem"}}>
-                <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",borderRadius:12}}>
-                  <GraphSection preview={false} />
-                </div>
-              </div>
-
-              {/* P1-2: Cascade Impact Simulator */}
+              {/* Cascade simulator */}
               <CascadeSimulator
-                tasks={data.tasks}
-                result={result}
-                simulatorTaskId={simulatorTaskId}
+                tasks={data.tasks} result={result} simulatorTaskId={simulatorTaskId}
                 onTaskChange={setSimulatorTaskId}
-                startDate={data.startDate}
-                targetDate={data.targetDate}
-                budget={data.budget||"Flexible"}
+                startDate={data.startDate} targetDate={data.targetDate} budget={data.budget||"Flexible"}
               />
 
-              {/* Critical path chain */}
-              <div style={{...card(),padding:"1.25rem",marginTop:"1rem"}}>
-                <div style={label(C.red)}>CRITICAL PATH — tasks that control your deadline</div>
-                <div style={{fontSize:"0.78rem",color:C.textDim,marginBottom:"0.75rem"}}>Any slip in these propagates forward with zero buffer</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",alignItems:"center"}}>
-                  {result.criticalPath.map((name,i) => (
-                    <span key={i} style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-                      <span style={{background:C.red+"15",border:"1px solid "+C.red+"40",borderRadius:6,color:C.red,fontSize:"0.75rem",padding:"0.25rem 0.65rem",fontWeight:600}}>{name}</span>
-                      {i<result.criticalPath.length-1&&<span style={{color:C.red,opacity:0.35}}>→</span>}
+              {/* Critical path */}
+              <div style={{...card(),padding:"1rem",marginTop:"0.75rem"}}>
+                <div style={{fontSize:"0.58rem",color:C.red,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.5rem"}}>CRITICAL PATH — zero float, any slip cascades</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",alignItems:"center"}}>
+                  {result.criticalPath.map((name,i)=>(
+                    <span key={i} style={{display:"flex",alignItems:"center",gap:"0.35rem"}}>
+                      <span style={{background:C.red+"15",border:"1px solid "+C.red+"35",borderRadius:6,color:C.red,fontSize:"0.72rem",padding:"0.2rem 0.55rem",fontWeight:600}}>{name}</span>
+                      {i<result.criticalPath.length-1&&<span style={{color:C.red,opacity:0.4,fontSize:"0.7rem"}}>→</span>}
                     </span>
                   ))}
                 </div>
               </div>
 
-              {/* Predicted risk cards */}
-              {result.predictiveRisk && (
-                <div style={{...card({border:"1px solid "+result.predictiveRisk.planBand+"40"}),padding:"1.25rem",marginTop:"1rem",position:"relative",overflow:"hidden"}}>
-                  <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${result.predictiveRisk.planBand},transparent)`}}/>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
-                    <div>
-                      <div style={label(C.textDim)}>PREDICTED RISK PROFILE</div>
-                      <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem"}}>
-                        <span style={{fontFamily:"Georgia,serif",fontSize:"2.5rem",color:result.predictiveRisk.planBand,lineHeight:1}}>{result.predictiveRisk.planProb}%</span>
-                        <span style={{fontSize:"0.85rem",color:C.textMid}}>probability of missing deadline</span>
+              {/* Gantt */}
+              <div style={{...card(),padding:"1rem 1.25rem",marginTop:"0.75rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.65rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>GANTT TIMELINE</div>
+                  <div style={{display:"flex",gap:"0.75rem"}}>
+                    {[{color:C.red,label:"Critical"},{color:C.green,label:"Concurrent"},{color:C.blue,label:"Sequential"}].map((l,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:"0.3rem",fontSize:"0.68rem",color:C.textMid}}>
+                        <div style={{width:12,height:4,background:l.color,borderRadius:2,opacity:0.8}}/>{l.label}
                       </div>
-                    </div>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:"0.65rem"}}>
-                    {result.predictiveRisk.top3.map((m,i) => {
-                      const mColor = m.prob>=75?C.red:m.prob>=55?C.amber:C.green;
-                      return (
-                        <div key={i} style={{...card({background:C.surface2,border:"1px solid "+mColor+"20"}),padding:"0.85rem 1rem"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"0.3rem"}}>
-                            <div style={{fontSize:"0.88rem",fontWeight:600,color:C.text}}>{m.name}</div>
-                            <div style={{display:"flex",alignItems:"center",gap:"0.4rem",flexShrink:0,marginLeft:"1rem"}}>
-                              <div style={{height:5,width:60,background:C.border2,borderRadius:3}}><div style={{height:"100%",width:m.prob+"%",background:mColor,borderRadius:3}}/></div>
-                              <span style={{fontSize:"0.75rem",fontFamily:"monospace",fontWeight:700,color:mColor}}>{m.prob}%</span>
-                            </div>
-                          </div>
-                          <div style={{fontSize:"0.72rem",color:C.textDim,marginBottom:"0.3rem"}}>{m.owner} · {m.days}d · {m.slack===0?"zero float":m.slack+"d float"}{m.dependents>0?` · ${m.dependents} downstream`:""}</div>
-                          <div style={{fontSize:"0.8rem",color:C.textMid}}>{m.reason}</div>
-                        </div>
-                      );
-                    })}
+                    ))}
                   </div>
                 </div>
-              )}
+                <GanttChart tasks={data.tasks} result={result} startDate={data.startDate}/>
+              </div>
+
+              {/* All milestones table */}
+              <div style={{...card(),padding:"0",marginTop:"0.75rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0.75rem 1rem",borderBottom:"1px solid "+C.border}}>
+                  <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>ALL MILESTONES</div>
+                  <button onClick={()=>{
+                    const rows=[["Milestone","Owner","Days","Start","Float","Critical"],...result.tasks.map(t=>[t.name,t.owner||"",t.days,"Day "+(t.es+1),t.slack===0?"No float":t.slack+"d",result.criticalPath.includes(t.name)?"Yes":"No"])];
+                    const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("
+");
+                    const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=(data.name||"pathflo").replace(/\s+/g,"-").toLowerCase()+".csv";a.click();
+                  }} style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:100,color:C.green,fontFamily:"inherit",fontSize:"0.7rem",fontWeight:600,padding:"0.3rem 0.75rem",cursor:"pointer"}}>↓ CSV</button>
+                </div>
+                {result.tasks.map((t,i)=>(
+                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 65px 45px",gap:"0.4rem",padding:"0.5rem 0.85rem",borderBottom:i<result.tasks.length-1?"1px solid "+C.border2:"none",alignItems:"center"}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:"0.82rem",color:t.slack===0?C.red:C.text,fontWeight:t.slack===0?600:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.slack===0?"◆ ":""}{t.name}{t.concurrent&&<span style={{fontSize:"0.62rem",color:C.green,marginLeft:"0.35rem"}}>parallel</span>}</div>
+                      <div style={{fontSize:"0.68rem",color:C.textDim,marginTop:"0.1rem"}}>{t.owner==="UNASSIGNED"?"Unassigned":t.owner||"—"}</div>
+                    </div>
+                    <div style={{fontSize:"0.78rem",color:C.text,textAlign:"right"}}>{t.days}d</div>
+                    <span style={{fontSize:"0.62rem",fontFamily:"monospace",borderRadius:4,padding:"0.12rem 0.45rem",background:t.slack===0?C.red+"18":C.green+"12",color:t.slack===0?C.red:C.green,fontWeight:700,display:"inline-block",textAlign:"center"}}>{t.slack===0?"CRIT":"+"+t.slack+"d"}</span>
+                  </div>
+                ))}
+              </div>
+
             </div>
           )}
 
-          {/* ══ INTELLIGENCE PILLARS ══ */}
-          {activeNav==="intelligence" && (
+
+          {/* ══ RISK & FIXES ══ */}
+          {activeNav==="risk" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1.25rem"}}>
-                <div style={{fontSize:"1.2rem",fontWeight:700}}>Intelligence Pillars</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Three scores that explain exactly why your confidence is {confScore}%. Each one is a different kind of risk.</div>
+              <div style={{marginBottom:"1rem"}}>
+                <div style={{fontSize:"1.1rem",fontWeight:700}}>Risk & Fixes</div>
+                <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Where your plan is most likely to break, and exactly what to do about it.</div>
               </div>
 
-              {/* Overall score */}
-              <div style={{...card({border:"1px solid "+verdColor+"40"}),padding:"1.25rem",marginBottom:"1rem",position:"relative",overflow:"hidden"}}>
-                <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:verdColor}}/>
-                <div style={{display:"flex",alignItems:"center",gap:"1.25rem",flexWrap:"wrap"}}>
-                  <div>
-                    <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>ON-TIME DELIVERY CONFIDENCE</div>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:"3.5rem",color:verdColor,lineHeight:1}}>{confScore}<span style={{fontSize:"1.5rem"}}>%</span></div>
+              {/* Overall risk */}
+              {result.predictiveRisk && (
+                <div style={{...card({border:"1px solid "+result.predictiveRisk.planBand+"40"}),padding:"1.25rem",marginBottom:"0.75rem",position:"relative",overflow:"hidden"}}>
+                  <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:result.predictiveRisk.planBand}}/>
+                  <div style={{display:"flex",alignItems:"baseline",gap:"0.65rem",marginBottom:"0.4rem"}}>
+                    <span style={{fontFamily:"Georgia,serif",fontSize:"2.8rem",color:result.predictiveRisk.planBand,lineHeight:1}}>{result.predictiveRisk.planProb}%</span>
+                    <span style={{fontSize:"0.85rem",color:C.textMid}}>probability of missing your deadline</span>
                   </div>
-                  <div style={{flex:1,minWidth:180}}>
-                    <div style={{height:8,background:C.border2,borderRadius:4,marginBottom:"0.5rem"}}>
-                      <div style={{height:"100%",width:confScore+"%",background:verdColor,borderRadius:4,transition:"width 1s ease"}}/>
-                    </div>
-                    <div style={{fontSize:"0.82rem",color:C.textMid,lineHeight:1.6}}>{result.confidence.reason}.</div>
-                    <div style={{fontSize:"0.78rem",color:C.green,marginTop:"0.4rem",fontWeight:600}}>With Pathflo's fixes: {confScoreOptimized}% (+{confScoreOptimized-confScore} pts)</div>
-                  </div>
+                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.6}}>{result.confidence.reason}.</div>
                 </div>
-              </div>
+              )}
 
-              {/* Three pillars */}
+              {/* Top bottlenecks */}
+              {result.predictiveRisk?.top3.length > 0 && (
+                <div style={{...card(),padding:"1rem",marginBottom:"0.75rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.red,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.65rem"}}>TOP BOTTLENECKS</div>
+                  {result.predictiveRisk.top3.map((m,i)=>{
+                    const mc=m.prob>=75?C.red:m.prob>=55?C.amber:C.green;
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:i<result.predictiveRisk.top3.length-1?"1px solid "+C.border2:"none"}}>
+                        <div style={{width:36,height:36,borderRadius:"50%",background:mc+"18",border:"1px solid "+mc+"40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",fontWeight:700,color:mc,flexShrink:0}}>{m.prob}%</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text}}>{m.name}</div>
+                          <div style={{fontSize:"0.72rem",color:C.textDim}}>{m.owner} · {m.slack===0?"zero float":m.slack+"d float"} · {m.dependents} downstream</div>
+                          <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>{m.reason}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Optimization opportunities */}
+              {result.shuffleOps.length > 0 && (
+                <div style={{...card({border:"1px solid "+C.green+"25"}),padding:"1rem",marginBottom:"0.75rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.65rem"}}>◈ SCHEDULING FIXES — zero cost, immediate impact</div>
+                  {result.shuffleOps.map((op,i)=>(
+                    <div key={i} style={{display:"flex",gap:"0.75rem",alignItems:"flex-start",padding:"0.6rem 0",borderBottom:i<result.shuffleOps.length-1?"1px solid "+C.border2:"none"}}>
+                      <div style={{background:C.green+"20",border:"1px solid "+C.green+"40",borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:C.green,flexShrink:0}}>{i+1}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text,marginBottom:"0.2rem"}}>{op.reason}</div>
+                        <div style={{fontSize:"0.72rem",color:C.green,fontWeight:600}}>Recovers ~{op.daysSaved} days at zero additional cost</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Intelligence pillars */}
               {(() => {
-                // Timeline: based directly on buffer days — more buffer = higher score
                 const buf = result.bufferDays;
-                const tScore = buf >= 14 ? 88 : buf >= 7 ? 75 : buf >= 3 ? 60 : buf >= 0 ? 40 : buf >= -3 ? 20 : 8;
-                // Resource: solo operators aren't penalized — single person teams are common
+                const tScore = buf>=14?88:buf>=7?75:buf>=3?60:buf>=0?40:buf>=-3?20:8;
                 const ownerConc = result.confidence.breakdown.find(f=>f.name==="Owner concentration")?.score||50;
                 const scopeCap = result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50;
-                const rScore = result.teamSize <= 1
-                  ? Math.round((ownerConc * 0.3) + (scopeCap * 0.7)) // solo: weight scope more
-                  : Math.round((ownerConc + scopeCap) / 2);
-                // Operational: sequencing + optimization
-                const oScore = Math.round(((result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50) + (result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)) / 2);
+                const rScore = result.teamSize<=1?Math.round(ownerConc*0.3+scopeCap*0.7):Math.round((ownerConc+scopeCap)/2);
+                const sScore = result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50;
+                const oScore = result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50;
+                const opScore = Math.round((sScore+oScore)/2);
 
                 const pillars = [
-                  {
-                    id:"time", n:"01", title:"Timeline Health", subtitle:"Will it finish on time?",
-                    color:C.blue, score:tScore,
-                    triVals:[tScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)/100,1), Math.min(result.bufferDays>=0?0.8:0.2,1)],
-                    triLabels:["BUFFER","SEQUENCE","RISK"],
-                    plain: result.bufferDays>=14
-                      ? `${result.bufferDays} days of buffer on the critical path — you have real breathing room. Even if a task slips by a week, the deadline holds.`
-                      : result.bufferDays>=7
-                        ? `${result.bufferDays} days of buffer. Healthy, but not unlimited — protect the critical path from unexpected slips.`
-                        : result.bufferDays>=3
-                          ? `${result.bufferDays} days of buffer. Tight. One task slipping more than a few days and the deadline moves.`
-                          : result.bufferDays>=0
-                            ? `Only ${result.bufferDays} day${result.bufferDays!==1?"s":""} of buffer. Essentially no room for error on the critical path.`
-                            : `The critical path already runs ${Math.abs(result.bufferDays)} day${Math.abs(result.bufferDays)!==1?"s":""} past your target deadline. The plan needs to be compressed.`,
-                    fix: result.shuffleOps[0]
-                      ? `Run "${result.shuffleOps[0].task}" parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" — recovers ~${result.shuffleOps[0].daysSaved}d`
-                      : result.bufferDays<0 ? "Identify tasks that can overlap to compress the schedule" : "Protect the critical path from scope creep",
-                    fixColor: result.bufferDays>=5?C.green:C.amber,
-                    stats:[
-                      {name:"Buffer days", val:result.bufferDays>=0?result.bufferDays+"d buffer":Math.abs(result.bufferDays)+"d over", color:result.bufferDays>=5?C.green:result.bufferDays>=0?C.amber:C.red},
-                      {name:"Critical path tasks", val:result.criticalPath.length, color:result.criticalPath.length<=3?C.green:result.criticalPath.length<=6?C.amber:C.red},
-                      {name:"Schedule type", val:result.tasks.filter(t=>t.concurrent).length>0?"Has parallel work":"Fully sequential", color:result.tasks.filter(t=>t.concurrent).length>0?C.green:C.amber},
-                    ],
-                  },
-                  {
-                    id:"resource", n:"02", title:"Resource Health", subtitle:"Can your team handle this?",
-                    color:C.purple, score:rScore,
-                    triVals:[rScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Scope vs capacity")?.score||50)/100,1), Math.min(result.teamSize/Math.max(result.criticalPath.length,1),1)],
-                    triLabels:["OWNERS","CAPACITY","RISK"],
-                    plain: result.teamSize<=1
-                      ? `This is a solo project — you own all ${result.totalTasks} tasks. That's normal for contractors. The risk is if you get blocked: there's no one to pick up the slack. Make sure your critical path tasks are clearly time-boxed.`
-                      : rScore>=70
-                        ? `Work is spread across ${result.teamSize} people. No single person is carrying an outsized share of critical tasks.`
-                        : rScore>=45
-                          ? `Some team members have multiple critical tasks. If they fall behind, everything waiting on them is delayed.`
-                          : `High concentration risk. One or two people own most of the critical work — if they get stuck, the project stalls.`,
-                    fix: result.teamSize<=1
-                      ? `${result.criticalPath.length} tasks on the critical path — time-box each one and build in a personal buffer for your highest-risk task`
-                      : rScore<70
-                        ? `${result.criticalPath.length} tasks on the critical path — confirm each owner has the capacity to deliver on schedule`
-                        : "Team capacity looks well distributed",
-                    fixColor: result.teamSize<=1?C.amber:rScore>=70?C.green:rScore>=45?C.amber:C.red,
-                    stats:[
-                      {name:"Team size", val:result.teamSize+(result.teamSize===1?" person":" people"), color:C.amber},
-                      {name:"Critical tasks", val:result.criticalPath.length+" tasks", color:result.criticalPath.length<=3?C.green:result.criticalPath.length<=6?C.amber:C.red},
-                      {name:"Tasks per person", val:Math.round(result.totalTasks/Math.max(result.teamSize,1))+" avg", color:result.totalTasks/Math.max(result.teamSize,1)<=4?C.green:C.amber},
-                    ],
-                  },
-                  {
-                    id:"ops", n:"03", title:"Operational Health", subtitle:"Is the plan built to succeed?",
-                    color:C.green, score:oScore,
-                    triVals:[oScore/100, Math.min((result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50)/100,1), overrunCost>0?0.2:0.85],
-                    triLabels:["STRUCTURE","EFFICIENCY","BUDGET"],
-                    plain: result.shuffleOps.length>0
-                      ? `${result.shuffleOps.length} task${result.shuffleOps.length!==1?"s are":" is"} running back-to-back that could run at the same time. That's ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days left on the table.`
-                      : overrunCost>0
-                        ? `Schedule is tight and costs are at risk. At $${Math.round(dailyBurn)}/day, the ${Math.abs(result.bufferDays)}-day overrun adds $${Math.round(overrunCost).toLocaleString()} in exposure.`
-                        : "Plan is well-structured. Tasks are sequenced efficiently and no major scheduling gaps were found.",
-                    fix: result.shuffleOps.length>0
-                      ? result.shuffleOps[0].reason
-                      : overrunCost>0
-                        ? "Compress the schedule to reduce cost exposure"
-                        : "No major structural improvements needed",
-                    fixColor: result.shuffleOps.length>0||overrunCost>0?C.amber:C.green,
-                    stats:[
-                      {name:"Parallel opportunities", val:result.shuffleOps.length>0?result.shuffleOps.length+" found":"None needed", color:result.shuffleOps.length>0?C.amber:C.green},
-                      {name:"Days recoverable", val:result.shuffleOps.length>0?result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)+"d at zero cost":"—", color:result.shuffleOps.length>0?C.amber:C.textDim},
-                      {name:"Budget status", val:overrunCost>0?"At risk":"On track", color:overrunCost>0?C.red:C.green},
-                    ],
-                  },
+                  { n:"01", title:"Will it finish on time?", color:C.blue, score:tScore,
+                    answer: buf>=7?`${buf} days of buffer on the critical path. Schedule has breathing room.`:buf>=3?`Only ${buf} days of buffer. One slip and the deadline moves.`:buf>=0?`Dangerously thin — ${buf} day${buf!==1?"s":""} of buffer remaining.`:`${Math.abs(buf)} days past your deadline. Plan needs compression.`,
+                    fix: result.shuffleOps[0]?`Run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" — recovers ~${result.shuffleOps[0].daysSaved}d`:"Protect critical path from scope additions." },
+                  { n:"02", title:"Can your team handle this?", color:C.purple, score:rScore,
+                    answer: result.teamSize<=1?`Solo project — you own all ${result.totalTasks} tasks. Time-box critical path tasks and build in personal buffer.`:rScore>=70?`Work is distributed across ${result.teamSize} people. No single point of failure.`:rScore>=45?`Some team members carry multiple critical tasks. If they fall behind, it delays everything after them.`:`High concentration risk. One or two people own most of the critical work.`,
+                    fix: result.teamSize<=1?`${result.criticalPath.length} tasks on the critical path. Build a 10–15% personal buffer on each.`:`Confirm each critical path owner has the capacity to deliver on schedule.` },
+                  { n:"03", title:"Is the plan efficient?", color:C.green, score:opScore,
+                    answer: result.shuffleOps.length>0?`${result.shuffleOps.length} task${result.shuffleOps.length!==1?"s":""} running back-to-back that could run at the same time. That's ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days left on the table.`:`Plan is well-sequenced. No obvious scheduling improvements found.`,
+                    fix: result.shuffleOps.length>0?result.shuffleOps[0].reason:"Monitor for scope creep on critical path tasks." },
                 ];
 
-                const size=120, cx=size/2, cy=size/2, r=42, n=3;
-                function makeTriangle(vals, color, labels, scoreText) {
-                  const outerPts = Array.from({length:n},(_,i)=>{ const a=(i*2*Math.PI/n)-Math.PI/2; return {x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)}; });
-                  const innerPts = vals.map((v,i)=>{ const a=(i*2*Math.PI/n)-Math.PI/2; const d=r*Math.max(v,0.08); return {x:cx+d*Math.cos(a),y:cy+d*Math.sin(a)}; });
-                  const labelPts = outerPts.map((p,i)=>({ x:cx+(r+16)*Math.cos((i*2*Math.PI/n)-Math.PI/2), y:cy+(r+16)*Math.sin((i*2*Math.PI/n)-Math.PI/2) }));
-                  const poly = pts => pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-                  return (
-                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{overflow:"visible",display:"block",margin:"0 auto"}}>
-                      <polygon points={poly(outerPts)} fill="none" stroke={color} strokeWidth="1" opacity="0.2"/>
-                      <polygon points={poly(innerPts)} fill={color} fillOpacity="0.18" stroke={color} strokeWidth="2"/>
-                      {outerPts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3.5" fill={color} opacity="0.35"/>)}
-                      {innerPts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3" fill={color}/>)}
-                      {labelPts.map((p,i)=>(
-                        <text key={i} x={p.x.toFixed(1)} y={p.y.toFixed(1)} textAnchor="middle" dominantBaseline="middle"
-                          fontSize="7.5" fontFamily="system-ui" fill={color} fontWeight="700" opacity="0.7">{labels[i]}</text>
-                      ))}
-                      <text x={cx} y={cy-5} textAnchor="middle" fontSize="22" fontFamily="Georgia,serif" fill={color} fontWeight="400">{scoreText}</text>
-                      <text x={cx} y={cy+10} textAnchor="middle" fontSize="8" fontFamily="system-ui" fill={color} fontWeight="600" opacity="0.6">/ 100</text>
-                    </svg>
-                  );
-                }
-
                 return (
-                  <div style={{display:"flex",flexDirection:"column",gap:"1rem"}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:"0.65rem",marginBottom:"0.75rem"}}>
                     {pillars.map((p,i)=>{
-                      const barColor = p.score>=70?C.green:p.score>=45?C.amber:C.red;
-                      const rating = p.score>=70?"Good":p.score>=45?"At Risk":"Critical";
-                      return (
-                        <div key={i} style={{...card(),padding:"1.25rem",borderTop:"2px solid "+p.color}}>
-                          {/* Header row */}
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",gap:"0.75rem"}}>
-                            <div>
-                              <div style={{fontSize:"0.6rem",color:p.color,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.25rem"}}>{p.n} · {p.title.toUpperCase()}</div>
-                              <div style={{fontSize:"0.95rem",fontWeight:700,color:C.text}}>{p.subtitle}</div>
-                            </div>
-                            <span style={{fontSize:"0.68rem",fontWeight:700,padding:"0.22rem 0.7rem",borderRadius:100,background:barColor+"20",color:barColor,border:"1px solid "+barColor+"40",flexShrink:0,whiteSpace:"nowrap"}}>{rating}</span>
-                          </div>
-
-                          {/* Triangle + score side by side */}
-                          <div style={{display:"flex",alignItems:"center",gap:"1.5rem",marginBottom:"1rem",flexWrap:"wrap"}}>
-                            <div style={{flexShrink:0}}>
-                              {makeTriangle(p.triVals, p.color, p.triLabels, p.score)}
-                            </div>
-                            <div style={{flex:1,minWidth:160}}>
-                              <div style={{fontFamily:"Georgia,serif",fontSize:"2.8rem",color:barColor,lineHeight:1,marginBottom:"0.3rem"}}>{p.score}<span style={{fontSize:"1.2rem",color:C.textDim}}>/100</span></div>
-                              <div style={{height:6,background:C.border2,borderRadius:3,marginBottom:"0.6rem"}}>
-                                <div style={{height:"100%",width:p.score+"%",background:barColor,borderRadius:3,transition:"width 0.8s ease"}}/>
-                              </div>
-                              <p style={{fontSize:"0.82rem",color:C.textMid,lineHeight:1.65}}>{p.plain}</p>
+                      const bc=p.score>=70?C.green:p.score>=45?C.amber:C.red;
+                      const rating=p.score>=70?"Good":p.score>=45?"At Risk":"Critical";
+                      return(
+                        <div key={i} style={{...card(),padding:"1rem",borderLeft:"3px solid "+p.color}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.5rem"}}>
+                            <div style={{fontSize:"0.88rem",fontWeight:700,color:C.text}}>{p.title}</div>
+                            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexShrink:0}}>
+                              <span style={{fontFamily:"Georgia,serif",fontSize:"1.4rem",color:bc}}>{p.score}</span>
+                              <span style={{fontSize:"0.62rem",fontWeight:700,padding:"0.18rem 0.55rem",borderRadius:100,background:bc+"20",color:bc,border:"1px solid "+bc+"40"}}>{rating}</span>
                             </div>
                           </div>
-
-                          {/* Stats row */}
-                          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.5rem",marginBottom:"0.85rem"}}>
-                            {p.stats.map((s,j)=>(
-                              <div key={j} style={{background:C.surface2,borderRadius:8,padding:"0.5rem 0.65rem"}}>
-                                <div style={{fontSize:"0.58rem",color:C.textDim,marginBottom:"0.2rem"}}>{s.name}</div>
-                                <div style={{fontSize:"0.8rem",fontWeight:700,color:s.color}}>{s.val}</div>
-                              </div>
-                            ))}
+                          <div style={{height:4,background:C.border2,borderRadius:2,marginBottom:"0.55rem"}}>
+                            <div style={{height:"100%",width:p.score+"%",background:bc,borderRadius:2,transition:"width 0.8s ease"}}/>
                           </div>
-
-                          {/* Fix */}
-                          <div style={{borderTop:"1px solid "+C.border,paddingTop:"0.75rem"}}>
-                            <div style={{fontSize:"0.6rem",color:p.fixColor,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.25rem"}}>PATHFLO {p.score>=70?"INSIGHT":"FIX"}</div>
-                            <div style={{fontSize:"0.8rem",color:C.text,lineHeight:1.6}}>→ {p.fix}</div>
-                          </div>
+                          <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.65,marginBottom:"0.5rem"}}>{p.answer}</div>
+                          <div style={{fontSize:"0.75rem",color:p.color,fontWeight:600}}>→ {p.fix}</div>
                         </div>
                       );
                     })}
+                  </div>
+                );
+              })()}
+
+              {/* Cost exposure — only if task cost data exists */}
+              {(() => {
+                const totalCost = data.tasks.reduce((a,t)=>{const c=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;return a+c;},0);
+                if (totalCost === 0) return null;
+                const dailyBurn = totalCost > 0 && result.projectDuration > 0 ? totalCost/result.projectDuration : 0;
+                const overrunCost = result.bufferDays < 0 && dailyBurn > 0 ? Math.abs(result.bufferDays)*dailyBurn : 0;
+                // Classify delay impact per task
+                const tasksWithCost = data.tasks.filter(t=>t.cost&&parseFloat(t.cost.replace(/[^0-9.]/g,""))>0);
+                const criticalWithCost = tasksWithCost.filter(t=>result.criticalPath.includes(t.name));
+                const timeOnlyDelays = result.tasks.filter(t=>t.slack===0&&!data.tasks.find(dt=>dt.id===t.id)?.cost);
+                return (
+                  <div style={{...card({border:"1px solid "+(overrunCost>0?C.red:C.green)+"30"}),padding:"1rem"}}>
+                    <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.65rem"}}>COST EXPOSURE</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:"0.5rem",marginBottom:"0.75rem"}}>
+                      {[
+                        {label:"Total mapped cost",val:"$"+totalCost.toLocaleString(),color:C.text},
+                        {label:"Daily burn rate",val:"$"+Math.round(dailyBurn).toLocaleString()+"/day",color:C.textMid},
+                        {label:"Overrun exposure",val:overrunCost>0?"$"+Math.round(overrunCost).toLocaleString():"None",color:overrunCost>0?C.red:C.green},
+                      ].map((s,i)=>(
+                        <div key={i} style={{background:C.surface2,borderRadius:8,padding:"0.6rem 0.75rem"}}>
+                          <div style={{fontSize:"0.55rem",color:C.textDim,marginBottom:"0.2rem"}}>{s.label}</div>
+                          <div style={{fontSize:"0.95rem",fontWeight:700,color:s.color}}>{s.val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {criticalWithCost.length > 0 && (
+                      <div>
+                        <div style={{fontSize:"0.62rem",color:C.red,fontWeight:600,marginBottom:"0.35rem"}}>Labor/cost-impacting delays (critical path tasks with budgets):</div>
+                        {criticalWithCost.map((t,i)=>(
+                          <div key={i} style={{fontSize:"0.78rem",color:C.textMid,padding:"0.2rem 0"}}>◆ {t.name} — {t.cost} — <span style={{color:C.red}}>miss this and you pay for the delay</span></div>
+                        ))}
+                      </div>
+                    )}
+                    {timeOnlyDelays.length > 0 && (
+                      <div style={{marginTop:"0.5rem"}}>
+                        <div style={{fontSize:"0.62rem",color:C.amber,fontWeight:600,marginBottom:"0.35rem"}}>Time-only delays (critical, no direct cost):</div>
+                        {timeOnlyDelays.slice(0,3).map((t,i)=>(
+                          <div key={i} style={{fontSize:"0.78rem",color:C.textMid,padding:"0.2rem 0"}}>◆ {t.name} — slip cascades to downstream tasks</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1802,225 +1633,63 @@ function ResultsContent() {
           )}
 
 
-          {/* ══ BOTTLENECKS ══ */}
-          {activeNav==="bottlenecks" && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1.25rem"}}>
-                <div style={{fontSize:"1.2rem",fontWeight:700}}>Bottleneck Analysis</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Where your plan is most likely to break, ranked by cascade impact.</div>
-              </div>
-              {result.predictiveRisk && (
-                <div style={{...card({border:"1px solid "+result.predictiveRisk.planBand+"40"}),padding:"1.25rem",marginBottom:"1rem"}}>
-                  <div style={{display:"flex",alignItems:"baseline",gap:"0.75rem",marginBottom:"0.75rem"}}>
-                    <span style={{fontFamily:"Georgia,serif",fontSize:"2.5rem",color:result.predictiveRisk.planBand}}>{result.predictiveRisk.planProb}%</span>
-                    <span style={{fontSize:"0.88rem",color:C.textMid}}>overall probability of missing deadline</span>
-                  </div>
-                  <div style={{fontSize:"0.62rem",color:C.textDim,marginBottom:"0.35rem"}}>HIGHEST RISK MILESTONES</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:"0.65rem"}}>
-                    {result.predictiveRisk.top3.map((m,i)=>{
-                      const mColor=m.prob>=75?C.red:m.prob>=55?C.amber:C.green;
-                      return(
-                        <div key={i} style={{...card({background:C.surface2,border:"1px solid "+mColor+"20"}),padding:"1rem"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"0.4rem"}}>
-                            <div style={{fontSize:"0.9rem",fontWeight:700,color:C.text}}>{m.name}</div>
-                            <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                              <div style={{height:5,width:80,background:C.border2,borderRadius:3}}><div style={{height:"100%",width:m.prob+"%",background:mColor,borderRadius:3}}/></div>
-                              <span style={{fontSize:"0.85rem",fontWeight:700,color:mColor}}>{m.prob}%</span>
-                            </div>
-                          </div>
-                          <div style={{fontSize:"0.72rem",color:C.textDim,marginBottom:"0.4rem"}}>{m.owner} · {m.days} days · {m.slack===0?"zero float — critical path":m.slack+"d float"} · {m.dependents} downstream tasks</div>
-                          <div style={{fontSize:"0.85rem",color:C.textMid,lineHeight:1.6}}>{m.reason}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {result.shuffleOps.length > 0 && (
-                <div style={{...card(),padding:"1.25rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
-                    <span style={{color:C.green}}>◈</span>
-                    <div style={label(C.green)}>OPTIMIZATION OPPORTUNITIES</div>
-                  </div>
-                  {result.shuffleOps.map((op,i)=>(
-                    <div key={i} style={{padding:"0.85rem 0",borderBottom:i<result.shuffleOps.length-1?"1px solid "+C.border:"none"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:"0.35rem"}}>
-                        <div style={{fontSize:"0.88rem",fontWeight:600,color:C.text}}>{op.task}</div>
-                        <div style={{fontSize:"0.72rem",color:C.green,fontFamily:"monospace"}}>~{op.daysSaved}d recovered</div>
-                      </div>
-                      <div style={{fontSize:"0.84rem",color:C.textMid,lineHeight:1.65}}>{op.reason}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ══ TIMELINE ══ */}
-          {activeNav==="gantt" && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1.25rem"}}>
-                <div style={{fontSize:"1.2rem",fontWeight:700}}>Timeline</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Supporting context — task sequencing and duration. See Dependency Graph for cascade intelligence.</div>
-              </div>
-              <div style={{...card(),padding:"1.5rem",marginBottom:"1rem"}}>
-                <div style={{display:"flex",gap:"1.5rem",marginBottom:"1rem",flexWrap:"wrap"}}>
-                  {[{color:C.red,label:"Critical Path"},{color:C.green,label:"Concurrent"},{color:C.blue,label:"Sequential"}].map((l,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.72rem",color:C.textMid}}>
-                      <div style={{width:16,height:5,background:l.color,borderRadius:2,opacity:0.8}}/>
-                      {l.label}
-                    </div>
-                  ))}
-                </div>
-                <GanttChart tasks={data.tasks} result={result} startDate={data.startDate}/>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"1rem"}}>
-                <div style={{...card({border:"1px solid "+verdColor+"30"}),padding:"1rem"}}>
-                  <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>PROJECTED FINISH</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:"1.3rem",color:C.text}}>{result.projectedDate}</div>
-                  <div style={{fontSize:"0.75rem",color:verdColor,marginTop:"0.3rem"}}>{result.bufferDays>=0?result.bufferDays+"d buffer":Math.abs(result.bufferDays)+"d over target"}</div>
-                </div>
-                <div style={{...card(),padding:"1rem"}}>
-                  <div style={{fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>CRITICAL PATH LENGTH</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:"1.3rem",color:C.red}}>{result.projectDuration} days</div>
-                  <div style={{fontSize:"0.75rem",color:C.textMid,marginTop:"0.3rem"}}>{result.criticalPath.length} sequential tasks</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ══ DIAGNOSIS ══ */}
-          {activeNav==="diagnosis" && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1.25rem"}}>
-                <div style={{fontSize:"1.2rem",fontWeight:700}}>Diagnosis</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>What's driving the pressure and what to change.</div>
-              </div>
-              <div style={{...card({border:"1px solid "+verdColor+"40"}),padding:"1.25rem",marginBottom:"1rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:verdColor}}/>
-                  <div style={{fontSize:"0.75rem",fontWeight:700,color:verdColor}}>{result.verdict}</div>
-                  <div style={{fontSize:"0.75rem",color:C.textMid}}>· {confScore}% execution confidence</div>
-                </div>
-                <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.75}}>{result.confidence.reason}</p>
-              </div>
-              <div style={{...card(),padding:"1.25rem",marginBottom:"1rem"}}>
-                <div style={label(C.purple)}>PRIMARY CONSTRAINT</div>
-                <div style={{display:"flex",gap:"0.5rem",marginBottom:"1.25rem",flexWrap:"wrap"}}>
-                  {["SCOPE","TIME","BUDGET"].map(k=>{
-                    const breakdown = result.confidence.breakdown;
-                    const lowestFactor = [...breakdown].sort((a,b)=>a.score-b.score)[0]?.name||"";
-                    const isActive = (k==="TIME"&&lowestFactor.includes("timeline"))||(k==="BUDGET"&&lowestFactor.includes("budget"))||(k==="SCOPE");
-                    const col = k==="TIME"?C.amber:k==="BUDGET"?C.red:C.blue;
-                    return <div key={k} style={{background:isActive?col+"15":"transparent",border:"1px solid "+(isActive?col:C.border),borderRadius:100,padding:"0.3rem 1rem",fontSize:"0.72rem",fontWeight:isActive?700:400,color:isActive?col:C.textDim,letterSpacing:"0.06em"}}>{k}{isActive?" ←":""}</div>;
-                  })}
-                </div>
-                <div style={{display:"flex",flexDirection:"column",gap:"1rem"}}>
-                  {[
-                    {color:C.blue,border:"rgba(59,130,246,0.4)",text:`Scope move: ${result.shuffleOps[0]?`Consider running "${result.shuffleOps[0].task}" concurrently — saves ${result.shuffleOps[0].daysSaved} days without cutting scope.`:"Review whether all milestones are required for this phase."}`},
-                    {color:C.amber,border:"rgba(245,158,11,0.4)",text:`Timeline move: ${result.bufferDays<0?`Plan runs ${Math.abs(result.bufferDays)} days over. Identify two sequential tasks that can overlap.`:`${result.bufferDays} days of buffer. Protect critical path — one slip removes it entirely.`}`},
-                    {color:C.red,border:"rgba(239,68,68,0.4)",text:`Budget move: ${overrunCost>0?`At $${Math.round(dailyBurn)}/day, ${Math.abs(result.bufferDays)} extra days costs $${Math.round(overrunCost).toLocaleString()} beyond budget.`:"Currently within budget. Daily burn rate is sustainable if plan holds."}`},
-                  ].map((m,i)=>(
-                    <div key={i} style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.75,paddingLeft:"1rem",borderLeft:"2px solid "+m.border}}>{m.text}</div>
-                  ))}
-                </div>
-                <div style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:8,padding:"1rem",marginTop:"1.25rem"}}>
-                  <div style={{fontSize:"0.72rem",fontWeight:700,color:C.green,marginBottom:"0.4rem",letterSpacing:"0.04em"}}>OUR RECOMMENDATION</div>
-                  <p style={{fontSize:"0.9rem",color:C.text,lineHeight:1.7}}>{result.shuffleOps[0]?`Run "${result.shuffleOps[0].task}" concurrently with its predecessor. Zero budget impact. Recovers ~${result.shuffleOps[0].daysSaved} days immediately.`:"Validate critical path owner availability before work begins. Single-owner risk is the highest execution threat."}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ══ FINANCIALS ══ */}
-          {activeNav==="financials" && totalCost > 0 && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1.25rem"}}>
-                <div style={{fontSize:"1.2rem",fontWeight:700}}>Budget & Financials</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Cost exposure and burn rate analysis.</div>
-              </div>
-              <div style={{...card({border:"1px solid "+(overrunCost>0?C.red:C.green)+"40"}),padding:"1.25rem",marginBottom:"1rem"}}>
-                <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.75,marginBottom:"1.25rem",fontWeight:300}}>
-                  <strong style={{color:overrunCost>0?C.red:C.green}}>{overrunCost>0?"Budget overrun. ":"Within budget. "}</strong>
-                  {overrunCost>0?`At $${Math.round(dailyBurn).toLocaleString()}/day, ${Math.abs(result.bufferDays)} extra days costs $${Math.round(overrunCost).toLocaleString()} more than mapped.`:
-                  `Daily burn of $${Math.round(dailyBurn).toLocaleString()}/day is sustainable within the current plan.`}
-                </p>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"0.75rem"}}>
-                  {[{label:"MAPPED COSTS",val:"$"+totalCost.toLocaleString(),color:C.text},{label:"DAILY BURN",val:"$"+Math.round(dailyBurn).toLocaleString()+"/day",color:C.textMid},{label:"OVERRUN EXPOSURE",val:overrunCost>0?"$"+Math.round(overrunCost).toLocaleString():"None",color:overrunCost>0?C.red:C.green},{label:"PLAN DURATION",val:result.projectDuration+"d",color:C.text}].map((s,i)=>(
-                    <div key={i} style={{...card({background:C.surface2}),padding:"0.85rem 1rem"}}>
-                      <div style={{fontSize:"0.6rem",color:C.textDim,fontFamily:"monospace",letterSpacing:"0.08em",marginBottom:"0.3rem"}}>{s.label}</div>
-                      <div style={{fontFamily:"Georgia,serif",fontSize:"1.1rem",color:s.color}}>{s.val}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div style={{...card(),padding:"1.25rem"}}>
-                <div style={label()}>COST BY MILESTONE</div>
-                {data.tasks.filter(t=>t.cost).map((t,i)=>{const cost=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;const pct=totalCost>0?cost/totalCost:0;return(<div key={i} style={{marginBottom:"0.6rem"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.3rem"}}><span style={{fontSize:"0.84rem",color:C.textMid}}>{t.name}</span><span style={{fontSize:"0.84rem",color:C.text,fontFamily:"monospace"}}>{t.cost}</span></div><div style={{height:5,background:C.border2,borderRadius:3}}><div style={{height:"100%",width:(pct*100)+"%",background:C.purple,borderRadius:3}}/></div></div>);})}
-              </div>
-            </div>
-          )}
-
           {/* ══ AI READOUT ══ */}
           {activeNav==="readout" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1.25rem"}}>
-                <div style={{fontSize:"1.2rem",fontWeight:700}}>AI Executive Readout</div>
-                <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Written to be forwarded. Copy and paste into an email, Slack, or client update.</div>
+              <div style={{marginBottom:"1rem"}}>
+                <div style={{fontSize:"1.1rem",fontWeight:700}}>AI Readout</div>
+                <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Copy and paste into an email, Slack, or client update.</div>
               </div>
-              <div style={{...card(),padding:"1.5rem"}}>
+
+              {/* Bullet summary — always shown */}
+              <div style={{...card(),padding:"1.25rem",marginBottom:"0.75rem"}}>
+                <div style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>KEY TAKEAWAYS</div>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.55rem"}}>
+                  {[
+                    {icon:"◈", text:`**${data.name}** — ${result.verdict}. On-time confidence: **${confScore}%** (optimized: **${confScoreOptimized}%**).`, color:verdColor},
+                    {icon:"⚠", text:`Critical path: **${result.criticalPath.length} tasks** — ${result.criticalPath.slice(0,3).join(" → ")}${result.criticalPath.length>3?" → ...":""}. Buffer: **${result.bufferDays>=0?result.bufferDays+"d":"OVERRUN by "+Math.abs(result.bufferDays)+"d"}**.`, color:result.bufferDays>=0?C.amber:C.red},
+                    {icon:"⚡", text:`Biggest risk: **${result.predictiveRisk?.top3[0]?.name||result.bottleneck?.name||"—"}** — ${result.predictiveRisk?.top3[0]?.reason||result.bottleneck?.reason||"critical path constraint"}. **${result.predictiveRisk?.planProb||0}%** chance of missing deadline.`, color:C.red},
+                    ...(result.shuffleOps.length>0?[{icon:"✓", text:`**${result.shuffleOps.length} scheduling fix${result.shuffleOps.length>1?"es":""}** identified: run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}". Recovers **~${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero cost**.`, color:C.green}]:[]),
+                    {icon:"→", text:`Projected delivery: **${result.projectedRange}**.${result.bufferDays<0?" Schedule compression required before this can hold.":""}`, color:C.textMid},
+                  ].map((b,i)=>(
+                    <div key={i} style={{display:"flex",gap:"0.65rem",alignItems:"flex-start"}}>
+                      <span style={{color:b.color,fontWeight:700,fontSize:"0.85rem",flexShrink:0,marginTop:"0.1rem"}}>{b.icon}</span>
+                      <div style={{fontSize:"0.85rem",color:C.textMid,lineHeight:1.65}}>
+                        {b.text.split(/(\*\*[^*]+\*\*)/).map((p,j)=>
+                          p.startsWith("**")?<strong key={j} style={{color:C.text}}>{p.slice(2,-2)}</strong>:p
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI narrative — if available */}
+              <div style={{...card(),padding:"1.25rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
+                  <span style={{color:C.green}}>✦</span>
+                  <span style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em"}}>AI EXECUTIVE NARRATIVE</span>
+                </div>
                 {aiLoading?(
-                  <div style={{display:"flex",alignItems:"center",gap:"0.6rem",color:C.textMid,fontSize:"0.82rem"}}>
-                    <span>Writing readout</span>{[0,1,2].map(i=><span key={i} style={{width:4,height:4,background:C.purple,borderRadius:"50%",display:"inline-block",animation:`dotBlink 1.4s ${i*0.22}s infinite`}}/>)}
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",color:C.textMid,fontSize:"0.82rem"}}>
+                    <span>Writing</span>{[0,1,2].map(i=><span key={i} style={{width:4,height:4,background:C.green,borderRadius:"50%",display:"inline-block",animation:`dotBlink 1.4s ${i*0.22}s infinite`}}/>)}
                   </div>
                 ):aiReadout?(
-                  <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.9,fontWeight:300,fontFamily:"Georgia,serif"}}>{aiReadout}</p>
+                  <p style={{fontSize:"0.9rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif"}}>{aiReadout}</p>
                 ):(
-                    <div>
-                    <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.9,marginBottom:"0.75rem",fontFamily:"Georgia,serif"}}>{data.name} has a {confScore}% probability of delivering on time as currently planned. {result.confidence.reason}. The critical path runs through {result.criticalPath.length} sequential tasks with {result.bufferDays>=0?result.bufferDays+" days of buffer":Math.abs(result.bufferDays)+" days of unrecoverable overrun"}.</p>
-                    <p style={{fontSize:"0.95rem",color:C.text,lineHeight:1.9,fontFamily:"Georgia,serif"}}>With Pathflo's recommended changes applied, on-time confidence rises to {confScoreOptimized}% — a +{confScoreOptimized-confScore} point improvement. {result.predictiveRisk?`Predictive risk analysis places the probability of missing the deadline at ${result.predictiveRisk.planProb}% without intervention, driven primarily by ${result.predictiveRisk.top3[0]?.name} — ${result.predictiveRisk.top3[0]?.reason}. `:""}The recommended immediate action is to {result.shuffleOps[0]?`run "${result.shuffleOps[0].task}" concurrently with its predecessor, recovering approximately ${result.shuffleOps[0].daysSaved} days at zero additional cost`:"validate critical path owner availability before work begins"}.</p>
-                    <p style={{fontSize:"0.78rem",color:C.textDim,marginTop:"1rem",fontStyle:"italic"}}>Add your Anthropic API key to Vercel environment variables to enable fully AI-generated readouts.</p>
-                    </div>
+                  <p style={{fontSize:"0.85rem",color:C.textMid,lineHeight:1.8}}>
+                    {data.name} has a {confScore}% probability of delivering on time as planned. {result.confidence.reason}. The critical path runs through {result.criticalPath.length} tasks with {result.bufferDays>=0?result.bufferDays+" days of buffer":Math.abs(result.bufferDays)+" days of overrun"}.
+                    {result.shuffleOps.length>0?` ${result.shuffleOps.length} concurrency fix${result.shuffleOps.length>1?"es":""} could recover ${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days. Immediate action: run "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}".`:" No major scheduling optimizations identified."}
+                    {" "}With recommended changes applied, on-time confidence reaches {confScoreOptimized}%.
+                    <span style={{display:"block",marginTop:"0.75rem",fontSize:"0.72rem",color:C.textDim,fontStyle:"italic"}}>Add your Anthropic API key to Vercel to enable AI-generated narratives.</span>
+                  </p>
                 )}
               </div>
             </div>
           )}
 
-          {/* ══ DETAILS ══ */}
-          {activeNav==="details" && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1.25rem"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div>
-                    <div style={{fontSize:"1.2rem",fontWeight:700}}>All Milestones</div>
-                    <div style={{fontSize:"0.8rem",color:C.textMid,marginTop:"0.2rem"}}>Full task detail with CPM analysis.</div>
-                  </div>
-                  <button onClick={()=>{
-                    const rows=[["Milestone","Owner","Duration","Forecast Start","Forecast End","Actual Start","Actual End","Float","Critical Path"],...result.tasks.map(t=>[t.name,t.owner||"",t.days,"Day "+(t.es+1),"Day "+t.ef,"","",t.slack===0?"No float":t.slack+"d spare",result.criticalPath.includes(t.name)?"Yes":"No"])];
-                    const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
-                    const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=(data.name||"pathflo").replace(/\s+/g,"-").toLowerCase()+"-forecast.csv";a.click();URL.revokeObjectURL(u);
-                  }} style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:100,color:C.green,fontFamily:"inherit",fontSize:"0.75rem",fontWeight:600,padding:"0.4rem 1rem",cursor:"pointer"}}>↓ Export CSV</button>
-                </div>
-              </div>
-              <div style={{...card(),padding:"0"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 70px 60px",gap:"0.5rem",padding:"0.6rem 1rem",borderBottom:"1px solid "+C.border,fontSize:"0.62rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>
-                  <span>MILESTONE</span><span>OWNER</span><span>DAYS</span><span>START</span><span>FLOAT</span>
-                </div>
-                {result.tasks.map((t,i)=>(
-                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 70px 60px",gap:"0.5rem",padding:"0.65rem 1rem",borderBottom:i<result.tasks.length-1?"1px solid "+C.border2:"none",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:"0.85rem",color:t.slack===0?C.red:C.text,fontWeight:t.slack===0?600:400}}>{t.slack===0?"◆ ":""}{t.name}</div>
-                      {t.concurrent&&<div style={{fontSize:"0.65rem",color:C.green,marginTop:"0.15rem"}}>↑ runs concurrently</div>}
-                    </div>
-                    <div style={{fontSize:"0.78rem",color:C.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.owner||"—"}</div>
-                    <div style={{fontSize:"0.82rem",color:C.text}}>{t.days}d</div>
-                    <div style={{fontSize:"0.78rem",color:C.textDim}}>Day {t.es+1}</div>
-                    <span style={{fontSize:"0.65rem",fontFamily:"monospace",borderRadius:4,padding:"0.15rem 0.5rem",background:t.slack===0?C.red+"20":C.green+"15",color:t.slack===0?C.red:C.green,fontWeight:700,display:"inline-block"}}>{t.slack===0?"CRITICAL":"+"+t.slack+"d"}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
+
 
         </main>
       </div>
