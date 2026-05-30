@@ -1923,8 +1923,7 @@ function ResultsContent() {
                       workloadData?.concentrationRisk?`⚠ ${workloadData.concentrationRisk.name} owns ${workloadData.concentrationRisk.criticalTasks.length}/${workloadData.totalCritical} critical tasks — single point of failure`:"Workload appears balanced",
                       ``,
                       `Powered by Pathflo · pathflo.ai`,
-                    ].join("
-");
+                    ].join("\n");
                     navigator.clipboard.writeText(lines).then(()=>{});
                   }} style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:8,color:C.green,fontFamily:"inherit",fontWeight:600,fontSize:"0.72rem",padding:"0.4rem 0.85rem",cursor:"pointer"}}>📋 Copy full report</button>
                 </div>
