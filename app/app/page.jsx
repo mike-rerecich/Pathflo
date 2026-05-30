@@ -85,7 +85,7 @@ export default function AppPage() {
 
     setStage("INTRO");
     setTimeout(() => bot(
-      "I'm going to map your project, find every dependency, and tell you exactly what's at risk before a single day of work begins.\n\nMost people are surprised by what they find.\n\nFirst — what's this project called?",
+      "⚡ NEW VERSION LOADED ⚡\n\nI'm going to map your project, find every dependency, and tell you exactly what's at risk before a single day of work begins.\n\nMost people are surprised by what they find.\n\nWhat's this project called?",
       "text", "e.g. Office renovation, Website relaunch, Product launch..."
     ), 300);
   }, []);
