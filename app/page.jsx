@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
-
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 const Logo = ({ color = "#3ECB6F", size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{ display: "inline-block", verticalAlign: "middle" }}>
     <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none"/>
