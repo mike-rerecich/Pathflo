@@ -13,7 +13,6 @@ const C = {
   amber: "#F59E0B", amberDim: "#2D1F00",
   red: "#EF4444", redDim: "#2D0808",
   blue: "#3B82F6",
-  blue: "#3B82F6",
 };
 
 // ── CONFIDENCE ENGINE ─────────────────────────────────────────────────────────
