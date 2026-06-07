@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 const T = {
   bg: "#080A08", surface: "#111511", surface2: "#161D16",
   border: "#1E251E", border2: "#252D25",
