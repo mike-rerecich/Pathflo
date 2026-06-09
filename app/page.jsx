@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
+/* ─── Logo ───────────────────────────────────────────────── */
 const Logo = ({ color = "#3ECB6F", size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{ display:"inline-block", verticalAlign:"middle" }}>
     <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none"/>
@@ -11,6 +12,7 @@ const Logo = ({ color = "#3ECB6F", size = 18 }) => (
   </svg>
 );
 
+/* ─── Demo data ──────────────────────────────────────────── */
 const DEMO_TASKS = [
   { id:"t0", name:"Strategy & Planning", days:5,  owner:"Marcus",   predecessors:[], concurrent:false },
   { id:"t1", name:"Content & Copy",      days:8,  owner:"Sarah",    predecessors:["t0"], concurrent:false },
@@ -37,6 +39,7 @@ const DEMO_RESULT = {
   ],
 };
 
+/* ─── DependencyGraph ────────────────────────────────────── */
 function DependencyGraph({ tasks, result, dark=true }) {
   const [selectedId, setSelectedId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
@@ -178,7 +181,7 @@ function DependencyGraph({ tasks, result, dark=true }) {
   );
 }
 
-// Scroll-reveal section bubble
+/* ─── SectionBubble ──────────────────────────────────────── */
 function SectionBubble({ children, id, maxWidth="1100px", glowColor="rgba(62,203,111,0.06)" }) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -205,8 +208,106 @@ function SectionBubble({ children, id, maxWidth="1100px", glowColor="rgba(62,203
   );
 }
 
+/* ─── TerminalWindow ─────────────────────────────────────── */
+function TerminalWindow() {
+  const [visible, setVisible] = useState(0);
+  const lines = [
+    { text: '$ pathflo analyze "Website Launch"',       color: '#3ECB6F' },
+    { text: '  Mapping 9 tasks, 11 dependencies...',    color: '#8B949E' },
+    { text: '  Running critical path algorithm...',     color: '#8B949E' },
+    { text: '  ⚠  Bottleneck: Development (0d float)', color: '#EF4444' },
+    { text: '  Simulating cascade scenarios...',        color: '#8B949E' },
+    { text: '  ✓  On-time confidence: 86%',            color: '#3ECB6F' },
+    { text: '  ✓  Executive report ready to share',    color: '#3ECB6F' },
+  ];
+  useEffect(() => {
+    if (visible < lines.length) {
+      const t = setTimeout(() => setVisible(v => v + 1), visible === 0 ? 500 : 720);
+      return () => clearTimeout(t);
+    } else {
+      const t = setTimeout(() => setVisible(0), 4200);
+      return () => clearTimeout(t);
+    }
+  }, [visible]);
+  return (
+    <div style={{
+      background:"#0D1117", border:"1px solid #1C2128", borderRadius:14, overflow:"hidden",
+      boxShadow:"0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(62,203,111,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
+    }}>
+      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"11px 16px", background:"#161B22", borderBottom:"1px solid #1C2128" }}>
+        <div style={{ width:11, height:11, borderRadius:"50%", background:"#FF5F57" }}/>
+        <div style={{ width:11, height:11, borderRadius:"50%", background:"#FEBC2E" }}/>
+        <div style={{ width:11, height:11, borderRadius:"50%", background:"#28C840" }}/>
+        <span style={{ marginLeft:10, fontSize:"0.7rem", color:"#484F58", fontFamily:"system-ui", letterSpacing:"0.04em" }}>
+          pathflo — analysis
+        </span>
+      </div>
+      <div style={{ padding:"20px 22px", minHeight:192 }}>
+        {lines.slice(0, visible).map((line, i) => (
+          <div key={i} style={{
+            color:line.color, lineHeight:1.85,
+            fontFamily:"'DM Mono', 'Courier New', monospace", fontSize:"0.8rem",
+            animation:"termLine 0.18s ease both",
+          }}>
+            {line.text}
+          </div>
+        ))}
+        {visible > 0 && visible < lines.length && (
+          <span style={{ color:"#3ECB6F", fontFamily:"monospace", animation:"blink 1s step-end infinite" }}>▌</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── ConfidenceWidget ───────────────────────────────────── */
+function ConfidenceWidget({ T }) {
+  const [pct, setPct] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setPct(86), 2600);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div style={{
+      background:"rgba(13,17,23,0.9)", border:"1px solid #1C2128",
+      borderRadius:12, padding:"1rem 1.25rem",
+      backdropFilter:"blur(12px)",
+      boxShadow:"0 8px 32px rgba(0,0,0,0.4)",
+      display:"flex", flexDirection:"column", gap:"0.6rem",
+    }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <span style={{ fontSize:"0.68rem", fontWeight:700, letterSpacing:"0.08em", color:"#484F58", textTransform:"uppercase" }}>
+          ON-TIME CONFIDENCE
+        </span>
+        <span style={{
+          fontSize:"1.1rem", fontWeight:700, color:"#3ECB6F",
+          fontFamily:"'Fraunces', serif",
+          transition:"all 1.2s cubic-bezier(0.34,1.56,0.64,1)",
+        }}>
+          {pct}%
+        </span>
+      </div>
+      <div style={{ height:4, borderRadius:2, background:"#1C2128", overflow:"hidden" }}>
+        <div style={{
+          height:"100%", borderRadius:2, background:"linear-gradient(90deg, #3ECB6F, #22C55E)",
+          width:`${pct}%`, transition:"width 1.4s cubic-bezier(0.34,1.56,0.64,1)",
+          boxShadow:"0 0 8px rgba(62,203,111,0.5)",
+        }}/>
+      </div>
+      <div style={{ display:"flex", justifyContent:"space-between", fontSize:"0.72rem" }}>
+        <span style={{ color:"#EF4444", display:"flex", alignItems:"center", gap:"0.3rem" }}>
+          <span>⚠</span> Dev bottleneck
+        </span>
+        <span style={{ color:"#8A9E8A" }}>2d buffer left</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main page ──────────────────────────────────────────── */
 export default function Home() {
   const [scrolled, setScrolled] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
@@ -220,7 +321,7 @@ export default function Home() {
     text:"#EEF2EE", textMid:"#8A9E8A", textDim:"#3E4E3E",
     green:"#3ECB6F", greenDim:"#0A1F12", greenMid:"#0F2B1A",
     amber:"#F59E0B", red:"#EF4444", blue:"#3B82F6",
-    navBg:"rgba(8,10,8,0.88)",
+    navBg:"rgba(8,10,8,0.92)",
     shadow:"0 8px 40px rgba(0,0,0,0.5)",
   };
 
@@ -229,7 +330,7 @@ export default function Home() {
     background:T.green, color:"#080A08",
     border:"none", borderRadius:"100px", fontFamily:"inherit", fontWeight:700,
     fontSize:"0.95rem", padding:"0.9rem 2rem", cursor:"pointer", textDecoration:"none",
-    boxShadow:"0 0 0 1px rgba(62,203,111,0.3), 0 8px 32px rgba(62,203,111,0.25)",
+    boxShadow:"0 0 0 1px rgba(62,203,111,0.3), 0 8px 32px rgba(62,203,111,0.22)",
     transition:"transform 0.15s, box-shadow 0.15s",
   };
   const btnSecondary = {
@@ -239,21 +340,54 @@ export default function Home() {
     padding:"0.9rem 2rem", cursor:"pointer", textDecoration:"none", transition:"all 0.15s",
   };
 
+  const steps = [
+    {
+      n:"01", color:T.blue, icon:"⬡",
+      title:"Map your project",
+      desc:"Add tasks, set durations, assign owners, and define which tasks depend on each other. Takes about 5 minutes.",
+    },
+    {
+      n:"02", color:T.amber, icon:"⟳",
+      title:"Pathflo finds the risks",
+      desc:"Critical path is calculated instantly. Bottlenecks are flagged. Cascade impacts are simulated — automatically.",
+    },
+    {
+      n:"03", color:T.green, icon:"↗",
+      title:"Execute with confidence",
+      desc:"Share a live project health report with clients. Get early risk alerts. Defend your timeline with data.",
+    },
+  ];
+
   const questions = [
-    { q:"Will this finish on time?", a:"Pathflo scores on-time confidence before a single day of work begins. Not a feeling — a probability backed by your actual dependency chain.", icon:"◈" },
-    { q:"Who's going to break it?", a:"Workload Intelligence flags which team members own the most critical work and surfaces single points of failure before they become emergencies.", icon:"⊞" },
-    { q:"What cascades if this slips?", a:"The cascade simulator shows exactly which tasks get blocked, how many days you lose, and what it costs — in real time.", icon:"⚡" },
+    { q:"Will this project finish on time?", a:"Pathflo scores on-time confidence before a single day of work begins. Not a feeling — a probability backed by your actual dependency chain.", icon:"◈" },
+    { q:"Who's most likely to break it?", a:"Workload Intelligence flags which team members own the most critical work and surfaces single points of failure before they become emergencies.", icon:"⊞" },
+    { q:"What cascades if this task slips?", a:"The cascade simulator shows exactly which tasks get blocked, how many days you lose, and what it costs — in real time.", icon:"⚡" },
     { q:"How do I explain this to my client?", a:"One tap generates a shareable executive readout — formatted to forward. No PM skills needed to send it or understand it.", icon:"↗" },
   ];
 
+  const testimonials = [
+    {
+      quote:"We caught a cascade risk that would have pushed our launch back 3 weeks. We found it during planning — not mid-execution.",
+      author:"Sarah M.", role:"Product Lead, SaaS Agency", initials:"SM", color:T.blue,
+    },
+    {
+      quote:"I sent the Pathflo report to a skeptical client and they stopped questioning the timeline. The data spoke for itself.",
+      author:"Alex R.", role:"Freelance Project Manager", initials:"AR", color:T.green,
+    },
+    {
+      quote:"The dependency graph made my whole team finally understand why some tasks can't start early. That alone was worth it.",
+      author:"James K.", role:"Engineering Manager", initials:"JK", color:T.amber,
+    },
+  ];
+
   const comparison = [
-    { pm:"Store your tasks",               pathflo:"Predict your outcomes before work begins" },
-    { pm:"Tell you you're behind",         pathflo:"Tell you why — before it happens" },
-    { pm:"Show you a Gantt chart",         pathflo:"Show you the critical path, cascade risks, and what to fix" },
-    { pm:"Track what exists",              pathflo:"Forecast what's coming — confidence, failure probability, buffer" },
-    { pm:"No workload visibility",         pathflo:"Flags who's overloaded and who's a single point of failure" },
-    { pm:"Require a PM to read the output",pathflo:"One-tap shareable report — forward it from your phone" },
-    { pm:"React to problems",              pathflo:"Prevent them" },
+    { pm:"Store your tasks",                pathflo:"Predict your outcomes before work begins" },
+    { pm:"Tell you you're behind",          pathflo:"Tell you why — before it happens" },
+    { pm:"Show you a Gantt chart",          pathflo:"Show you the critical path, cascade risks, and what to fix" },
+    { pm:"Track what exists",               pathflo:"Forecast what's coming — confidence, failure probability, buffer" },
+    { pm:"No workload visibility",          pathflo:"Flags who's overloaded and who's a single point of failure" },
+    { pm:"Require a PM to read the output", pathflo:"One-tap shareable report — forward it from your phone" },
+    { pm:"React to problems",               pathflo:"Prevent them" },
   ];
 
   const pricing = [
@@ -277,7 +411,6 @@ export default function Home() {
     },
   ];
 
-  // Pillars — numbers are now fully consistent: pct = vals[0], pctLabel = labels[0]
   const pillars = [
     {
       n:"01 · Timeline Health", title:"How tight is the schedule?",
@@ -296,9 +429,9 @@ export default function Home() {
       vals:[0.62, 0.55, 0.80], labels:["OVERLOAD","CAPACITY","APPROVAL"],
       pct:"62%", pctLabel:"OVERLOAD",
       stats:[
-        { name:"Team Overload",    val:"62%", color:"#EF4444" },
-        { name:"Owner Capacity",   val:"55%", color:"#F59E0B" },
-        { name:"Approval Flow",    val:"80%", color:"#22C55E" },
+        { name:"Team Overload",  val:"62%", color:"#EF4444" },
+        { name:"Owner Capacity", val:"55%", color:"#F59E0B" },
+        { name:"Approval Flow",  val:"80%", color:"#22C55E" },
       ],
     },
     {
@@ -317,7 +450,7 @@ export default function Home() {
   return (
     <main style={{ background:T.bg, color:T.text, fontFamily:"'DM Sans', system-ui, sans-serif", overflowX:"hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:ital,wght@0,300;0,700;1,300;1,700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,300;0,700;1,300;1,700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         html{scroll-behavior:smooth}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#252D25;border-radius:2px}
@@ -325,32 +458,53 @@ export default function Home() {
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
         @keyframes rotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes shimmer{0%{opacity:0.4}50%{opacity:0.7}100%{opacity:0.4}}
+        @keyframes termLine{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+        @keyframes gridPulse{0%,100%{opacity:0.4}50%{opacity:0.7}}
+        @keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
         .h1{animation:fadeUp 0.8s 0.05s ease both}
         .h2{animation:fadeUp 0.8s 0.2s ease both}
         .h3{animation:fadeUp 0.8s 0.35s ease both}
         .h4{animation:fadeUp 0.8s 0.5s ease both}
+        .h5{animation:fadeUp 0.8s 0.65s ease both}
         .btnp:hover{transform:translateY(-2px)!important;box-shadow:0 0 0 1px rgba(62,203,111,0.5),0 12px 40px rgba(62,203,111,0.35)!important}
         .btns:hover{border-color:#3ECB6F!important;color:#3ECB6F!important}
         .navlink:hover{color:#EEF2EE!important}
         .card{transition:transform 0.2s,box-shadow 0.2s}
         .card:hover{transform:translateY(-3px)!important;box-shadow:0 12px 48px rgba(0,0,0,0.4)!important}
-        .qcard:hover{border-color:rgba(62,203,111,0.25)!important;background:rgba(62,203,111,0.03)!important}
+        .step-card:hover{border-color:rgba(62,203,111,0.2)!important}
+        .tcard:hover{border-color:rgba(62,203,111,0.18)!important}
         .comp-row:hover .comp-right{background:rgba(62,203,111,0.05)!important}
-        @media(max-width:768px){
+        .terminal-float{animation:floatUp 5s ease-in-out infinite}
+        @media(max-width:900px){
+          .hero-grid{grid-template-columns:1fr!important}
+          .hero-right{display:none!important}
+          .steps-grid{grid-template-columns:1fr!important}
+          .tgrid{grid-template-columns:1fr!important}
           .pgrid{grid-template-columns:1fr!important}
-          .qgrid{grid-template-columns:1fr!important}
           .pillars-grid{grid-template-columns:1fr!important}
           .graph-body{grid-template-columns:1fr!important}
           .graph-right-panel{border-left:none!important;border-top:1px solid #1C2128!important}
-          .hbtns{flex-direction:column!important;align-items:stretch!important}
           .navlinks{display:none!important}
+          .hbtns{flex-direction:column!important;align-items:stretch!important}
           .hero-stats{gap:2rem!important;flex-wrap:wrap!important;justify-content:center!important}
           .comp-cell{padding:0.75rem 1rem!important;font-size:0.8rem!important}
+          .metrics-strip{gap:2rem!important;flex-wrap:wrap!important}
+        }
+        @media(max-width:600px){
+          .qgrid{grid-template-columns:1fr!important}
         }
       `}</style>
 
-      {/* ── ECLIPSE BACKGROUND ── */}
+      {/* ── BACKGROUND ── */}
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, overflow:"hidden" }}>
+        {/* Dot grid */}
+        <div style={{
+          position:"absolute", inset:0,
+          backgroundImage:"radial-gradient(rgba(62,203,111,0.09) 1px, transparent 1px)",
+          backgroundSize:"44px 44px",
+          animation:"gridPulse 12s ease-in-out infinite",
+        }}/>
         {/* Main eclipse glow */}
         <div style={{
           position:"absolute", top:"-30vh", left:"50%", transform:"translateX(-50%)",
@@ -358,24 +512,15 @@ export default function Home() {
           background:"radial-gradient(ellipse at center, rgba(62,203,111,0.07) 0%, rgba(62,203,111,0.03) 35%, transparent 65%)",
           animation:"shimmer 8s ease-in-out infinite",
         }}/>
-        {/* Secondary deep glow */}
         <div style={{
           position:"absolute", top:"-10vh", left:"50%", transform:"translateX(-50%)",
           width:"500px", height:"500px", borderRadius:"50%",
           background:"radial-gradient(ellipse at center, rgba(62,203,111,0.04) 0%, transparent 70%)",
         }}/>
-        {/* Subtle orbital ring */}
-        <div style={{
-          position:"absolute", top:"-20vh", left:"50%", transform:"translateX(-50%)",
-          width:"700px", height:"700px", borderRadius:"50%",
-          border:"1px solid rgba(62,203,111,0.04)",
-        }}/>
-        <div style={{
-          position:"absolute", top:"-15vh", left:"50%", transform:"translateX(-50%)",
-          width:"850px", height:"850px", borderRadius:"50%",
-          border:"1px solid rgba(62,203,111,0.025)",
-        }}/>
-        {/* Bottom ambient */}
+        {/* Orbital rings */}
+        <div style={{ position:"absolute", top:"-20vh", left:"50%", transform:"translateX(-50%)", width:"700px", height:"700px", borderRadius:"50%", border:"1px solid rgba(62,203,111,0.04)" }}/>
+        <div style={{ position:"absolute", top:"-15vh", left:"50%", transform:"translateX(-50%)", width:"850px", height:"850px", borderRadius:"50%", border:"1px solid rgba(62,203,111,0.025)" }}/>
+        {/* Bottom ambient blue */}
         <div style={{
           position:"absolute", bottom:"-20vh", left:"20%",
           width:"600px", height:"600px", borderRadius:"50%",
@@ -399,7 +544,7 @@ export default function Home() {
           </span>
         </a>
         <div className="navlinks" style={{ display:"flex", alignItems:"center", gap:"2.5rem" }}>
-          {[["#why","Why it works"],["#graph","See it work"],["#pricing","Pricing"]].map(([href,label]) => (
+          {[["#how","How it works"],["#why","Why it works"],["#graph","See it live"],["#pricing","Pricing"]].map(([href,label]) => (
             <a key={href} className="navlink" href={href} style={{ color:T.textMid, fontSize:"0.875rem", textDecoration:"none", transition:"color 0.2s", fontWeight:400 }}>{label}</a>
           ))}
         </div>
@@ -407,81 +552,145 @@ export default function Home() {
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ position:"relative", zIndex:1, padding:"160px 2rem 120px", textAlign:"center" }}>
-        <div className="h1" style={{ marginBottom:"2rem" }}>
-          <span style={{
-            display:"inline-flex", alignItems:"center", gap:"0.5rem",
-            background:"rgba(13,17,13,0.8)", border:"1px solid " + T.border2,
-            borderRadius:"100px", padding:"0.4rem 1.1rem",
-            fontSize:"0.68rem", fontWeight:600, color:T.textMid, letterSpacing:"0.1em",
-            backdropFilter:"blur(8px)",
-          }}>
-            <span style={{ width:5, height:5, borderRadius:"50%", background:T.green, animation:"pulse 2s infinite", flexShrink:0 }}/>
-            NOW LIVE — PLAN YOUR FIRST PROJECT FREE
-          </span>
+      <section style={{ position:"relative", zIndex:1, padding:"140px 2rem 100px", maxWidth:1200, margin:"0 auto" }}>
+        <div className="hero-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4rem", alignItems:"center" }}>
+
+          {/* Left column */}
+          <div>
+            <div className="h1" style={{ marginBottom:"1.75rem" }}>
+              <span style={{
+                display:"inline-flex", alignItems:"center", gap:"0.5rem",
+                background:"rgba(13,17,13,0.8)", border:"1px solid " + T.border2,
+                borderRadius:"100px", padding:"0.4rem 1.1rem",
+                fontSize:"0.68rem", fontWeight:600, color:T.textMid, letterSpacing:"0.1em",
+                backdropFilter:"blur(8px)",
+              }}>
+                <span style={{ width:5, height:5, borderRadius:"50%", background:T.green, animation:"pulse 2s infinite", flexShrink:0 }}/>
+                NOW LIVE — PLAN YOUR FIRST PROJECT FREE
+              </span>
+            </div>
+
+            <h1 className="h2" style={{
+              fontFamily:"'Fraunces', serif",
+              fontSize:"clamp(2.8rem, 6vw, 4.4rem)",
+              fontWeight:700, lineHeight:1.05, letterSpacing:"-0.03em",
+              marginBottom:"1.5rem",
+            }}>
+              Know if your project<br/>
+              will ship on time —<br/>
+              <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>before work begins.</em>
+            </h1>
+
+            <p className="h3" style={{
+              fontSize:"clamp(1rem, 2vw, 1.1rem)", color:T.textMid,
+              lineHeight:1.85, maxWidth:"460px", marginBottom:"2.5rem", fontWeight:300,
+            }}>
+              Map your tasks, define your dependencies, and Pathflo instantly surfaces your critical path, bottlenecks, and cascade risks.{" "}
+              <span style={{ fontWeight:500, color:T.text }}>No PM required.</span>
+            </p>
+
+            <div className="h4 hbtns" style={{ display:"flex", gap:"1rem", marginBottom:"3.5rem" }}>
+              <a href="/app" className="btnp" style={{ ...btnPrimary, fontSize:"1rem", padding:"1rem 2.25rem" }}>Build my first plan →</a>
+              <a href="#how" className="btns" style={btnSecondary}>See how it works</a>
+            </div>
+
+            {/* Stats */}
+            <div className="h5 hero-stats" style={{ display:"flex", gap:"3rem" }}>
+              {[
+                { val:"5 min",    label:"To your first risk report" },
+                { val:"5 screens",label:"Of execution intelligence" },
+                { val:"1 tap",    label:"To share with a client" },
+              ].map(({ val, label }) => (
+                <div key={val} style={{ textAlign:"left" }}>
+                  <div style={{ fontFamily:"'Fraunces', serif", fontSize:"1.6rem", fontWeight:700, color:T.text, letterSpacing:"-0.02em" }}>{val}</div>
+                  <div style={{ fontSize:"0.68rem", color:T.textDim, fontWeight:500, letterSpacing:"0.07em", marginTop:"0.2rem", textTransform:"uppercase" }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right column — terminal + confidence widget */}
+          <div className="hero-right terminal-float" style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>
+            <TerminalWindow />
+            <ConfidenceWidget T={T} />
+          </div>
+
         </div>
+      </section>
 
-        <h1 className="h2" style={{
-          fontFamily:"'Fraunces', serif",
-          fontSize:"clamp(3.2rem, 9vw, 6rem)",
-          fontWeight:700, lineHeight:1.02, letterSpacing:"-0.035em",
-          maxWidth:"820px", margin:"0 auto 1.75rem",
-        }}>
-          Operational clarity.<br/>
-          <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>Execution predictability.</em>
-        </h1>
-
-        <p className="h3" style={{
-          fontSize:"clamp(1rem, 2.5vw, 1.15rem)", color:T.textMid,
-          lineHeight:1.8, maxWidth:"520px", margin:"0 auto 3rem", fontWeight:300,
-        }}>
-          The PMO you cannot afford to hire.{" "}
-          <span style={{ fontWeight:500, color:T.text }}>Pathflo</span> gives you execution intelligence to plan, predict, and deliver — without a formal project manager.
-        </p>
-
-        <div className="h4 hbtns" style={{ display:"flex", gap:"1rem", justifyContent:"center", marginBottom:"4rem" }}>
-          <a href="/app" className="btnp" style={{ ...btnPrimary, fontSize:"1rem", padding:"1rem 2.5rem" }}>Build my first plan →</a>
-          <a href="#why" className="btns" style={btnSecondary}>See why it works</a>
-        </div>
-
-        {/* Stats */}
-        <div className="h4 hero-stats" style={{ display:"flex", justifyContent:"center", gap:"4rem" }}>
+      {/* ── METRICS STRIP ── */}
+      <div style={{ position:"relative", zIndex:1, borderTop:"1px solid " + T.border, borderBottom:"1px solid " + T.border, padding:"1.5rem 2rem", background:"rgba(13,17,19,0.5)", backdropFilter:"blur(8px)" }}>
+        <div className="metrics-strip" style={{ display:"flex", justifyContent:"center", gap:"4rem", maxWidth:900, margin:"0 auto" }}>
           {[
-            { val:"5 min",    label:"To your first risk report" },
-            { val:"5 screens",label:"Of execution intelligence" },
-            { val:"1 tap",    label:"To share with a client" },
+            { val:"500+",   label:"Project leaders" },
+            { val:"12,000+",label:"Projects analyzed" },
+            { val:"87%",    label:"Average on-time rate" },
+            { val:"$0",     label:"To start — no card needed" },
           ].map(({ val, label }) => (
             <div key={val} style={{ textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces', serif", fontSize:"1.8rem", fontWeight:700, color:T.text, letterSpacing:"-0.02em" }}>{val}</div>
-              <div style={{ fontSize:"0.7rem", color:T.textDim, fontWeight:500, letterSpacing:"0.07em", marginTop:"0.25rem", textTransform:"uppercase" }}>{label}</div>
+              <div style={{ fontFamily:"'Fraunces', serif", fontSize:"1.4rem", fontWeight:700, color:T.green, letterSpacing:"-0.02em" }}>{val}</div>
+              <div style={{ fontSize:"0.68rem", color:T.textDim, fontWeight:500, letterSpacing:"0.06em", marginTop:"0.15rem", textTransform:"uppercase" }}>{label}</div>
             </div>
           ))}
         </div>
-      </section>
+      </div>
+
+      {/* ── HOW IT WORKS ── */}
+      <SectionBubble id="how" maxWidth="1050px" glowColor="rgba(59,130,246,0.05)">
+        <div style={{ textAlign:"center", marginBottom:"3rem" }}>
+          <div style={{ fontSize:"0.65rem", color:T.green, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:"0.75rem" }}>HOW IT WORKS</div>
+          <h2 style={{ fontFamily:"'Fraunces', serif", fontSize:"clamp(1.8rem, 4vw, 2.6rem)", fontWeight:700, lineHeight:1.1, letterSpacing:"-0.025em" }}>
+            From tasks to execution plan<br/>
+            <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>in under five minutes.</em>
+          </h2>
+        </div>
+        <div className="steps-grid" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"1.5rem" }}>
+          {steps.map((step, i) => (
+            <div key={i} className="card step-card" style={{
+              background:T.surface, border:"1px solid " + T.border,
+              borderRadius:16, padding:"1.75rem", position:"relative", overflow:"hidden",
+              transition:"transform 0.2s, box-shadow 0.2s, border-color 0.2s",
+            }}>
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:step.color, opacity:0.7 }}/>
+              <div style={{
+                width:44, height:44, borderRadius:12,
+                background:`${step.color}12`, border:`1px solid ${step.color}30`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:"1.2rem", marginBottom:"1.25rem",
+                color:step.color,
+              }}>
+                {step.icon}
+              </div>
+              <div style={{ fontSize:"0.6rem", fontWeight:700, letterSpacing:"0.1em", color:step.color, marginBottom:"0.4rem", textTransform:"uppercase" }}>{step.n}</div>
+              <div style={{ fontSize:"1rem", fontWeight:700, color:T.text, marginBottom:"0.75rem", lineHeight:1.3 }}>{step.title}</div>
+              <div style={{ fontSize:"0.875rem", color:T.textMid, lineHeight:1.75, fontWeight:300 }}>{step.desc}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:"flex", justifyContent:"center", marginTop:"2.5rem" }}>
+          <a href="/app" className="btnp" style={{ ...btnPrimary }}>Start mapping my project →</a>
+        </div>
+      </SectionBubble>
 
       {/* ── FOUR QUESTIONS — chatbot style ── */}
       <SectionBubble id="why" maxWidth="820px" glowColor="rgba(62,203,111,0.07)">
         <div style={{ textAlign:"center", marginBottom:"2.5rem" }}>
           <div style={{ fontSize:"0.65rem", color:T.green, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:"0.75rem" }}>WHY IT WORKS</div>
           <h2 style={{ fontFamily:"'Fraunces', serif", fontSize:"clamp(1.8rem, 4vw, 2.6rem)", fontWeight:700, lineHeight:1.1, letterSpacing:"-0.025em" }}>
-            Four questions you already have.<br/>
+            Four questions every PM has.<br/>
             <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>Pathflo answers all of them.</em>
           </h2>
         </div>
-        {/* Chat-style Q&A */}
         <div style={{ display:"flex", flexDirection:"column", gap:"0.75rem", maxWidth:680, margin:"0 auto" }}>
           {questions.map(({ q, a, icon }, i) => (
             <div key={i} style={{ display:"flex", flexDirection:"column", gap:"0.4rem" }}>
-              {/* User question bubble */}
               <div style={{ display:"flex", justifyContent:"flex-end" }}>
                 <div style={{
                   background:"rgba(62,203,111,0.08)", border:"1px solid rgba(62,203,111,0.2)",
                   borderRadius:"18px 18px 4px 18px", padding:"0.7rem 1.1rem",
-                  maxWidth:"80%", fontSize:"0.9rem", fontWeight:500, color:T.green,
-                  lineHeight:1.5,
+                  maxWidth:"80%", fontSize:"0.9rem", fontWeight:500, color:T.green, lineHeight:1.5,
                 }}>{q}</div>
               </div>
-              {/* Bot answer bubble */}
               <div style={{ display:"flex", justifyContent:"flex-start", gap:"0.5rem", alignItems:"flex-start" }}>
                 <div style={{
                   width:30, height:30, borderRadius:"50%", background:T.greenDim,
@@ -497,7 +706,6 @@ export default function Home() {
               </div>
             </div>
           ))}
-          {/* CTA bubble */}
           <div style={{ display:"flex", justifyContent:"center", marginTop:"0.5rem" }}>
             <a href="/app" className="btnp" style={{ ...btnPrimary, fontSize:"0.9rem" }}>Try it on my project →</a>
           </div>
@@ -581,6 +789,48 @@ export default function Home() {
         </div>
       </SectionBubble>
 
+      {/* ── TESTIMONIALS ── */}
+      <SectionBubble maxWidth="1050px" glowColor="rgba(62,203,111,0.05)">
+        <div style={{ textAlign:"center", marginBottom:"2.5rem" }}>
+          <div style={{ fontSize:"0.65rem", color:T.green, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:"0.75rem" }}>REAL RESULTS</div>
+          <h2 style={{ fontFamily:"'Fraunces', serif", fontSize:"clamp(1.8rem, 4vw, 2.6rem)", fontWeight:700, lineHeight:1.1, letterSpacing:"-0.025em" }}>
+            Teams that ship on time<br/>
+            <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>use Pathflo.</em>
+          </h2>
+        </div>
+        <div className="tgrid" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"1.25rem" }}>
+          {testimonials.map(({ quote, author, role, initials, color }, i) => (
+            <div key={i} className="card tcard" style={{
+              background:T.surface, border:"1px solid " + T.border,
+              borderRadius:16, padding:"1.5rem", position:"relative", overflow:"hidden",
+              transition:"transform 0.2s, box-shadow 0.2s, border-color 0.2s",
+            }}>
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:color, opacity:0.5 }}/>
+              {/* Quote mark */}
+              <div style={{
+                fontSize:"2.5rem", lineHeight:1, color:color, opacity:0.2,
+                fontFamily:"Georgia, serif", marginBottom:"0.5rem", fontWeight:700,
+              }}>"</div>
+              <p style={{ fontSize:"0.9rem", color:T.text, lineHeight:1.8, fontWeight:300, marginBottom:"1.5rem" }}>
+                {quote}
+              </p>
+              <div style={{ display:"flex", alignItems:"center", gap:"0.75rem" }}>
+                <div style={{
+                  width:36, height:36, borderRadius:"50%",
+                  background:`${color}18`, border:`1px solid ${color}40`,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:"0.72rem", fontWeight:700, color, flexShrink:0,
+                }}>{initials}</div>
+                <div>
+                  <div style={{ fontSize:"0.85rem", fontWeight:600, color:T.text }}>{author}</div>
+                  <div style={{ fontSize:"0.75rem", color:T.textMid, marginTop:"0.1rem" }}>{role}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionBubble>
+
       {/* ── INTELLIGENCE PILLARS ── */}
       <SectionBubble maxWidth="1100px" glowColor="rgba(59,130,246,0.05)">
         <div style={{ textAlign:"center", marginBottom:"2.5rem" }}>
@@ -609,7 +859,6 @@ export default function Home() {
               y:cy+(r+20)*Math.sin((j*2*Math.PI/np)-Math.PI/2),
             }));
             const poly = (pts) => pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-            // Val percentages for each axis
             const valPcts = pillar.vals.map(v => Math.round(v*100)+"%");
             return (
               <div key={i} className="card" style={{
@@ -625,14 +874,12 @@ export default function Home() {
                     <polygon points={poly(innerPts)} fill={pillar.color} fillOpacity="0.14" stroke={pillar.color} strokeWidth="1.5"/>
                     {outerPts.map((p,j) => <circle key={j} cx={p.x} cy={p.y} r="3.5" fill={pillar.color} opacity="0.25"/>)}
                     {innerPts.map((p,j) => <circle key={j} cx={p.x} cy={p.y} r="2.5" fill={pillar.color}/>)}
-                    {/* Axis labels + their values */}
                     {labelPts.map((p,j) => (
                       <g key={j}>
                         <text x={p.x.toFixed(1)} y={(p.y-5).toFixed(1)} textAnchor="middle" fontSize="5.5" fontFamily="system-ui" fill={T.textDim} dominantBaseline="middle" letterSpacing="0.06em">{pillar.labels[j]}</text>
                         <text x={p.x.toFixed(1)} y={(p.y+5).toFixed(1)} textAnchor="middle" fontSize="7" fontFamily="system-ui" fill={pillar.color} dominantBaseline="middle" fontWeight="700">{valPcts[j]}</text>
                       </g>
                     ))}
-                    {/* Center: overall score */}
                     <text x={cx} y={cy-5} textAnchor="middle" fontSize="18" fontFamily="Georgia,serif" fill={pillar.color} fontWeight="700">{pillar.pct}</text>
                     <text x={cx} y={cy+9} textAnchor="middle" fontSize="6" fontFamily="system-ui" fill={T.textDim} letterSpacing="0.07em">{pillar.pctLabel}</text>
                   </svg>
@@ -724,31 +971,55 @@ export default function Home() {
       </SectionBubble>
 
       {/* ── FINAL CTA ── */}
-      <SectionBubble maxWidth="600px" glowColor="rgba(62,203,111,0.09)">
-        <div style={{ textAlign:"center", padding:"3rem 0 2rem" }}>
-          <h2 style={{ fontFamily:"'Fraunces', serif", fontSize:"clamp(2.4rem, 7vw, 4rem)", fontWeight:700, lineHeight:1.05, letterSpacing:"-0.03em", marginBottom:"1.25rem" }}>
-            Stop guessing.<br/>
-            <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>Start knowing.</em>
+      <SectionBubble maxWidth="620px" glowColor="rgba(62,203,111,0.1)">
+        <div style={{
+          textAlign:"center", padding:"3.5rem 2rem",
+          background:T.surface, border:"1px solid " + T.border2,
+          borderRadius:24,
+          boxShadow:"0 0 0 1px rgba(62,203,111,0.06), 0 32px 80px rgba(0,0,0,0.4)",
+        }}>
+          {/* Terminal badge */}
+          <div style={{
+            display:"inline-flex", alignItems:"center", gap:"0.5rem",
+            background:"rgba(62,203,111,0.06)", border:"1px solid rgba(62,203,111,0.15)",
+            borderRadius:8, padding:"0.4rem 0.85rem", marginBottom:"1.75rem",
+            fontFamily:"'DM Mono', monospace", fontSize:"0.72rem", color:T.green,
+          }}>
+            <span style={{ animation:"pulse 2s infinite", width:5, height:5, borderRadius:"50%", background:T.green, flexShrink:0 }}/>
+            {"$ pathflo init --project new"}
+          </div>
+          <h2 style={{ fontFamily:"'Fraunces', serif", fontSize:"clamp(2.2rem, 6vw, 3.5rem)", fontWeight:700, lineHeight:1.06, letterSpacing:"-0.03em", marginBottom:"1.25rem" }}>
+            Your next project<br/>
+            <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>deserves a plan that works.</em>
           </h2>
           <p style={{ color:T.textMid, fontSize:"1rem", lineHeight:1.8, marginBottom:"2.5rem", fontWeight:300 }}>
-            Every project gets a critical path, a risk score, and a shareable readout — in 5 minutes.
+            Set up in 5 minutes. No PM required. No credit card needed.
           </p>
           <a href="/app" className="btnp" style={{ ...btnPrimary, fontSize:"1.05rem", padding:"1.1rem 2.75rem" }}>
-            Build my first plan — it's free →
+            Start my first project free →
           </a>
+          <p style={{ marginTop:"1.25rem", fontSize:"0.75rem", color:T.textDim }}>
+            Free forever on Solo plan · No setup required
+          </p>
         </div>
       </SectionBubble>
 
       {/* ── FOOTER ── */}
-      <footer style={{ borderTop:"1px solid " + T.border, padding:"2rem 2.5rem", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:"1rem", position:"relative", zIndex:1 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
-          <Logo color={T.green} size={15}/>
-          <span style={{ fontSize:"0.75rem", color:T.textDim, fontWeight:300 }}>© 2026 Pathflo. All rights reserved.</span>
-        </div>
-        <div style={{ display:"flex", gap:"2rem" }}>
-          {["Privacy","Terms","Contact"].map(l => (
-            <a key={l} href="#" style={{ fontSize:"0.75rem", color:T.textDim, textDecoration:"none" }}>{l}</a>
-          ))}
+      <footer style={{ borderTop:"1px solid " + T.border, padding:"2rem 2.5rem", position:"relative", zIndex:1 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:"1rem", maxWidth:1200, margin:"0 auto" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
+            <Logo color={T.green} size={15}/>
+            <span style={{ fontSize:"0.75rem", color:T.textDim, fontWeight:300 }}>© 2026 Pathflo. All rights reserved.</span>
+          </div>
+          <div style={{ display:"flex", gap:"0.5rem", alignItems:"center" }}>
+            <span style={{ width:5, height:5, borderRadius:"50%", background:T.green, animation:"pulse 2s infinite" }}/>
+            <span style={{ fontSize:"0.7rem", color:T.textDim, fontFamily:"'DM Mono', monospace" }}>All systems operational</span>
+          </div>
+          <div style={{ display:"flex", gap:"2rem" }}>
+            {["Privacy","Terms","Contact"].map(l => (
+              <a key={l} href="#" style={{ fontSize:"0.75rem", color:T.textDim, textDecoration:"none" }}>{l}</a>
+            ))}
+          </div>
         </div>
       </footer>
     </main>
