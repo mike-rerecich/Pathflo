@@ -355,7 +355,6 @@ function CascadeSimulator({ tasks, result, simulatorTaskId, onTaskChange, startD
                 { label: "TASKS BLOCKED", val: impact.downstreamCount, sub: `${impact.criticalDownstreamCount} on critical path`, color: C.amber },
                 { label: "CONFIDENCE", val: `${impact.newConf}%`, sub: `was ${impact.oldConf}% (${impact.confDelta>0?"+":""}${impact.confDelta}pts)`, color: impact.confDelta<-10?C.red:impact.confDelta<0?C.amber:C.green },
                 { label: "DEADLINE RISK", val: `${impact.newRisk}%`, sub: `was ${impact.oldRisk}% (+${impact.newRisk-impact.oldRisk}pts)`, color: impact.newRisk>=75?C.red:impact.newRisk>=55?C.amber:C.green },
-                ...(impact.dailyBurn>0?[{ label: "COST EXPOSURE", val: `$${Math.round(impact.costExposure).toLocaleString()}`, sub: `at $${Math.round(impact.dailyBurn)}/day`, color: C.amber }]:[]),
               ].map((m, i) => (
                 <div key={i} style={{ ...card2(), padding: "0.75rem 0.85rem" }}>
                   <div style={{ fontSize: "0.55rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.3rem" }}>{m.label}</div>
@@ -1203,7 +1202,10 @@ function ResultsContent() {
     try {
       const parsed = JSON.parse(decodeURIComponent(raw));
       setData(parsed);
-      const r = computeCPM(parsed.tasks, parsed.startDate, parsed.targetDate, parsed.budget||"Flexible");
+      const stakes = parsed.deadlineStakes || "";
+      const derivedBudget = (stakes.includes("penalty") || stakes.includes("Regulatory") || stakes.includes("legal")) ? "Fixed"
+        : (stakes.includes("Revenue") || stakes.includes("Client")) ? "Tight" : "Flexible";
+      const r = computeCPM(parsed.tasks, parsed.startDate, parsed.targetDate, parsed.budget || derivedBudget);
       setResult(r);
       setAiLoading(true);
       fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectData:parsed})})
@@ -1227,7 +1229,8 @@ function ResultsContent() {
 
   const confScore = result.confidence.score;
   const confBand = result.confidence.band;
-  const confScoreOptimized = result.confidenceOptimized?.score || Math.min(confScore + 22, 97);
+  const hasRealOptimization = result.shuffleOps?.length > 0 && result.confidenceOptimized?.score > confScore;
+  const confScoreOptimized = hasRealOptimization ? result.confidenceOptimized.score : confScore;
   const planRisk = result.predictiveRisk?.planProb || 0;
 
   const navItems = [
@@ -1354,12 +1357,14 @@ function ResultsContent() {
         <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.78rem",color:C.textMid}}>
             <span style={{color:verdColor,fontWeight:700,fontSize:"1rem"}}>{confScore}%</span>
-            <span style={{color:C.textDim}}>→</span>
-            <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
-            <span>if optimized</span>
+            {hasRealOptimization && (<>
+              <span style={{color:C.textDim}}>→</span>
+              <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
+              <span>if optimized</span>
+            </>)}
           </div>
           <ShareButton data={data} result={result} confScore={confScore} />
-          <button onClick={()=>{const rd=encodeURIComponent(JSON.stringify({name:data.name,startDate:data.startDate,targetDate:data.targetDate,budget:data.budget,totalBudget:data.totalBudget||"",tasks:data.tasks}));window.location.href="/app?revise="+rd;}} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
+          <button onClick={()=>{const rd=encodeURIComponent(JSON.stringify({name:data.name,startDate:data.startDate,targetDate:data.targetDate,dailyBurnRate:data.dailyBurnRate||"",deadlineStakes:data.deadlineStakes||"",deadlinePenalty:data.deadlinePenalty||"",tasks:data.tasks}));window.location.href="/app?revise="+rd;}} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
           <a href="/app" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
         </div>
       </div>
@@ -1411,11 +1416,13 @@ function ResultsContent() {
                     <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem"}}>
                       <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:verdColor,lineHeight:1}}>{confScore}</span>
                       <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
-                      <span style={{color:C.textDim,fontSize:"1.2rem"}}>→</span>
-                      <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:C.green,lineHeight:1}}>{confScoreOptimized}</span>
-                      <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
+                      {hasRealOptimization && (<>
+                        <span style={{color:C.textDim,fontSize:"1.2rem"}}>→</span>
+                        <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:C.green,lineHeight:1}}>{confScoreOptimized}</span>
+                        <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
+                      </>)}
                     </div>
-                    <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.2rem"}}>As-is → with Pathflo's fixes applied</div>
+                    <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.2rem"}}>{hasRealOptimization ? "As-is → with Pathflo's fixes applied" : "On-time delivery confidence"}</div>
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div style={{background:verdColor+"20",color:verdColor,fontSize:"0.78rem",fontWeight:700,padding:"0.35rem 0.85rem",borderRadius:100,border:"1px solid "+verdColor+"40",marginBottom:"0.4rem",display:"inline-block"}}>{result.verdict}</div>
@@ -1582,7 +1589,7 @@ function ResultsContent() {
               <CascadeSimulator
                 tasks={data.tasks} result={result} simulatorTaskId={simulatorTaskId}
                 onTaskChange={setSimulatorTaskId}
-                startDate={data.startDate} targetDate={data.targetDate} budget={data.budget||"Flexible"}
+                startDate={data.startDate} targetDate={data.targetDate} budget={data.budget||(()=>{const s=data.deadlineStakes||"";return s.includes("penalty")||s.includes("Regulatory")?"Fixed":s.includes("Revenue")||s.includes("Client")?"Tight":"Flexible";})()}
               />
 
               {/* Critical path */}
@@ -1746,50 +1753,6 @@ function ResultsContent() {
                 );
               })()}
 
-              {/* Cost exposure — only if task cost data exists */}
-              {(() => {
-                const totalCost = data.tasks.reduce((a,t)=>{const c=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;return a+c;},0);
-                if (totalCost === 0) return null;
-                const dailyBurn = totalCost > 0 && result.projectDuration > 0 ? totalCost/result.projectDuration : 0;
-                const overrunCost = result.bufferDays < 0 && dailyBurn > 0 ? Math.abs(result.bufferDays)*dailyBurn : 0;
-                // Classify delay impact per task
-                const tasksWithCost = data.tasks.filter(t=>t.cost&&parseFloat(t.cost.replace(/[^0-9.]/g,""))>0);
-                const criticalWithCost = tasksWithCost.filter(t=>result.criticalPath.includes(t.name));
-                const timeOnlyDelays = result.tasks.filter(t=>t.slack===0&&!data.tasks.find(dt=>dt.id===t.id)?.cost);
-                return (
-                  <div style={{...card({border:"1px solid "+(overrunCost>0?C.red:C.green)+"30"}),padding:"1rem"}}>
-                    <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.65rem"}}>COST EXPOSURE</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                      {[
-                        {label:"Total mapped cost",val:"$"+totalCost.toLocaleString(),color:C.text},
-                        {label:"Daily burn rate",val:"$"+Math.round(dailyBurn).toLocaleString()+"/day",color:C.textMid},
-                        {label:"Overrun exposure",val:overrunCost>0?"$"+Math.round(overrunCost).toLocaleString():"None",color:overrunCost>0?C.red:C.green},
-                      ].map((s,i)=>(
-                        <div key={i} style={{background:C.surface2,borderRadius:8,padding:"0.6rem 0.75rem"}}>
-                          <div style={{fontSize:"0.55rem",color:C.textDim,marginBottom:"0.2rem"}}>{s.label}</div>
-                          <div style={{fontSize:"0.95rem",fontWeight:700,color:s.color}}>{s.val}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {criticalWithCost.length > 0 && (
-                      <div>
-                        <div style={{fontSize:"0.62rem",color:C.red,fontWeight:600,marginBottom:"0.35rem"}}>Labor/cost-impacting delays (critical path tasks with budgets):</div>
-                        {criticalWithCost.map((t,i)=>(
-                          <div key={i} style={{fontSize:"0.78rem",color:C.textMid,padding:"0.2rem 0"}}>◆ {t.name} — {t.cost} — <span style={{color:C.red}}>miss this and you pay for the delay</span></div>
-                        ))}
-                      </div>
-                    )}
-                    {timeOnlyDelays.length > 0 && (
-                      <div style={{marginTop:"0.5rem"}}>
-                        <div style={{fontSize:"0.62rem",color:C.amber,fontWeight:600,marginBottom:"0.35rem"}}>Time-only delays (critical, no direct cost):</div>
-                        {timeOnlyDelays.slice(0,3).map((t,i)=>(
-                          <div key={i} style={{fontSize:"0.78rem",color:C.textMid,padding:"0.2rem 0"}}>◆ {t.name} — slip cascades to downstream tasks</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
           )}
 
@@ -1921,7 +1884,7 @@ function ResultsContent() {
                       result.verdict+" · "+confScore+"% on-time confidence",
                       "Projected completion: "+result.projectedDate,
                       "Buffer: "+(result.bufferDays>=0?result.bufferDays+" days":Math.abs(result.bufferDays)+" days over deadline"),
-                      "With fixes applied: "+confScoreOptimized+"% confidence",
+                      ...(hasRealOptimization?["With fixes applied: "+confScoreOptimized+"% confidence"]:[]),
                       "",
                       "━━━ CRITICAL PATH ━━━",
                       result.criticalPath.join(" → "),
@@ -1962,8 +1925,8 @@ function ResultsContent() {
                 {/* Confidence */}
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"0.65rem",marginBottom:"1rem"}}>
                   {[
-                    {label:"Confidence (now)",val:confScore+"%",color:verdColor,sub:"current plan"},
-                    {label:"Confidence (optimized)",val:confScoreOptimized+"%",color:C.green,sub:"with fixes applied"},
+                    {label:"Confidence",val:confScore+"%",color:verdColor,sub:"current plan"},
+                    ...(hasRealOptimization?[{label:"Confidence (optimized)",val:confScoreOptimized+"%",color:C.green,sub:"with fixes applied"}]:[]),
                     {label:"Projected finish",val:result.projectedRange,color:C.text,sub:result.bufferDays>=0?result.bufferDays+"d buffer":Math.abs(result.bufferDays)+"d over"},
                     {label:"Failure probability",val:(result.predictiveRisk?.planProb||0)+"%",color:result.predictiveRisk?.planBand||C.amber,sub:"without intervention"},
                   ].map((s,i)=>(
@@ -2053,7 +2016,7 @@ function ResultsContent() {
                   <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.8}}>
                     {data.name} has a <strong style={{color:verdColor}}>{confScore}% chance of delivering on time</strong> as currently planned. {result.confidence.reason}. The critical path runs through {result.criticalPath.length} tasks — {result.criticalPath.slice(0,3).join(", ")}{result.criticalPath.length>3?`, and ${result.criticalPath.length-3} more`:""} — with {result.bufferDays>=0?result.bufferDays+" days of buffer":Math.abs(result.bufferDays)+" days of overrun"}.
                     {result.shuffleOps.length>0&&` ${result.shuffleOps.length} scheduling optimization${result.shuffleOps.length>1?"s are":" is"} available: running "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" recovers approximately ${result.shuffleOps[0].daysSaved} days at zero additional cost.`}
-                    {` With recommended changes applied, on-time confidence rises to ${confScoreOptimized}% — a +${confScoreOptimized-confScore} point improvement.`}
+                    {hasRealOptimization&&` With recommended changes applied, on-time confidence rises to ${confScoreOptimized}% — a +${confScoreOptimized-confScore} point improvement.`}
                     <span style={{display:"block",marginTop:"0.75rem",fontSize:"0.7rem",color:C.textDim,fontStyle:"italic"}}>Add your Anthropic API key to Vercel for a fully AI-generated narrative.</span>
                   </p>
                 )}
@@ -2064,7 +2027,7 @@ function ResultsContent() {
                 <div style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>KEY TAKEAWAYS — quick copy</div>
                 <div style={{display:"flex",flexDirection:"column",gap:"0.55rem"}}>
                   {[
-                    {icon:"◈",text:`**${data.name}** — ${result.verdict}. On-time confidence: **${confScore}%** → **${confScoreOptimized}%** with fixes.`,color:verdColor},
+                    {icon:"◈",text:`**${data.name}** — ${result.verdict}. On-time confidence: **${confScore}%**`+(hasRealOptimization?` → **${confScoreOptimized}%** with fixes.`:"."),color:verdColor},
                     {icon:"⚠",text:`Critical path: **${result.criticalPath.length} tasks**${result.criticalPath.length>0?" — "+result.criticalPath.slice(0,2).join(", ")+(result.criticalPath.length>2?"...":""):""}. Buffer: **${result.bufferDays>=0?result.bufferDays+"d":"OVERRUN "+Math.abs(result.bufferDays)+"d"}**.`,color:result.bufferDays>=0?C.amber:C.red},
                     {icon:"⚡",text:`Highest risk: **${result.predictiveRisk?.top3[0]?.name||"—"}** — ${result.predictiveRisk?.top3[0]?.reason||""}. **${result.predictiveRisk?.planProb||0}%** chance of missing deadline.`,color:C.red},
                     ...(result.shuffleOps.length>0?[{icon:"✓",text:`Fix: Run **"${result.shuffleOps[0].task}"** in parallel — recovers **~${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero cost**.`,color:C.green}]:[]),

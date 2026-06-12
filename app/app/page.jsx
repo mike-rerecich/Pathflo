@@ -38,7 +38,7 @@ export default function AppPage() {
   const [stage, setStage] = useState("INIT");
   const [inputVal, setInputVal] = useState("");
   const [progress, setProgress] = useState(1);
-  const [project, setProject] = useState({ name: "", startDate: "", targetDate: "", budgetType: "Flexible", totalBudget: "" });
+  const [project, setProject] = useState({ name: "", startDate: "", targetDate: "", dailyBurnRate: "", deadlineStakes: "", deadlinePenalty: "" });
   const [tasks, setTasks] = useState([]);
   const [currentTask, setCurrentTask] = useState({ name: "", owner: "", days: 0, predecessors: [], concurrent: false, id: "" });
   const [pendingPreds, setPendingPreds] = useState([]);
@@ -68,7 +68,7 @@ export default function AppPage() {
     if (revise) {
       try {
         const d = JSON.parse(decodeURIComponent(revise));
-        setProject({ name: d.name || "", startDate: d.startDate || "", targetDate: d.targetDate || "", budgetType: d.budget || "Flexible", totalBudget: d.totalBudget || "" });
+        setProject({ name: d.name || "", startDate: d.startDate || "", targetDate: d.targetDate || "", dailyBurnRate: d.dailyBurnRate || "", deadlineStakes: d.deadlineStakes || "", deadlinePenalty: d.deadlinePenalty || "" });
         const loaded = d.tasks || [];
         setTasks(loaded); tasksRef.current = loaded;
         counter.current = loaded.length;
@@ -213,23 +213,33 @@ export default function AppPage() {
 
       case "TARGET_DATE": {
         setProject(p => ({ ...p, targetDate: val }));
-        setStage("BUDGET");
+        setStage("DAILY_BURN");
         setTimeout(() => bot(
-          "What's the budget situation?\n\nThis helps Pathflo calculate financial exposure — what a delay actually costs, not just in time.",
-          "choice", null,
-          ["No budget set yet", "Flexible — can move if needed", "Tight — limited room", "Fixed — absolutely cannot change"]
+          "What does it cost per day to run this project?\n\nInclude labor, contractors, overhead — whatever stops if the project stops. If you don't track this, enter 0.",
+          "text", "e.g. $2,500"
         ), 350);
         break;
       }
 
-      case "BUDGET": {
-        const bt = val === "No budget set yet" ? "Flexible" : val.split(" —")[0];
-        setProject(p => ({ ...p, budgetType: bt }));
-        if (bt !== "Flexible" && val !== "No budget set yet") {
-          setStage("BUDGET_AMOUNT");
+      case "DAILY_BURN": {
+        setProject(p => ({ ...p, dailyBurnRate: val }));
+        setStage("DEADLINE_STAKES");
+        setTimeout(() => bot(
+          "What happens if you miss the deadline?\n\nThis tells Pathflo what's actually at risk — not just time.",
+          "choice", null,
+          ["Nothing critical — date is a target", "Revenue delay — income shifts right", "Contract penalty — financial exposure", "Client relationship — trust at stake", "Regulatory / legal deadline"]
+        ), 350);
+        break;
+      }
+
+      case "DEADLINE_STAKES": {
+        setProject(p => ({ ...p, deadlineStakes: val }));
+        const needsDollar = val.includes("penalty") || val.includes("Revenue");
+        if (needsDollar) {
+          setStage("DEADLINE_PENALTY");
           setTimeout(() => bot(
-            "What's the total budget?\n\nPathflo uses this to show what each day of delay actually costs you.",
-            "text", "e.g. $45,000"
+            "What's the dollar exposure if you miss?\n\nBe specific — Pathflo uses this to weight your risk score.",
+            "text", "e.g. $15,000"
           ), 350);
         } else {
           goToMilestones();
@@ -237,8 +247,8 @@ export default function AppPage() {
         break;
       }
 
-      case "BUDGET_AMOUNT": {
-        setProject(p => ({ ...p, totalBudget: val }));
+      case "DEADLINE_PENALTY": {
+        setProject(p => ({ ...p, deadlinePenalty: val }));
         goToMilestones();
         break;
       }
@@ -390,8 +400,9 @@ export default function AppPage() {
         name: projRef.current.name,
         startDate: projRef.current.startDate,
         targetDate: projRef.current.targetDate,
-        budget: projRef.current.budgetType || "Flexible",
-        totalBudget: projRef.current.totalBudget,
+        dailyBurnRate: projRef.current.dailyBurnRate,
+        deadlineStakes: projRef.current.deadlineStakes,
+        deadlinePenalty: projRef.current.deadlinePenalty,
         tasks: tasksRef.current,
       };
       window.location.href = "/results?data=" + encodeURIComponent(JSON.stringify(data));
@@ -410,7 +421,7 @@ export default function AppPage() {
 
   const stepLabel = {
     INTRO: "Project name", START_DATE: "Start date", TARGET_DATE: "Deadline",
-    BUDGET: "Budget", BUDGET_AMOUNT: "Budget amount",
+    DAILY_BURN: "Daily cost", DEADLINE_STAKES: "Deadline stakes", DEADLINE_PENALTY: "Penalty",
     TASK_NAME: "Milestone name", TASK_DAYS: "Duration", TASK_OWNER: "Owner",
     TASK_OWNER_INPUT: "Owner", TASK_DEPENDS_FIRST: "Dependencies",
     TASK_DEPENDS_MORE: "Dependencies", TASK_CONCURRENT: "Overlap",

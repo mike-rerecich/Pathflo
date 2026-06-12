@@ -411,42 +411,6 @@ export default function Home() {
     },
   ];
 
-  const pillars = [
-    {
-      n:"01 · Timeline Health", title:"How tight is the schedule?",
-      color:"#3B82F6",
-      vals:[0.74, 0.81, 0.65], labels:["DEPENDENCY","ACCURACY","STABILITY"],
-      pct:"74%", pctLabel:"DEPENDENCY",
-      stats:[
-        { name:"Dependency Compression", val:"74%", color:"#3B82F6" },
-        { name:"Forecast Accuracy",       val:"81%", color:"#22C55E" },
-        { name:"Schedule Stability",      val:"65%", color:"#F59E0B" },
-      ],
-    },
-    {
-      n:"02 · Workload Intel", title:"Who's carrying the most risk?",
-      color:"#3ECB6F",
-      vals:[0.62, 0.55, 0.80], labels:["OVERLOAD","CAPACITY","APPROVAL"],
-      pct:"62%", pctLabel:"OVERLOAD",
-      stats:[
-        { name:"Team Overload",  val:"62%", color:"#EF4444" },
-        { name:"Owner Capacity", val:"55%", color:"#F59E0B" },
-        { name:"Approval Flow",  val:"80%", color:"#22C55E" },
-      ],
-    },
-    {
-      n:"03 · Operational Health", title:"Is the execution plan efficient?",
-      color:"#22C55E",
-      vals:[0.78, 0.85, 0.70], labels:["STABILITY","EXECUTION","EFFICIENCY"],
-      pct:"78%", pctLabel:"STABILITY",
-      stats:[
-        { name:"Plan Stability",        val:"78%", color:"#22C55E" },
-        { name:"Execution Confidence",  val:"85%", color:"#22C55E" },
-        { name:"Structural Efficiency", val:"70%", color:"#F59E0B" },
-      ],
-    },
-  ];
-
   return (
     <main style={{ background:T.bg, color:T.text, fontFamily:"'DM Sans', system-ui, sans-serif", overflowX:"hidden" }}>
       <style>{`
@@ -769,71 +733,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
-      </SectionBubble>
-
-      {/* ── INTELLIGENCE PILLARS ── */}
-      <SectionBubble maxWidth="1100px" glowColor="rgba(59,130,246,0.05)">
-        <div style={{ textAlign:"center", marginBottom:"2.5rem" }}>
-          <div style={{ fontSize:"0.65rem", color:T.green, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:"0.75rem" }}>EXECUTION INTELLIGENCE</div>
-          <h2 style={{ fontFamily:"'Fraunces', serif", fontSize:"clamp(1.8rem, 4vw, 2.6rem)", fontWeight:700, lineHeight:1.1, letterSpacing:"-0.025em", marginBottom:"0.85rem" }}>
-            Three dimensions of<br/>
-            <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>execution health.</em>
-          </h2>
-          <p style={{ color:T.textMid, fontSize:"0.95rem", fontWeight:300, lineHeight:1.8, maxWidth:"460px", margin:"0 auto" }}>
-            Every project is scored across three intelligence pillars. Numbers in the chart match the stats below — no guessing.
-          </p>
-        </div>
-        <div className="pillars-grid" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"1.5rem" }}>
-          {pillars.map((pillar, i) => {
-            const size=156, cx=size/2, cy=size/2, r=50, np=3;
-            const outerPts = Array.from({ length:np }, (_,j) => {
-              const a=(j*2*Math.PI/np)-Math.PI/2;
-              return { x:cx+r*Math.cos(a), y:cy+r*Math.sin(a) };
-            });
-            const innerPts = pillar.vals.map((v,j) => {
-              const a=(j*2*Math.PI/np)-Math.PI/2;
-              return { x:cx+r*v*Math.cos(a), y:cy+r*v*Math.sin(a) };
-            });
-            const labelPts = outerPts.map((p,j) => ({
-              x:cx+(r+20)*Math.cos((j*2*Math.PI/np)-Math.PI/2),
-              y:cy+(r+20)*Math.sin((j*2*Math.PI/np)-Math.PI/2),
-            }));
-            const poly = (pts) => pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-            const valPcts = pillar.vals.map(v => Math.round(v*100)+"%");
-            return (
-              <div key={i} className="card" style={{
-                background:T.surface, border:"1px solid " + T.border,
-                borderRadius:16, padding:"1.5rem", position:"relative", overflow:"hidden",
-              }}>
-                <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:pillar.color }}/>
-                <div style={{ fontSize:"0.65rem", fontWeight:700, letterSpacing:"0.06em", color:pillar.color, marginBottom:"0.4rem", textTransform:"uppercase" }}>{pillar.n}</div>
-                <div style={{ fontSize:"0.95rem", fontWeight:700, marginBottom:"1.25rem", color:T.text, lineHeight:1.3 }}>{pillar.title}</div>
-                <div style={{ display:"flex", justifyContent:"center", marginBottom:"1.25rem" }}>
-                  <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow:"visible" }}>
-                    <polygon points={poly(outerPts)} fill="none" stroke={pillar.color} strokeWidth="1" opacity="0.2"/>
-                    <polygon points={poly(innerPts)} fill={pillar.color} fillOpacity="0.14" stroke={pillar.color} strokeWidth="1.5"/>
-                    {outerPts.map((p,j) => <circle key={j} cx={p.x} cy={p.y} r="3.5" fill={pillar.color} opacity="0.25"/>)}
-                    {innerPts.map((p,j) => <circle key={j} cx={p.x} cy={p.y} r="2.5" fill={pillar.color}/>)}
-                    {labelPts.map((p,j) => (
-                      <g key={j}>
-                        <text x={p.x.toFixed(1)} y={(p.y-5).toFixed(1)} textAnchor="middle" fontSize="5.5" fontFamily="system-ui" fill={T.textDim} dominantBaseline="middle" letterSpacing="0.06em">{pillar.labels[j]}</text>
-                        <text x={p.x.toFixed(1)} y={(p.y+5).toFixed(1)} textAnchor="middle" fontSize="7" fontFamily="system-ui" fill={pillar.color} dominantBaseline="middle" fontWeight="700">{valPcts[j]}</text>
-                      </g>
-                    ))}
-                    <text x={cx} y={cy-5} textAnchor="middle" fontSize="18" fontFamily="Georgia,serif" fill={pillar.color} fontWeight="700">{pillar.pct}</text>
-                    <text x={cx} y={cy+9} textAnchor="middle" fontSize="6" fontFamily="system-ui" fill={T.textDim} letterSpacing="0.07em">{pillar.pctLabel}</text>
-                  </svg>
-                </div>
-                {pillar.stats.map((s,j) => (
-                  <div key={j} style={{ display:"flex", justifyContent:"space-between", fontSize:"0.8rem", padding:"0.4rem 0", borderBottom:j<pillar.stats.length-1?"1px solid "+T.border:"none" }}>
-                    <span style={{ color:T.textMid }}>{s.name}</span>
-                    <span style={{ fontWeight:700, color:s.color }}>{s.val}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
         </div>
       </SectionBubble>
 
