@@ -593,8 +593,8 @@ function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
               strokeDasharray="6 4"
             />
             <text
-              x={cascadeRect.x + 10} y={cascadeRect.y + 14}
-              fontSize="8" fontFamily="system-ui" fontWeight="700"
+              x={cascadeRect.x + cascadeRect.w / 2} y={cascadeRect.y + 14}
+              textAnchor="middle" fontSize="8" fontFamily="system-ui" fontWeight="700"
               fill="rgba(239,68,68,0.6)" letterSpacing="0.08em"
             >CASCADE IMPACT ZONE</text>
           </g>
@@ -1457,22 +1457,39 @@ function ResultsContent() {
                 const sScore = result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50;
                 const oScore = result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50;
                 const opScore = Math.round((sScore+oScore)/2);
+                const extScore = result.confidence.breakdown.find(f=>f.name==="External dependencies")?.score||50;
+                const budgetScore = result.confidence.breakdown.find(f=>f.name==="Budget pressure")?.score||50;
+                const pillars = [
+                  { label:"01 · Timeline Health", title:"On time?", color:C.blue,
+                    values:[tScore, Math.round((tScore+extScore)/2), budgetScore],
+                    labels:["BUFFER","DEPS","BUDGET"], score:tScore+"%", scoreLabel:"TIMELINE",
+                    stats:[{name:"Schedule buffer",val:tScore+"%",color:tScore>=70?C.green:tScore>=45?C.amber:C.red},{name:"Dep exposure",val:Math.round((tScore+extScore)/2)+"%",color:C.blue},{name:"Budget pressure",val:budgetScore+"%",color:budgetScore>=70?C.green:C.amber}] },
+                  { label:"02 · Workload Intel", title:"Team capacity?", color:C.purple,
+                    values:[rScore, ownerConc, scopeCap],
+                    labels:["LOAD","OWNER","SCOPE"], score:rScore+"%", scoreLabel:"CAPACITY",
+                    stats:[{name:"Workload balance",val:rScore+"%",color:rScore>=70?C.green:rScore>=45?C.amber:C.red},{name:"Owner concentration",val:ownerConc+"%",color:ownerConc>=70?C.green:C.amber},{name:"Scope vs capacity",val:scopeCap+"%",color:scopeCap>=70?C.green:C.amber}] },
+                  { label:"03 · Operational Health", title:"Plan efficiency?", color:C.green,
+                    values:[opScore, sScore, oScore],
+                    labels:["OVERALL","SEQUENCE","OPTIM"], score:opScore+"%", scoreLabel:"EFFICIENCY",
+                    stats:[{name:"Plan efficiency",val:opScore+"%",color:opScore>=70?C.green:opScore>=45?C.amber:C.red},{name:"Sequencing",val:sScore+"%",color:sScore>=70?C.green:C.amber},{name:"Optimization",val:oScore+"%",color:oScore>=70?C.green:C.amber}] },
+                ];
                 return (
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                    {[
-                      {label:"Timeline",score:tScore,q:"On time?",color:C.blue},
-                      {label:"Resources",score:rScore,q:"Team capacity?",color:C.purple},
-                      {label:"Structure",score:opScore,q:"Plan efficiency?",color:C.green},
-                    ].map((p,i)=>{
-                      const col=p.score>=70?C.green:p.score>=45?C.amber:C.red;
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"0.75rem",marginBottom:"0.75rem"}}>
+                    {pillars.map((p,i)=>{
+                      const col=parseInt(p.score)>=70?C.green:parseInt(p.score)>=45?C.amber:C.red;
                       return(
-                        <div key={i} style={{...card({background:C.surface2}),padding:"0.75rem",borderTop:"2px solid "+p.color,cursor:"pointer"}} onClick={()=>setActiveNav("risk")}>
-                          <div style={{fontSize:"0.58rem",color:p.color,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.2rem"}}>{p.label}</div>
-                          <div style={{fontFamily:"Georgia,serif",fontSize:"1.6rem",color:col,lineHeight:1}}>{p.score}</div>
-                          <div style={{fontSize:"0.58rem",color:C.textDim,marginTop:"0.2rem"}}>/100 · {p.q}</div>
-                          <div style={{height:3,background:C.border2,borderRadius:2,marginTop:"0.4rem"}}>
-                            <div style={{height:"100%",width:p.score+"%",background:col,borderRadius:2}}/>
+                        <div key={i} style={{...card({background:C.surface2}),padding:"1rem",borderTop:"2px solid "+p.color,cursor:"pointer"}} onClick={()=>setActiveNav("risk")}>
+                          <div style={{fontSize:"0.58rem",color:p.color,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.15rem"}}>{p.label}</div>
+                          <div style={{fontSize:"0.78rem",color:C.text,fontWeight:600,marginBottom:"0.75rem"}}>{p.title}</div>
+                          <div style={{display:"flex",justifyContent:"center",marginBottom:"0.75rem"}}>
+                            <RadarChart color={p.color} values={p.values} labels={p.labels} score={p.score} scoreLabel={p.scoreLabel}/>
                           </div>
+                          {p.stats.map((s,j)=>(
+                            <div key={j} style={{display:"flex",justifyContent:"space-between",fontSize:"0.75rem",padding:"0.3rem 0",borderBottom:j<p.stats.length-1?"1px solid "+C.border2:"none"}}>
+                              <span style={{color:C.textMid}}>{s.name}</span>
+                              <span style={{fontWeight:700,color:s.color}}>{s.val}</span>
+                            </div>
+                          ))}
                         </div>
                       );
                     })}

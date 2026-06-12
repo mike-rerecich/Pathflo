@@ -122,7 +122,7 @@ function DependencyGraph({ tasks, result, dark=true }) {
         {cascadeRect && (
           <g>
             <rect x={cascadeRect.x} y={cascadeRect.y} width={cascadeRect.w} height={cascadeRect.h} rx="10" fill={C.cascadeFill} stroke={C.cascadeStroke} strokeWidth="1" strokeDasharray="6 4"/>
-            <text x={cascadeRect.x+9} y={cascadeRect.y+13} fontSize="7.5" fontFamily="system-ui" fontWeight="700" fill="rgba(239,68,68,0.7)" letterSpacing="0.08em">CASCADE IMPACT ZONE</text>
+            <text x={cascadeRect.x + cascadeRect.w/2} y={cascadeRect.y+13} textAnchor="middle" fontSize="7.5" fontFamily="system-ui" fontWeight="700" fill="rgba(239,68,68,0.7)" letterSpacing="0.08em">CASCADE IMPACT ZONE</text>
           </g>
         )}
         {tasks.map(t => t.predecessors.map(pid => {
@@ -618,23 +618,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── METRICS STRIP ── */}
-      <div style={{ position:"relative", zIndex:1, borderTop:"1px solid " + T.border, borderBottom:"1px solid " + T.border, padding:"1.5rem 2rem", background:"rgba(13,17,19,0.5)", backdropFilter:"blur(8px)" }}>
-        <div className="metrics-strip" style={{ display:"flex", justifyContent:"center", gap:"4rem", maxWidth:900, margin:"0 auto" }}>
-          {[
-            { val:"500+",   label:"Project leaders" },
-            { val:"12,000+",label:"Projects analyzed" },
-            { val:"87%",    label:"Average on-time rate" },
-            { val:"$0",     label:"To start — no card needed" },
-          ].map(({ val, label }) => (
-            <div key={val} style={{ textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces', serif", fontSize:"1.4rem", fontWeight:700, color:T.green, letterSpacing:"-0.02em" }}>{val}</div>
-              <div style={{ fontSize:"0.68rem", color:T.textDim, fontWeight:500, letterSpacing:"0.06em", marginTop:"0.15rem", textTransform:"uppercase" }}>{label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* ── HOW IT WORKS ── */}
       <SectionBubble id="how" maxWidth="1050px" glowColor="rgba(59,130,246,0.05)">
         <div style={{ textAlign:"center", marginBottom:"3rem" }}>
@@ -786,48 +769,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
-      </SectionBubble>
-
-      {/* ── TESTIMONIALS ── */}
-      <SectionBubble maxWidth="1050px" glowColor="rgba(62,203,111,0.05)">
-        <div style={{ textAlign:"center", marginBottom:"2.5rem" }}>
-          <div style={{ fontSize:"0.65rem", color:T.green, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:"0.75rem" }}>REAL RESULTS</div>
-          <h2 style={{ fontFamily:"'Fraunces', serif", fontSize:"clamp(1.8rem, 4vw, 2.6rem)", fontWeight:700, lineHeight:1.1, letterSpacing:"-0.025em" }}>
-            Teams that ship on time<br/>
-            <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>use Pathflo.</em>
-          </h2>
-        </div>
-        <div className="tgrid" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"1.25rem" }}>
-          {testimonials.map(({ quote, author, role, initials, color }, i) => (
-            <div key={i} className="card tcard" style={{
-              background:T.surface, border:"1px solid " + T.border,
-              borderRadius:16, padding:"1.5rem", position:"relative", overflow:"hidden",
-              transition:"transform 0.2s, box-shadow 0.2s, border-color 0.2s",
-            }}>
-              <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:color, opacity:0.5 }}/>
-              {/* Quote mark */}
-              <div style={{
-                fontSize:"2.5rem", lineHeight:1, color:color, opacity:0.2,
-                fontFamily:"Georgia, serif", marginBottom:"0.5rem", fontWeight:700,
-              }}>"</div>
-              <p style={{ fontSize:"0.9rem", color:T.text, lineHeight:1.8, fontWeight:300, marginBottom:"1.5rem" }}>
-                {quote}
-              </p>
-              <div style={{ display:"flex", alignItems:"center", gap:"0.75rem" }}>
-                <div style={{
-                  width:36, height:36, borderRadius:"50%",
-                  background:`${color}18`, border:`1px solid ${color}40`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:"0.72rem", fontWeight:700, color, flexShrink:0,
-                }}>{initials}</div>
-                <div>
-                  <div style={{ fontSize:"0.85rem", fontWeight:600, color:T.text }}>{author}</div>
-                  <div style={{ fontSize:"0.75rem", color:T.textMid, marginTop:"0.1rem" }}>{role}</div>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       </SectionBubble>
 
