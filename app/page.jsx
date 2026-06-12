@@ -392,22 +392,55 @@ export default function Home() {
 
   const pricing = [
     {
-      name:"Solo", price:"$49", period:"/mo", tag:null,
-      desc:"For contractors and independent operators managing client projects.",
-      items:["1 active project","Critical path + dependency graph","Cascade simulator","Workload intelligence","Shareable readout","Risk & bottleneck detection","CSV export"],
+      name:"Free", price:"$0", period:"forever", tag:null,
+      desc:"Run your first analysis and see exactly where your project stands.",
+      items:["1 project analysis","Critical path + dependency graph","Cascade impact simulator","Workload intelligence","AI Executive Readout — plain-English risk summary","Risk Scanner — top failure points with probability","Fix Generator — specific actions to recover lost time"],
       cta:"Start free", primary:false,
     },
     {
-      name:"Team", price:"$99", period:"/mo", tag:"Most popular",
-      desc:"For agencies and small teams managing multiple projects at once.",
-      items:["Unlimited projects","Everything in Solo","Multi-owner dependency mapping","Cascade impact simulator","Priority support"],
-      cta:"Start free", primary:true,
+      name:"Solo", price:"$49", period:"/mo", tag:"Most popular",
+      desc:"For contractors and operators who need to communicate project status to clients and leadership.",
+      items:["Everything in Free","Unlimited projects","Stakeholder Adapter — 3 ready-to-send report versions (client, team, exec)","Cascade Modeler — full domino-effect simulation","Save & revisit projects"],
+      cta:"Start Solo", primary:true,
     },
     {
-      name:"Business", price:"$299", period:"/mo", tag:null,
-      desc:"For growing operations that need stakeholder-ready reporting.",
-      items:["Everything in Team","Shareable leadership reports","Industry templates","Custom risk weights","Dedicated onboarding"],
-      cta:"Contact us", primary:false,
+      name:"Team", price:"$99", period:"/mo", tag:null,
+      desc:"For agencies and teams managing multiple projects with multiple owners.",
+      items:["Everything in Solo","Deadline Reverse-Engineer — what to cut or compress to hit the date","Multi-owner workload mapping","Priority support"],
+      cta:"Start Team", primary:false,
+    },
+  ];
+
+  const agents = [
+    {
+      n:"01", name:"Risk Scanner", tier:"Free",
+      color:T.green,
+      plain:"Reads your project plan and finds the top 3-5 things most likely to blow up — before they do. Each risk comes with a probability score and exactly which tasks are the trigger.",
+    },
+    {
+      n:"02", name:"Fix Generator", tier:"Free",
+      color:T.green,
+      plain:"Takes the risks and produces specific actions to fix them. Not generic advice — it references your actual tasks and owners. \"Move Design Review before Dev kickoff\" not \"improve communication.\"",
+    },
+    {
+      n:"03", name:"Cascade Modeler", tier:"Free",
+      color:T.green,
+      plain:"Picks the highest-risk failure point and plays it out step by step. If Task A slips 5 days, here's exactly which tasks get blocked, in what order, and what the final deadline impact is.",
+    },
+    {
+      n:"04", name:"Executive Writer", tier:"Free",
+      color:T.green,
+      plain:"Turns everything above into a clean, one-page project status summary you can read in 60 seconds. Verdict, top risks, recommended actions, and a bottom line — ready to share.",
+    },
+    {
+      n:"05", name:"Stakeholder Adapter", tier:"Solo",
+      color:"#A78BFA",
+      plain:"Takes the executive summary and rewrites it three ways: one version for your client (reassuring), one for your team (task-level actions), one for leadership (risk and decision focused). Three audiences, three messages, zero rewriting.",
+    },
+    {
+      n:"06", name:"Deadline Reverse-Engineer", tier:"Team",
+      color:T.amber,
+      plain:"The deadline is fixed. This agent works backwards from it and tells you exactly what has to be cut, compressed, or resourced to hit it. Three options ranked by realism — not just \"work faster.\"",
     },
   ];
 
@@ -760,6 +793,36 @@ export default function Home() {
               <div className="comp-cell comp-right" style={{ padding:"0.9rem 1.5rem", fontSize:"0.875rem", color:T.text, display:"flex", gap:"0.6rem", alignItems:"flex-start", transition:"background 0.2s" }}>
                 <span style={{ color:T.green, flexShrink:0, fontSize:"0.68rem", marginTop:"0.1rem" }}>✓</span>{pathflo}
               </div>
+            </div>
+          ))}
+        </div>
+      </SectionBubble>
+
+      {/* ── AI AGENTS ── */}
+      <SectionBubble maxWidth="1000px" glowColor="rgba(62,203,111,0.05)">
+        <div style={{ textAlign:"center", marginBottom:"2.5rem" }}>
+          <div style={{ fontSize:"0.65rem", color:T.green, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:"0.75rem" }}>UNDER THE HOOD</div>
+          <h2 style={{ fontFamily:"'Fraunces', serif", fontSize:"clamp(1.8rem,4vw,2.6rem)", fontWeight:700, lineHeight:1.1, letterSpacing:"-0.025em", marginBottom:"0.85rem" }}>
+            Six AI agents.<br/>
+            <em style={{ color:T.green, fontStyle:"italic", fontWeight:300 }}>One analysis.</em>
+          </h2>
+          <p style={{ color:T.textMid, fontSize:"0.95rem", fontWeight:300, lineHeight:1.8, maxWidth:"480px", margin:"0 auto" }}>
+            Each agent does one job. Together they turn your project plan into a complete risk picture — and the reports to act on it.
+          </p>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:"1.25rem" }}>
+          {agents.map((a,i) => (
+            <div key={i} style={{ background:T.surface, border:"1px solid "+T.border, borderRadius:14, padding:"1.4rem", position:"relative", overflow:"hidden" }}>
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:a.color }}/>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"0.65rem" }}>
+                <div style={{ fontSize:"0.6rem", color:a.color, fontWeight:700, letterSpacing:"0.1em" }}>{a.n} · {a.name.toUpperCase()}</div>
+                <div style={{ fontSize:"0.55rem", fontWeight:700, padding:"0.2rem 0.5rem", borderRadius:100,
+                  background: a.tier==="Free"?"rgba(34,197,94,0.12)":a.tier==="Solo"?"rgba(167,139,250,0.12)":"rgba(245,158,11,0.12)",
+                  color: a.tier==="Free"?T.green:a.tier==="Solo"?"#A78BFA":T.amber,
+                  border: "1px solid "+(a.tier==="Free"?T.green+"40":a.tier==="Solo"?"#A78BFA40":T.amber+"40"),
+                }}>{a.tier}</div>
+              </div>
+              <p style={{ fontSize:"0.82rem", color:T.textMid, lineHeight:1.75 }}>{a.plain}</p>
             </div>
           ))}
         </div>

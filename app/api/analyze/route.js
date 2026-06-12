@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 const MODEL = "claude-sonnet-4-6";
 const API_KEY = () => process.env.ANTHROPIC_API_KEY;
 
+// Tier hierarchy: free < solo < team
+function tierAtLeast(tier, required) {
+  const order = { free: 0, solo: 1, team: 2 };
+  return (order[tier] || 0) >= (order[required] || 0);
+}
+
 async function callClaude(system, userMessage, maxTokens = 1200) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -40,7 +46,7 @@ ${(projectData.tasks || []).map((t, i) =>
 ).join("\n")}`;
 }
 
-// ── Agent 1: Risk Scanner ─────────────────────────────────────────────────────
+// ── Agent 1: Risk Scanner (FREE) ──────────────────────────────────────────────
 async function runRiskScanner(projectData) {
   const system = `You are a project risk analyst. Given a project plan, identify the top 3-5 failure points.
 
@@ -56,7 +62,7 @@ Be specific. Use actual task names. Do not hedge.`;
   return callClaude(system, formatProject(projectData), 800);
 }
 
-// ── Agent 2: Fix Generator ────────────────────────────────────────────────────
+// ── Agent 2: Fix Generator (FREE) ─────────────────────────────────────────────
 async function runFixGenerator(projectData, riskAnalysis) {
   const system = `You are a project execution strategist. Given a risk analysis, generate specific actionable fixes.
 
@@ -69,15 +75,10 @@ EFFORT: [LOW / MEDIUM / HIGH]
 
 Do not produce generic advice. Every fix must reference actual tasks or owners from the project.`;
 
-  const userMessage = `${formatProject(projectData)}
-
-RISK ANALYSIS:
-${riskAnalysis}`;
-
-  return callClaude(system, userMessage, 900);
+  return callClaude(system, `${formatProject(projectData)}\n\nRISK ANALYSIS:\n${riskAnalysis}`, 900);
 }
 
-// ── Agent 3: Cascade Modeler ──────────────────────────────────────────────────
+// ── Agent 3: Cascade Modeler (FREE) ──────────────────────────────────────────
 async function runCascadeModeler(projectData, riskAnalysis) {
   const system = `You are a cascade impact modeler. Take the highest-probability risk and trace its exact domino effect through the project.
 
@@ -95,15 +96,10 @@ Step 3: [next task] blocked — [consequence]
 FINAL_OUTCOME: [net schedule impact in days and whether deadline is missed]
 RECOVERY_WINDOW: [last moment action can be taken to avoid full cascade]`;
 
-  const userMessage = `${formatProject(projectData)}
-
-RISK ANALYSIS:
-${riskAnalysis}`;
-
-  return callClaude(system, userMessage, 700);
+  return callClaude(system, `${formatProject(projectData)}\n\nRISK ANALYSIS:\n${riskAnalysis}`, 700);
 }
 
-// ── Agent 4: Executive Writer ─────────────────────────────────────────────────
+// ── Agent 4: Executive Writer (FREE) ─────────────────────────────────────────
 async function runExecutiveWriter(projectData, riskAnalysis, fixes, cascade) {
   const system = `You are an executive communications writer. Produce a clean, forwardable project status summary.
 
@@ -130,20 +126,56 @@ BOTTOM LINE: [One direct sentence. What should leadership decide today?]
 
 Write for a business owner or executive who has 60 seconds. No jargon. No hedging.`;
 
-  const userMessage = `${formatProject(projectData)}
-
-RISK ANALYSIS:
-${riskAnalysis}
-
-FIXES:
-${fixes}
-
-CASCADE SIMULATION:
-${cascade}`;
-
-  return callClaude(system, userMessage, 900);
+  return callClaude(system,
+    `${formatProject(projectData)}\n\nRISK ANALYSIS:\n${riskAnalysis}\n\nFIXES:\n${fixes}\n\nCASCADE SIMULATION:\n${cascade}`,
+    900);
 }
 
+// ── Agent 5: Stakeholder Adapter (SOLO+) ──────────────────────────────────────
+async function runStakeholderAdapter(projectData, executiveSummary) {
+  const system = `You are a professional communications strategist. Given a project status summary, rewrite it in three versions for three different audiences. Each version should be ready to send without editing.
+
+Return exactly this structure — no extra commentary:
+
+CLIENT VERSION:
+[3-4 sentences. Reassuring tone. Lead with what's on track. Frame any risks as being actively managed. Do not mention internal team issues. End with confidence.]
+
+TEAM VERSION:
+[Bullet list of 4-6 specific actions. Name actual tasks and owners. Who does what, by when. Operational, direct, no fluff.]
+
+EXEC VERSION:
+[3-4 sentences. Risk-first. What is the financial or timeline exposure? What decision needs to be made at the leadership level? What happens if no action is taken?]`;
+
+  return callClaude(system,
+    `${formatProject(projectData)}\n\nEXECUTIVE SUMMARY:\n${executiveSummary}`,
+    900);
+}
+
+// ── Agent 6: Deadline Reverse-Engineer (TEAM+) ───────────────────────────────
+async function runDeadlineReverseEngineer(projectData, riskAnalysis) {
+  const system = `You are a project schedule optimizer. The deadline is fixed and cannot move. Work backwards from it.
+
+Return exactly this structure:
+
+DEADLINE ANALYSIS — [project name]
+
+CURRENT GAP: [how many days over or under the deadline the current plan is]
+
+TO HIT THE DEADLINE, ONE OF THESE MUST HAPPEN:
+Option A — CUT SCOPE: [exactly which tasks to remove or reduce, and how many days each saves]
+Option B — COMPRESS TIMELINE: [which tasks can run in parallel or be shortened, and how]
+Option C — ADD RESOURCE: [where adding a person or contractor would recover the most days]
+
+FASTEST PATH TO GREEN: [one sentence — which option is most realistic given this project's constraints]
+
+WHAT CANNOT BE CHANGED: [tasks that are on the critical path with zero flexibility — touching these makes things worse]`;
+
+  return callClaude(system,
+    `${formatProject(projectData)}\n\nRISK ANALYSIS:\n${riskAnalysis}`,
+    800);
+}
+
+// ── MAIN HANDLER ─────────────────────────────────────────────────────────────
 export async function POST(request) {
   try {
     const { projectData } = await request.json();
@@ -154,7 +186,9 @@ export async function POST(request) {
       return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
     }
 
-    // Run agents sequentially — each feeds the next
+    const tier = projectData.tier || "free";
+
+    // Agents 1-4: all tiers
     const riskAnalysis = await runRiskScanner(projectData);
     const [fixes, cascade] = await Promise.all([
       runFixGenerator(projectData, riskAnalysis),
@@ -162,8 +196,32 @@ export async function POST(request) {
     ]);
     const readout = await runExecutiveWriter(projectData, riskAnalysis, fixes, cascade);
 
+    // Agent 5: Solo+ — Stakeholder Adapter
+    let stakeholderVersions = null;
+    if (tierAtLeast(tier, "solo")) {
+      const raw = await runStakeholderAdapter(projectData, readout);
+      const clientMatch = raw.match(/CLIENT VERSION:\n([\s\S]*?)(?=\nTEAM VERSION:|$)/);
+      const teamMatch   = raw.match(/TEAM VERSION:\n([\s\S]*?)(?=\nEXEC VERSION:|$)/);
+      const execMatch   = raw.match(/EXEC VERSION:\n([\s\S]*?)$/);
+      stakeholderVersions = {
+        client: clientMatch?.[1]?.trim() || raw,
+        team:   teamMatch?.[1]?.trim()   || raw,
+        exec:   execMatch?.[1]?.trim()   || raw,
+        raw,
+      };
+    }
+
+    // Agent 6: Team+ — Deadline Reverse-Engineer
+    let deadlineReversal = null;
+    if (tierAtLeast(tier, "team")) {
+      deadlineReversal = await runDeadlineReverseEngineer(projectData, riskAnalysis);
+    }
+
     return NextResponse.json({
       readout,
+      stakeholderVersions,
+      deadlineReversal,
+      tier,
       agentOutputs: { riskAnalysis, fixes, cascade },
     });
 

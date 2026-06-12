@@ -1192,6 +1192,10 @@ function ResultsContent() {
   const [activeNav, setActiveNav] = useState("plan");
   const [aiReadout, setAiReadout] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [stakeholderVersions, setStakeholderVersions] = useState(null);
+  const [deadlineReversal, setDeadlineReversal] = useState(null);
+  const [aiTier, setAiTier] = useState("free");
+  const [stakeholderTab, setStakeholderTab] = useState("client");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState(null); // P1-1
   const [simulatorTaskId, setSimulatorTaskId] = useState(null); // P1-2
@@ -1209,63 +1213,19 @@ function ResultsContent() {
       setResult(r);
       setAiLoading(true);
       fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectData:parsed})})
-        .then(res=>res.json()).then(d=>{setAiReadout(d.readout||null);setAiLoading(false);}).catch(()=>setAiLoading(false));
+        .then(res=>res.json()).then(d=>{
+          setAiReadout(d.readout||null);
+          if (d.stakeholderVersions) setStakeholderVersions(d.stakeholderVersions);
+          if (d.deadlineReversal) setDeadlineReversal(d.deadlineReversal);
+          if (d.tier) setAiTier(d.tier);
+          setAiLoading(false);
+        }).catch(()=>setAiLoading(false));
     } catch(e){ console.error(e); }
   }, []);
 
-  if (!data||!result) return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui"}}>
-      <div style={{textAlign:"center"}}>
-        <div style={{width:40,height:40,border:"2px solid "+C.green,borderTopColor:"transparent",borderRadius:"50%",margin:"0 auto 1rem",animation:"spin 0.8s linear infinite"}}/>
-        <div style={{fontSize:"0.9rem"}}>Building your execution intelligence report...</div>
-      </div>
-    </div>
-  );
-
-  const totalCost = data.tasks.reduce((a,t)=>{const c=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;return a+c;},0);
-  const dailyBurn = totalCost > 0 && result.projectDuration > 0 ? totalCost/result.projectDuration : 0;
-  const overrunCost = result.bufferDays < 0 && dailyBurn > 0 ? Math.abs(result.bufferDays)*dailyBurn : 0;
-  const entityName = data.company || data.name || "Project";
-
-  const confScore = result.confidence.score;
-  const confBand = result.confidence.band;
-  const hasRealOptimization = result.shuffleOps?.length > 0 && result.confidenceOptimized?.score > confScore;
-  const confScoreOptimized = hasRealOptimization ? result.confidenceOptimized.score : confScore;
-  const planRisk = result.predictiveRisk?.planProb || 0;
-
-  const navItems = [
-    { id:"overview",  label:"Overview",        icon:"⬡" },
-    { id:"plan",      label:"Execution Plan",  icon:"◈" },
-    { id:"risk",      label:"Risk & Fixes",    icon:"⚠" },
-    { id:"workload",  label:"Workload",         icon:"⊞" },
-    { id:"readout",   label:"AI Readout",      icon:"✦" },
-  ];
-
-  const style = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
-    *{box-sizing:border-box;margin:0;padding:0}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
-    @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
-    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
-    .tip-icon{font-size:0.6rem;opacity:0.5;cursor:pointer;user-select:none;vertical-align:middle;margin-left:2px}
-    @media(max-width:768px){
-      .r-nav{display:none !important}
-      .r-hero-grid{grid-template-columns:1fr !important}
-      .r-2col{grid-template-columns:1fr !important}
-      .r-3col{grid-template-columns:1fr !important}
-      .r-briefing{grid-template-columns:1fr !important}
-      .r-graph-wrap{flex-direction:column !important}
-      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #30363D !important;max-height:60vh}
-      .r-main{padding:0.75rem !important}
-    }
-  `;
-
-
-  // ── WORKLOAD INTELLIGENCE ENGINE (P1-3) ──────────────────────────────────────
+  // ── WORKLOAD INTELLIGENCE ENGINE (P1-3) — must be before any early return ─────
   const workloadData = useMemo(() => {
-    if (!result || !data.tasks.length) return null;
+    if (!result || !data || !data.tasks.length) return null;
 
     // Group tasks by owner
     const byOwner = {};
@@ -1304,6 +1264,52 @@ function ResultsContent() {
 
     return { owners, maxDays, concentrationRisk, bottlenecks, sequentialRisk, totalCritical };
   }, [result, data]);
+
+  if (!data||!result) return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{width:40,height:40,border:"2px solid "+C.green,borderTopColor:"transparent",borderRadius:"50%",margin:"0 auto 1rem",animation:"spin 0.8s linear infinite"}}/>
+        <div style={{fontSize:"0.9rem"}}>Building your execution intelligence report...</div>
+      </div>
+    </div>
+  );
+
+  const totalCost = data.tasks.reduce((a,t)=>{const c=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;return a+c;},0);
+  const dailyBurn = totalCost > 0 && result.projectDuration > 0 ? totalCost/result.projectDuration : 0;
+  const overrunCost = result.bufferDays < 0 && dailyBurn > 0 ? Math.abs(result.bufferDays)*dailyBurn : 0;
+  const entityName = data.company || data.name || "Project";
+  const confScore = result.confidence.score;
+  const confBand = result.confidence.band;
+  const hasRealOptimization = result.shuffleOps?.length > 0 && result.confidenceOptimized?.score > confScore;
+  const confScoreOptimized = hasRealOptimization ? result.confidenceOptimized.score : confScore;
+  const planRisk = result.predictiveRisk?.planProb || 0;
+  const navItems = [
+    { id:"overview",  label:"Overview",        icon:"⬡" },
+    { id:"plan",      label:"Execution Plan",  icon:"◈" },
+    { id:"risk",      label:"Risk & Fixes",    icon:"⚠" },
+    { id:"workload",  label:"Workload",         icon:"⊞" },
+    { id:"readout",   label:"AI Readout",      icon:"✦" },
+  ];
+  const style = `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
+    @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
+    .tip-icon{font-size:0.6rem;opacity:0.5;cursor:pointer;user-select:none;vertical-align:middle;margin-left:2px}
+    @media(max-width:768px){
+      .r-nav{display:none !important}
+      .r-hero-grid{grid-template-columns:1fr !important}
+      .r-2col{grid-template-columns:1fr !important}
+      .r-3col{grid-template-columns:1fr !important}
+      .r-briefing{grid-template-columns:1fr !important}
+      .r-graph-wrap{flex-direction:column !important}
+      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #30363D !important;max-height:60vh}
+      .r-main{padding:0.75rem !important}
+    }
+  `;
 
   const card =(extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
   const label = (color=C.purple) => ({fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color,marginBottom:"0.4rem"});
@@ -2021,6 +2027,60 @@ function ResultsContent() {
                   </p>
                 )}
               </div>
+
+              {/* ── Stakeholder Adapter (Solo+) ── */}
+              {stakeholderVersions ? (
+                <div style={{...card({border:"1px solid #7C3AED40"}),padding:"1.25rem",marginBottom:"0.75rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                    <span style={{color:"#A78BFA"}}>◈</span>
+                    <span style={{fontSize:"0.58rem",color:"#A78BFA",fontWeight:700,letterSpacing:"0.1em"}}>STAKEHOLDER ADAPTER — SOLO</span>
+                    <span style={{fontSize:"0.6rem",color:C.textDim,marginLeft:"auto"}}>Three versions, ready to send</span>
+                  </div>
+                  <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                    {["client","team","exec"].map(t=>(
+                      <button key={t} onClick={()=>setStakeholderTab(t)} style={{
+                        background:stakeholderTab===t?"#7C3AED":"transparent",
+                        border:"1px solid "+(stakeholderTab===t?"#7C3AED":"#30363D"),
+                        borderRadius:6, color:stakeholderTab===t?"#fff":C.textMid,
+                        fontFamily:"inherit",fontWeight:600,fontSize:"0.7rem",
+                        padding:"0.3rem 0.75rem",cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.05em",
+                      }}>{t==="client"?"Client":t==="team"?"Team":"Exec"}</button>
+                    ))}
+                  </div>
+                  <p style={{fontSize:"0.88rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif",whiteSpace:"pre-wrap"}}>
+                    {stakeholderVersions[stakeholderTab]}
+                  </p>
+                </div>
+              ) : (
+                <div style={{...card({border:"1px solid #7C3AED30",background:"#0D0A1A"}),padding:"1.25rem",marginBottom:"0.75rem",textAlign:"center"}}>
+                  <div style={{fontSize:"1.25rem",marginBottom:"0.5rem"}}>◈</div>
+                  <div style={{fontSize:"0.78rem",fontWeight:700,color:"#A78BFA",marginBottom:"0.35rem"}}>Stakeholder Adapter — Solo Plan</div>
+                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.7,marginBottom:"0.85rem"}}>
+                    Turn this report into three ready-to-send messages — one for your client, one for your team, one for leadership. Zero rewriting.
+                  </div>
+                  <a href="/#pricing" style={{display:"inline-block",background:"#7C3AED",color:"#fff",borderRadius:8,padding:"0.5rem 1.25rem",fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",textDecoration:"none"}}>Upgrade to Solo →</a>
+                </div>
+              )}
+
+              {/* ── Deadline Reverse-Engineer (Team+) ── */}
+              {deadlineReversal ? (
+                <div style={{...card({border:"1px solid "+C.amber+"40"}),padding:"1.25rem",marginBottom:"0.75rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                    <span style={{color:C.amber}}>⟵</span>
+                    <span style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em"}}>DEADLINE REVERSE-ENGINEER — TEAM</span>
+                  </div>
+                  <p style={{fontSize:"0.88rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif",whiteSpace:"pre-wrap"}}>{deadlineReversal}</p>
+                </div>
+              ) : (
+                <div style={{...card({border:"1px solid "+C.amber+"20",background:"#12100A"}),padding:"1.25rem",marginBottom:"0.75rem",textAlign:"center"}}>
+                  <div style={{fontSize:"1.25rem",marginBottom:"0.5rem"}}>⟵</div>
+                  <div style={{fontSize:"0.78rem",fontWeight:700,color:C.amber,marginBottom:"0.35rem"}}>Deadline Reverse-Engineer — Team Plan</div>
+                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.7,marginBottom:"0.85rem"}}>
+                    The deadline is fixed. This agent works backwards and gives you three concrete options — cut scope, compress timeline, or add resource — ranked by what's most realistic.
+                  </div>
+                  <a href="/#pricing" style={{display:"inline-block",background:C.amber,color:"#080A08",borderRadius:8,padding:"0.5rem 1.25rem",fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",textDecoration:"none"}}>Upgrade to Team →</a>
+                </div>
+              )}
 
               {/* Key bullets — for quick copy */}
               <div style={{...card(),padding:"1.25rem"}}>
