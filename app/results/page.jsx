@@ -1114,7 +1114,7 @@ function Tooltip({ text, children }) {
           transform: "translateX(-50%)", background: "#1C2128",
           border: "1px solid #30363D", borderRadius: 8, padding: "0.5rem 0.7rem",
           fontSize: "0.75rem", color: "#E6EDF3", lineHeight: 1.55,
-          whiteSpace: "nowrap", maxWidth: 240, whiteSpace: "normal",
+          whiteSpace: maxWidth: 240, whiteSpace: "normal"
           zIndex: 999, pointerEvents: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
           animation: "fadeUp 0.15s ease both",
         }}>{text}</span>
