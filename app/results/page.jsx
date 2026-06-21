@@ -1128,7 +1128,7 @@ function ShareButton({ data, result, confScore }) {
   const [open, setOpen] = useState(false);
 
   function copyLink() {
-    const url = window.location.href;
+    const url = window.location.origin + "/results?data=" + encodeURIComponent(JSON.stringify(data));
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -1397,7 +1397,16 @@ function ResultsContent() {
             </>)}
           </div>
           <ShareButton data={data} result={result} confScore={confScore} />
-          <button onClick={()=>{const rd=encodeURIComponent(JSON.stringify({name:data.name,startDate:data.startDate,targetDate:data.targetDate,dailyBurnRate:data.dailyBurnRate||"",deadlineStakes:data.deadlineStakes||"",deadlinePenalty:data.deadlinePenalty||"",tasks:data.tasks}));window.location.href="/app?revise="+rd;}} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
+          <button onClick={()=>{
+            const reviseData = {name:data.name,startDate:data.startDate,targetDate:data.targetDate,dailyBurnRate:data.dailyBurnRate||"",deadlineStakes:data.deadlineStakes||"",deadlinePenalty:data.deadlinePenalty||"",tasks:data.tasks};
+            try {
+              const id = "pathflo-revise-" + Date.now().toString(36);
+              window.sessionStorage.setItem(id, JSON.stringify(reviseData));
+              window.location.href = "/app?revise-id=" + id;
+            } catch(e) {
+              window.location.href = "/app?revise=" + encodeURIComponent(JSON.stringify(reviseData));
+            }
+          }} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
           <a href="/app" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
         </div>
       </div>

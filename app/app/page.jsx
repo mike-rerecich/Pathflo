@@ -63,11 +63,12 @@ export default function AppPage() {
   // ── BOOT ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const url = new URL(window.location.href);
-    const revise = url.searchParams.get("revise");
+    const reviseId = url.searchParams.get("revise-id");
+    const revise = reviseId ? window.sessionStorage.getItem(reviseId) : url.searchParams.get("revise");
 
     if (revise) {
       try {
-        const d = JSON.parse(decodeURIComponent(revise));
+        const d = JSON.parse(reviseId ? revise : decodeURIComponent(revise));
         setProject({ name: d.name || "", startDate: d.startDate || "", targetDate: d.targetDate || "", dailyBurnRate: d.dailyBurnRate || "", deadlineStakes: d.deadlineStakes || "", deadlinePenalty: d.deadlinePenalty || "" });
         const loaded = d.tasks || [];
         setTasks(loaded); tasksRef.current = loaded;

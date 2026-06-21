@@ -919,8 +919,8 @@ export default function Home() {
             <span style={{ fontSize:"0.7rem", color:T.textDim, fontFamily:"'DM Mono', monospace" }}>All systems operational</span>
           </div>
           <div style={{ display:"flex", gap:"2rem" }}>
-            {["Privacy","Terms","Contact"].map(l => (
-              <a key={l} href="#" style={{ fontSize:"0.75rem", color:T.textDim, textDecoration:"none" }}>{l}</a>
+            {[{label:"Privacy",href:"#"},{label:"Terms",href:"#"},{label:"Contact",href:"mailto:mike.rerecich2@gmail.com"}].map(l => (
+              <a key={l.label} href={l.href} style={{ fontSize:"0.75rem", color:T.textDim, textDecoration:"none" }}>{l.label}</a>
             ))}
           </div>
         </div>
