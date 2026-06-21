@@ -405,7 +405,14 @@ export default function AppPage() {
         deadlinePenalty: projRef.current.deadlinePenalty,
         tasks: tasksRef.current,
       };
-      window.location.href = "/results?data=" + encodeURIComponent(JSON.stringify(data));
+      const serialized = JSON.stringify(data);
+      try {
+        const analysisId = "pathflo-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+        window.sessionStorage.setItem(analysisId, serialized);
+        window.location.href = "/results?id=" + encodeURIComponent(analysisId);
+      } catch (err) {
+        window.location.href = "/results?data=" + encodeURIComponent(serialized);
+      }
     }, 2400);
   }
 

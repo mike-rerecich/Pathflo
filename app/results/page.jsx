@@ -1189,6 +1189,7 @@ function ResultsContent() {
   const searchParams = useSearchParams();
   const [data, setData] = useState(null);
   const [result, setResult] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [activeNav, setActiveNav] = useState("plan");
   const [aiReadout, setAiReadout] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -1201,10 +1202,23 @@ function ResultsContent() {
   const [simulatorTaskId, setSimulatorTaskId] = useState(null); // P1-2
 
   useEffect(() => {
-    const raw = searchParams.get("data");
-    if (!raw) return;
     try {
-      const parsed = JSON.parse(decodeURIComponent(raw));
+      const analysisId = searchParams.get("id");
+      const raw = analysisId
+        ? window.sessionStorage.getItem(analysisId)
+        : searchParams.get("data");
+
+      if (!raw) {
+        setLoadError("No analysis data was found. Start a new plan to generate a results report.");
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      if (!parsed?.tasks?.length) {
+        setLoadError("This analysis does not include any milestones. Start a new plan to generate a results report.");
+        return;
+      }
+
       setData(parsed);
       const stakes = parsed.deadlineStakes || "";
       const derivedBudget = (stakes.includes("penalty") || stakes.includes("Regulatory") || stakes.includes("legal")) ? "Fixed"
@@ -1220,8 +1234,11 @@ function ResultsContent() {
           if (d.tier) setAiTier(d.tier);
           setAiLoading(false);
         }).catch(()=>setAiLoading(false));
-    } catch(e){ console.error(e); }
-  }, []);
+    } catch(e){
+      console.error(e);
+      setLoadError("This analysis link could not be opened. Start a new plan to generate a fresh results report.");
+    }
+  }, [searchParams]);
 
   // ── WORKLOAD INTELLIGENCE ENGINE (P1-3) — must be before any early return ─────
   const workloadData = useMemo(() => {
@@ -1264,6 +1281,16 @@ function ResultsContent() {
 
     return { owners, maxDays, concentrationRisk, bottlenecks, sequentialRisk, totalCritical };
   }, [result, data]);
+
+  if (loadError) return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui",padding:"1rem"}}>
+      <div style={{textAlign:"center",maxWidth:460}}>
+        <div style={{fontSize:"1.05rem",color:C.text,fontWeight:700,marginBottom:"0.5rem"}}>Results unavailable</div>
+        <div style={{fontSize:"0.9rem",lineHeight:1.6,marginBottom:"1.2rem"}}>{loadError}</div>
+        <a href="/app" style={{display:"inline-block",background:C.green,color:"#081008",borderRadius:8,padding:"0.7rem 1.2rem",fontWeight:700,textDecoration:"none"}}>Start a new plan</a>
+      </div>
+    </div>
+  );
 
   if (!data||!result) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui"}}>
