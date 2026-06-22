@@ -68,66 +68,31 @@ function ScrollProgress() {
   );
 }
 
-/* ─── Preloader — logo path draws itself ─────────────────────── */
-function Preloader({ onDone }) {
-  const [phase, setPhase] = useState("draw"); // draw → text → fade → done
+/* ─── Preloader — text flash only ───────────────────────────── */
+function Preloader() {
+  const [phase, setPhase] = useState("in"); // in → out → done
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("text"),  1700);
-    const t2 = setTimeout(() => setPhase("fade"),  2400);
-    const t3 = setTimeout(() => { setPhase("done"); onDone?.(); }, 3100);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [onDone]);
+    const t1 = setTimeout(() => setPhase("out"), 1200);
+    const t2 = setTimeout(() => setPhase("done"), 1900);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
   if (phase === "done") return null;
-  const faded = phase === "fade";
+  const fading = phase === "out";
   return (
     <div style={{
       position:"fixed", inset:0, zIndex:9998, background:"#080A08",
-      display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column",
-      opacity: faded?0:1, transition:"opacity 0.8s ease",
-      pointerEvents: faded?"none":"auto",
+      display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:"0.5rem",
+      opacity: fading ? 0 : 1, transition:"opacity 0.7s ease",
+      pointerEvents: fading ? "none" : "auto",
     }}>
-      {/* Logo SVG — path draws, then circles pop */}
-      <svg width="160" height="160" viewBox="0 0 32 32" fill="none">
-        {/* Glow behind path */}
-        <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14"
-          stroke={G} strokeWidth="5" strokeLinecap="round" fill="none" opacity="0.07"/>
-        {/* Main path draw */}
-        <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14"
-          stroke={G} strokeWidth="2.2" strokeLinecap="round" fill="none"
-          style={{strokeDasharray:200,strokeDashoffset:200,animation:"pv-drawPath 1.3s cubic-bezier(0.4,0,0.2,1) forwards 0.1s"}}/>
-        {/* Circles appear as path reaches them */}
-        <circle cx="4"  cy="24" r="3.5"   fill={G}
-          style={{opacity:0,animation:"pv-popIn 0.4s ease forwards 0.15s"}}/>
-        <circle cx="4"  cy="24" r="7"     fill={G} opacity="0.08"
-          style={{opacity:0,animation:"pv-popIn 0.4s ease forwards 0.15s"}}/>
-        <circle cx="15" cy="14" r="2.8"   fill={G} opacity="0.85"
-          style={{opacity:0,animation:"pv-popIn 0.4s ease forwards 0.55s"}}/>
-        <circle cx="15" cy="14" r="6"     fill={G} opacity="0.07"
-          style={{opacity:0,animation:"pv-popIn 0.4s ease forwards 0.55s"}}/>
-        <circle cx="26" cy="6"  r="2.8"   fill={G} opacity="0.65"
-          style={{opacity:0,animation:"pv-popIn 0.4s ease forwards 0.95s"}}/>
-        <circle cx="26" cy="6"  r="5"     fill={G} opacity="0.06"
-          style={{opacity:0,animation:"pv-popIn 0.4s ease forwards 0.95s"}}/>
-        <circle cx="31" cy="14" r="2.8"   fill={G} opacity="0.9"
-          style={{opacity:0,animation:"pv-popIn 0.4s ease forwards 1.25s"}}/>
-        <circle cx="31" cy="14" r="6"     fill={G} opacity="0.07"
-          style={{opacity:0,animation:"pv-popIn 0.4s ease forwards 1.25s"}}/>
-      </svg>
-
-      <div style={{
-        marginTop:"0.5rem", fontFamily:"'Fraunces',serif",
-        fontSize:"1.6rem", fontWeight:700, letterSpacing:"-0.02em", color:"#EEF2EE",
-        opacity: phase==="text"||phase==="fade" ? 1 : 0,
-        transform: phase==="text"||phase==="fade" ? "translateY(0)" : "translateY(10px)",
+      <div style={{fontFamily:"'Fraunces',serif", fontSize:"2.8rem", fontWeight:700, letterSpacing:"-0.03em", color:"#EEF2EE",
+        opacity: fading ? 0 : 1, transform: fading ? "translateY(-6px)" : "translateY(0)",
         transition:"opacity 0.5s ease, transform 0.5s ease",
       }}>
         Path<span style={{color:G}}>flo</span>
       </div>
-      <div style={{
-        marginTop:"0.35rem", fontFamily:"'DM Mono',monospace",
-        fontSize:"0.62rem", letterSpacing:"0.18em", color:G+"70",
-        opacity: phase==="text"||phase==="fade" ? 1 : 0,
-        transition:"opacity 0.5s ease 0.2s",
+      <div style={{fontFamily:"'DM Mono',monospace", fontSize:"0.65rem", letterSpacing:"0.2em", color:G+"80",
+        opacity: fading ? 0 : 1, transition:"opacity 0.4s ease 0.1s",
       }}>
         EXECUTION INTELLIGENCE
       </div>
@@ -587,8 +552,6 @@ export default function PreviewPage() {
         @keyframes pv-drift{0%,100%{transform:translateY(0) translateX(0)}33%{transform:translateY(-20px) translateX(12px)}66%{transform:translateY(12px) translateX(-9px)}}
         @keyframes pv-drift2{0%,100%{transform:translateY(0) translateX(0)}40%{transform:translateY(16px) translateX(-14px)}70%{transform:translateY(-12px) translateX(9px)}}
         @keyframes pv-noiseShift{0%{background-position:0 0}100%{background-position:100px 100px}}
-        @keyframes pv-drawPath{from{stroke-dashoffset:200}to{stroke-dashoffset:0}}
-        @keyframes pv-popIn{0%{opacity:0;transform-origin:center;transform:scale(0)}60%{transform:scale(1.25)}100%{opacity:1;transform:scale(1)}}
         @keyframes pv-agentBurst{0%{transform:scale(0.85);opacity:0.4}55%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
 
         .pv-grain{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0.025;
