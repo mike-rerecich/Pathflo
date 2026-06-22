@@ -3,13 +3,71 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
-// ── COLOR SYSTEM (v7.1 locked) ────────────────────────────────────────────────
+const R_PALETTE = ["#3ECB6F","#3B82F6","#8B5CF6","#14B8A6","#F59E0B","#EC4899"];
+function r_hex2rgb(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];}
+
+// ── BackgroundField ────────────────────────────────────────────────────────────
+function ResultsBG() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let animId, W, H;
+    const resize = () => { W=canvas.width=canvas.offsetWidth; H=canvas.height=canvas.offsetHeight; };
+    resize();
+    const ro = new ResizeObserver(resize); ro.observe(canvas);
+    const systems = R_PALETTE.map((col,idx) => ({
+      x:((idx%3)+0.5+Math.random()*0.4)*((W||1200)/3),
+      y:((Math.floor(idx/3))+0.5+Math.random()*0.4)*((H||800)/2),
+      burst:Math.random()*200, rgb:r_hex2rgb(col),
+      orbs:Array.from({length:3+Math.floor(Math.random()*3)},(_,j)=>({
+        angle:Math.random()*Math.PI*2,r:12+j*10,size:0.5+Math.random(),
+        speed:0.0006+Math.random()*0.0018,alpha:0.12+Math.random()*0.3,
+        rgb:r_hex2rgb(R_PALETTE[Math.floor(Math.random()*R_PALETTE.length)]),
+      })),
+    }));
+    const mesh = Array.from({length:16},()=>({
+      x:Math.random()*(W||1200),y:Math.random()*(H||800),
+      vx:(Math.random()-0.5)*0.16,vy:(Math.random()-0.5)*0.16,
+      rgb:r_hex2rgb(R_PALETTE[Math.floor(Math.random()*R_PALETTE.length)]),
+    }));
+    const draw = () => {
+      ctx.clearRect(0,0,W,H);
+      for(let i=0;i<mesh.length;i++){
+        const p=mesh[i];p.x+=p.vx;p.y+=p.vy;
+        if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+        for(let j=i+1;j<mesh.length;j++){
+          const q=mesh[j];const d=Math.hypot(p.x-q.x,p.y-q.y);
+          if(d<160){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+            ctx.strokeStyle=`rgba(${p.rgb[0]},${p.rgb[1]},${p.rgb[2]},${(1-d/160)*0.04})`;
+            ctx.lineWidth=0.5;ctx.stroke();}
+        }
+      }
+      systems.forEach(s=>{
+        s.burst++;const[r,g,b]=s.rgb;
+        const grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,55);
+        grd.addColorStop(0,`rgba(${r},${g},${b},0.03)`);grd.addColorStop(1,"transparent");
+        ctx.beginPath();ctx.arc(s.x,s.y,55,0,Math.PI*2);ctx.fillStyle=grd;ctx.fill();
+        s.orbs.forEach(o=>{o.angle+=o.speed;
+          const px=s.x+Math.cos(o.angle)*o.r,py=s.y+Math.sin(o.angle)*o.r;
+          const[or,og,ob]=o.rgb;ctx.beginPath();ctx.arc(px,py,o.size,0,Math.PI*2);
+          ctx.fillStyle=`rgba(${or},${og},${ob},${o.alpha})`;ctx.fill();});
+      });
+      animId=requestAnimationFrame(draw);
+    };
+    draw();
+    return()=>{cancelAnimationFrame(animId);ro.disconnect();};
+  },[]);
+  return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0,pointerEvents:"none",opacity:0.5}}/>;
+}
+
+// ── COLOR SYSTEM ──────────────────────────────────────────────────────────────
 const C = {
-  bg: "#0D1117", surface: "#161B22", surface2: "#1C2128", surface3: "#21262D",
-  border: "#30363D", border2: "#21262D",
-  text: "#E6EDF3", textMid: "#8B949E", textDim: "#484F58",
-  purple: "#7C3AED", purpleLight: "#A78BFA", purpleDim: "#1A1035",
-  green: "#22C55E", greenDim: "#0D2818", greenLight: "#4ADE80",
+  bg: "#080A08", surface: "#0D1117", surface2: "#111519", surface3: "#161A1D",
+  border: "#1C2128", border2: "#252D25",
+  text: "#EEF2EE", textMid: "#8A9E8A", textDim: "#484F58",
+  purple: "#8B5CF6", purpleLight: "#A78BFA", purpleDim: "#1A1035",
+  green: "#3ECB6F", greenDim: "#0A1F12", greenLight: "#4ADE80",
   amber: "#F59E0B", amberDim: "#2D1F00",
   red: "#EF4444", redDim: "#2D0808",
   blue: "#3B82F6",
@@ -1318,14 +1376,18 @@ function ResultsContent() {
     { id:"readout",   label:"AI Readout",      icon:"✦" },
   ];
   const style = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,700;1,300&display=swap');
     *{box-sizing:border-box;margin:0;padding:0}
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
     @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
-    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
+    @keyframes r-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+    @keyframes r-drift2{0%,100%{transform:translateY(0)}50%{transform:translateY(14px)}}
+    @keyframes r-pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#252D25;border-radius:2px}
     .tip-icon{font-size:0.6rem;opacity:0.5;cursor:pointer;user-select:none;vertical-align:middle;margin-left:2px}
+    .r-mist{position:fixed;border-radius:50%;pointer-events:none}
     @media(max-width:768px){
       .r-nav{display:none !important}
       .r-hero-grid{grid-template-columns:1fr !important}
@@ -1333,7 +1395,7 @@ function ResultsContent() {
       .r-3col{grid-template-columns:1fr !important}
       .r-briefing{grid-template-columns:1fr !important}
       .r-graph-wrap{flex-direction:column !important}
-      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #30363D !important;max-height:60vh}
+      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #1C2128 !important;max-height:60vh}
       .r-main{padding:0.75rem !important}
     }
   `;
@@ -1368,11 +1430,19 @@ function ResultsContent() {
   );
 
   return (
-    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Inter,system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
+    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",display:"flex",flexDirection:"column",position:"relative"}}>
       <style>{style}</style>
+      <ResultsBG/>
+
+      {/* Ambient mist */}
+      <div style={{position:"fixed",inset:0,zIndex:0,pointerEvents:"none",overflow:"hidden"}}>
+        <div className="r-mist" style={{width:700,height:700,top:"-15%",left:"25%",background:"radial-gradient(circle,rgba(62,203,111,0.04) 0%,transparent 65%)",filter:"blur(60px)",animation:"r-drift 32s ease-in-out infinite"}}/>
+        <div className="r-mist" style={{width:500,height:500,top:"45%",right:"-5%",background:"radial-gradient(circle,rgba(59,130,246,0.035) 0%,transparent 65%)",filter:"blur(70px)",animation:"r-drift2 26s ease-in-out infinite"}}/>
+        <div className="r-mist" style={{width:450,height:450,bottom:"5%",left:"-5%",background:"radial-gradient(circle,rgba(139,92,246,0.03) 0%,transparent 65%)",filter:"blur(60px)",animation:"r-drift 38s ease-in-out infinite reverse"}}/>
+      </div>
 
       {/* ── TOP BAR ── */}
-      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,minHeight:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.75rem",position:"sticky",top:0,zIndex:200,gap:"0.5rem",flexShrink:0,flexWrap:"wrap"}}>
+      <div style={{background:"rgba(8,10,8,0.94)",backdropFilter:"blur(20px)",borderBottom:"1px solid "+C.border,minHeight:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.75rem",position:"sticky",top:0,zIndex:200,gap:"0.5rem",flexShrink:0,flexWrap:"wrap"}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
           <button onClick={()=>setNavCollapsed(v=>!v)} style={{background:"transparent",border:"none",color:C.textMid,cursor:"pointer",fontSize:"1rem",padding:"0.25rem"}}>☰</button>
           <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
@@ -1412,11 +1482,11 @@ function ResultsContent() {
       </div>
 
       {/* ── MAIN LAYOUT ── */}
-      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{display:"flex",flex:1,overflow:"hidden",position:"relative",zIndex:2}}>
 
         {/* ── LEFT NAV ── */}
         {!navCollapsed && (
-          <nav style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
+          <nav style={{width:220,background:"rgba(8,10,8,0.88)",backdropFilter:"blur(16px)",borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"0 0.75rem 0.75rem",fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase"}}>{entityName}</div>
             {navItems.map(n => (
               <button key={n.id} onClick={()=>setActiveNav(n.id)} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.6rem 0.75rem",background:activeNav===n.id?C.greenDim:"transparent",border:"none",borderLeft:activeNav===n.id?`2px solid ${C.green}`:"2px solid transparent",color:activeNav===n.id?C.green:C.textMid,fontFamily:"inherit",fontSize:"0.82rem",fontWeight:activeNav===n.id?600:400,cursor:"pointer",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
