@@ -751,74 +751,149 @@ export default function Home() {
         </div>
       </RevealSection>
 
-      {/* DEPENDENCY GRAPH */}
-      <RevealSection id="graph" style={{padding:"0 1.5rem",maxWidth:1140,margin:"0 auto 5rem"}}>
+      {/* RESULTS PAGE MOCKUP */}
+      <RevealSection id="graph" style={{padding:"0 1.5rem",maxWidth:1200,margin:"0 auto 5rem"}}>
         <div style={{textAlign:"center",marginBottom:"2.5rem"}}>
-          <div style={{fontSize:"0.65rem",color:G,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:"0.75rem"}}>DEPENDENCY INTELLIGENCE</div>
+          <div style={{fontSize:"0.65rem",color:G,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:"0.75rem"}}>YOUR RESULTS DASHBOARD</div>
           <h2 style={{fontFamily:"'Fraunces',serif",fontSize:"clamp(1.8rem,4vw,2.6rem)",fontWeight:700,lineHeight:1.1,letterSpacing:"-0.025em",marginBottom:"0.85rem"}}>
-            See the failure chain<br/><em style={{color:G,fontStyle:"italic",fontWeight:300}}>before it happens.</em>
+            This is exactly what<br/><em style={{color:G,fontStyle:"italic",fontWeight:300}}>you'll see after analysis.</em>
           </h2>
           <p style={{color:"#8A9E8A",fontSize:"0.95rem",fontWeight:300,lineHeight:1.8,maxWidth:"480px",margin:"0 auto"}}>
-            Every dependency mapped. Every cascade risk surfaced. Every optimization identified — before a single day of work begins.
+            Live demo of the real dashboard. Click any task node to see its cascade impact.
           </p>
         </div>
-        <div style={{background:"#0D1117",border:"1px solid #1C2128",borderRadius:20,overflow:"hidden",boxShadow:"0 8px 40px rgba(0,0,0,0.5)"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"1rem 1.5rem",borderBottom:"1px solid #1C2128",flexWrap:"wrap",gap:"0.5rem"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"0.6rem",fontSize:"0.85rem",fontWeight:600,color:"#EEF2EE"}}>
-              <span style={{width:7,height:7,borderRadius:"50%",background:G,display:"inline-block",animation:"pv-pulse 2s infinite"}}/>
-              Website Launch — Northstar Nutrition
+
+        {/* Results page shell — matches /results exactly */}
+        <div style={{borderRadius:16,overflow:"hidden",border:"1px solid #252D25",boxShadow:"0 24px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(62,203,111,0.06)",background:"#080A08"}}>
+
+          {/* Top bar — identical to results page */}
+          <div style={{background:"rgba(8,10,8,0.96)",backdropFilter:"blur(20px)",borderBottom:"1px solid #1C2128",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.85rem",gap:"0.5rem",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.65rem",minWidth:0}}>
+              <span style={{color:"#484F58",fontSize:"1rem",flexShrink:0}}>☰</span>
+              <svg width="18" height="18" viewBox="0 0 32 32" fill="none" style={{flexShrink:0}}>
+                <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={G} strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                <circle cx="4" cy="24" r="3" fill={G}/>
+                <circle cx="15" cy="14" r="2.5" fill={G} opacity="0.7"/>
+                <circle cx="26" cy="6" r="2.5" fill={G} opacity="0.5"/>
+                <circle cx="31" cy="14" r="2.5" fill={G} opacity="0.9"/>
+              </svg>
+              <span style={{fontWeight:700,color:"#EEF2EE",fontSize:"0.9rem",flexShrink:0}}>Path<span style={{color:G}}>flo</span></span>
+              <span style={{color:"#1C2128",fontSize:"1.2rem",flexShrink:0}}>|</span>
+              <span style={{color:"#8A9E8A",fontSize:"0.82rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Website Launch — Northstar Nutrition</span>
+              <span style={{background:"rgba(239,68,68,0.18)",color:"#EF4444",fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.08em",padding:"0.18rem 0.55rem",borderRadius:100,border:"1px solid rgba(239,68,68,0.35)",flexShrink:0}}>AT RISK</span>
             </div>
-            <div style={{display:"flex",gap:"1.5rem",flexWrap:"wrap"}}>
-              {[{label:"Tasks",val:"9"},{label:"Dependencies",val:"11"},{label:"Critical Path",val:"5 tasks"}].map(s=>(
-                <div key={s.label} style={{fontSize:"0.72rem",color:"#8A9E8A"}}>{s.label} <span style={{color:"#EEF2EE",fontWeight:700}}>{s.val}</span></div>
-              ))}
-            </div>
-            <div style={{fontSize:"0.68rem",borderRadius:6,padding:"0.25rem 0.75rem",fontWeight:700,letterSpacing:"0.06em",background:"rgba(239,68,68,0.08)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.25)"}}>⚠ CASCADE RISK DETECTED</div>
-          </div>
-          <div className="pv-graph-body" style={{display:"grid",gridTemplateColumns:"1fr 272px",overflow:"visible"}}>
-            <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT}/>
-            <div className="pv-graph-rp" style={{borderLeft:"1px solid #1C2128",padding:"1.25rem",display:"flex",flexDirection:"column",gap:"1rem"}}>
-              <div>
-                <div style={{fontSize:"0.6rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#EF4444",marginBottom:"0.4rem"}}>BIGGEST RISK</div>
-                <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"0.85rem"}}>
-                  <div style={{fontSize:"0.8rem",fontWeight:700,color:"#EF4444",marginBottom:"0.3rem"}}>⚠ Development is the bottleneck</div>
-                  <div style={{fontSize:"0.77rem",lineHeight:1.65,color:"#8A9E8A"}}>QA &amp; Testing can't start until it's done. 2 days of buffer remain — any slip cascades into Launch.</div>
-                </div>
+            <div style={{display:"flex",alignItems:"center",gap:"0.75rem",flexShrink:0}}>
+              <div style={{fontSize:"0.78rem",color:"#8A9E8A",display:"flex",alignItems:"center",gap:"0.35rem"}}>
+                <span style={{color:"#EF4444",fontWeight:700,fontSize:"1rem"}}>74%</span>
+                <span style={{color:"#484F58"}}>→</span>
+                <span style={{color:G,fontWeight:700,fontSize:"1rem"}}>86%</span>
+                <span>if optimized</span>
               </div>
-              <div>
-                <div style={{fontSize:"0.6rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A9E8A",marginBottom:"0.4rem"}}>CASCADE IMPACT</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.4rem"}}>
-                  {[{label:"Delay Risk",val:"+5–7d",color:"#EF4444"},{label:"Tasks Blocked",val:"3 tasks",color:"#EF4444"},{label:"Owners at Risk",val:"3 people",color:T.amber},{label:"Cost Exposure",val:"$4,200",color:T.amber}].map((s,i)=>(
-                    <div key={i} style={{background:"#111519",border:"1px solid #1C2128",borderRadius:8,padding:"0.5rem 0.65rem"}}>
-                      <div style={{fontSize:"0.56rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",color:"#3E4E3E",marginBottom:"0.15rem"}}>{s.label}</div>
-                      <div style={{fontSize:"0.9rem",fontWeight:700,color:s.color}}>{s.val}</div>
-                    </div>
+              <div style={{background:"transparent",border:"1px solid #252D25",borderRadius:8,color:"#8A9E8A",fontSize:"0.75rem",fontWeight:500,padding:"0.35rem 0.7rem",cursor:"default"}}>⬆ Share</div>
+              <div style={{background:"transparent",border:"1px solid #252D25",borderRadius:8,color:"#8A9E8A",fontSize:"0.75rem",fontWeight:500,padding:"0.35rem 0.7rem",cursor:"default"}}>✎ Revise</div>
+              <div style={{background:G,color:"#080A08",borderRadius:8,fontSize:"0.78rem",fontWeight:600,padding:"0.38rem 0.9rem",cursor:"default"}}>+ New</div>
+            </div>
+          </div>
+
+          {/* Main layout: left nav + content */}
+          <div style={{display:"flex",overflow:"hidden"}}>
+
+            {/* Left sidebar nav — identical to results page */}
+            <nav style={{width:210,background:"rgba(8,10,8,0.92)",borderRight:"1px solid #1C2128",padding:"0.85rem 0",display:"flex",flexDirection:"column",flexShrink:0}}>
+              {[
+                {id:"overview", label:"Overview",       icon:"⬡", active:false},
+                {id:"plan",     label:"Execution Plan", icon:"◈", active:true},
+                {id:"risk",     label:"Risk & Fixes",   icon:"⚠", active:false},
+                {id:"workload", label:"Workload",        icon:"⊞", active:false},
+                {id:"readout",  label:"AI Readout",     icon:"✦", active:false},
+              ].map(n=>(
+                <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.55rem 0.75rem",background:n.active?"#0A1F12":"transparent",borderLeft:n.active?`2px solid ${G}`:"2px solid transparent",color:n.active?G:"#8A9E8A",fontSize:"0.82rem",fontWeight:n.active?600:400,cursor:"default"}}>
+                  <span style={{fontSize:"0.75rem",flexShrink:0}}>{n.icon}</span>
+                  {n.label}
+                </div>
+              ))}
+              <div style={{margin:"0.75rem 0.75rem 0",padding:"0.75rem",background:"rgba(62,203,111,0.04)",border:"1px solid rgba(62,203,111,0.12)",borderRadius:8,marginTop:"auto"}}>
+                <div style={{fontSize:"0.58rem",fontWeight:700,color:G,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>CONFIDENCE</div>
+                <div style={{display:"flex",alignItems:"baseline",gap:"0.4rem"}}>
+                  <span style={{fontFamily:"'Fraunces',serif",fontSize:"1.8rem",fontWeight:700,color:"#EF4444",lineHeight:1}}>74</span>
+                  <span style={{fontSize:"0.7rem",color:"#EF4444"}}>%</span>
+                  <span style={{fontSize:"0.7rem",color:"#484F58",marginLeft:"0.2rem"}}>→</span>
+                  <span style={{fontFamily:"'Fraunces',serif",fontSize:"1.5rem",fontWeight:700,color:G,lineHeight:1}}>86</span>
+                  <span style={{fontSize:"0.65rem",color:G}}>%</span>
+                </div>
+                <div style={{fontSize:"0.62rem",color:"#484F58",marginTop:"0.2rem"}}>if optimized</div>
+              </div>
+            </nav>
+
+            {/* Main content area */}
+            <div style={{flex:1,minWidth:0,overflow:"auto"}}>
+
+              {/* Section header */}
+              <div style={{padding:"0.85rem 1rem",borderBottom:"1px solid #1C2128",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"0.5rem",flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                  <span style={{fontSize:"0.75rem",color:"#8A9E8A"}}>◈</span>
+                  <span style={{fontSize:"0.85rem",fontWeight:600,color:"#EEF2EE"}}>Execution Plan</span>
+                  <span style={{fontSize:"0.62rem",padding:"0.15rem 0.5rem",background:"rgba(239,68,68,0.08)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.2)",borderRadius:100}}>⚠ Cascade risk detected</span>
+                </div>
+                <div style={{display:"flex",gap:"1.25rem"}}>
+                  {[{l:"Tasks",v:"9"},{l:"Deps",v:"11"},{l:"Critical path",v:"5 tasks"},{l:"Buffer",v:"2d"}].map(s=>(
+                    <div key={s.l} style={{fontSize:"0.7rem",color:"#8A9E8A"}}>{s.l} <span style={{color:"#EEF2EE",fontWeight:700}}>{s.v}</span></div>
                   ))}
                 </div>
               </div>
-              <div>
-                <div style={{fontSize:"0.6rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:G,marginBottom:"0.4rem"}}>PATHFLO FIX</div>
-                <div style={{background:"#0A1F12",border:"1px solid rgba(62,203,111,0.15)",borderRadius:10,padding:"0.85rem"}}>
-                  <div style={{fontSize:"0.72rem",fontWeight:700,color:G,marginBottom:"0.35rem"}}>+ Run Photography in parallel with Design</div>
-                  <div style={{fontSize:"0.77rem",lineHeight:1.65,color:"#8A9E8A"}}>Recovers 4 days. Protects the deadline at zero cost.</div>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginTop:"0.65rem"}}>
-                    <div style={{fontSize:"0.6rem",color:"#3E4E3E"}}>Confidence</div>
-                    <div style={{flex:1,height:3,borderRadius:2,background:"#1C2128"}}>
-                      <div style={{height:"100%",width:"86%",background:G,borderRadius:2}}/>
+
+              {/* Graph + right panel */}
+              <div className="pv-graph-body" style={{display:"grid",gridTemplateColumns:"1fr 260px",overflow:"visible"}}>
+                <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT}/>
+                <div className="pv-graph-rp" style={{borderLeft:"1px solid #1C2128",padding:"1rem",display:"flex",flexDirection:"column",gap:"0.85rem"}}>
+                  <div>
+                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#EF4444",marginBottom:"0.35rem"}}>BIGGEST RISK</div>
+                    <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.18)",borderRadius:8,padding:"0.7rem"}}>
+                      <div style={{fontSize:"0.78rem",fontWeight:700,color:"#EF4444",marginBottom:"0.25rem"}}>⚠ Development is the bottleneck</div>
+                      <div style={{fontSize:"0.74rem",lineHeight:1.6,color:"#8A9E8A"}}>QA &amp; Testing can't start until it's done. 2 days of buffer remain.</div>
                     </div>
-                    <div style={{fontSize:"0.72rem",fontWeight:700,color:G}}>86%</div>
                   </div>
+                  <div>
+                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A9E8A",marginBottom:"0.35rem"}}>CASCADE IMPACT</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.35rem"}}>
+                      {[{l:"Delay Risk",v:"+5–7d",c:"#EF4444"},{l:"Blocked",v:"3 tasks",c:"#EF4444"},{l:"At Risk",v:"3 owners",c:T.amber},{l:"Cost",v:"$4,200",c:T.amber}].map((s,i)=>(
+                        <div key={i} style={{background:"#111519",border:"1px solid #1C2128",borderRadius:6,padding:"0.4rem 0.55rem"}}>
+                          <div style={{fontSize:"0.54rem",fontWeight:600,textTransform:"uppercase",color:"#3E4E3E",marginBottom:"0.1rem"}}>{s.l}</div>
+                          <div style={{fontSize:"0.85rem",fontWeight:700,color:s.c}}>{s.v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:G,marginBottom:"0.35rem"}}>PATHFLO FIX</div>
+                    <div style={{background:"#0A1F12",border:"1px solid rgba(62,203,111,0.15)",borderRadius:8,padding:"0.7rem"}}>
+                      <div style={{fontSize:"0.7rem",fontWeight:700,color:G,marginBottom:"0.3rem"}}>+ Run Photography in parallel</div>
+                      <div style={{fontSize:"0.74rem",lineHeight:1.6,color:"#8A9E8A",marginBottom:"0.5rem"}}>Recovers 4 days at zero cost.</div>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                        <div style={{fontSize:"0.58rem",color:"#3E4E3E",flexShrink:0}}>Confidence</div>
+                        <div style={{flex:1,height:3,borderRadius:2,background:"#1C2128"}}>
+                          <div style={{height:"100%",width:"86%",background:G,borderRadius:2,boxShadow:`0 0 4px ${G}66`}}/>
+                        </div>
+                        <div style={{fontSize:"0.7rem",fontWeight:700,color:G,flexShrink:0}}>86%</div>
+                      </div>
+                    </div>
+                  </div>
+                  <a href="/app" className="pv-btn-p" style={{fontSize:"0.8rem",padding:"0.65rem 1rem",justifyContent:"center",borderRadius:8}}>
+                    Run on my project →
+                  </a>
                 </div>
               </div>
-            </div>
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:"1rem",padding:"0.75rem 1.5rem",borderTop:"1px solid #1C2128"}}>
-            {[{color:"#EF4444",label:"Critical / Zero float"},{color:T.amber,label:"At risk"},{color:G,label:"On track"},{color:"#3E4E3E",label:"Has buffer"}].map((l,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.68rem",color:"#8A9E8A"}}>
-                <div style={{width:9,height:9,borderRadius:3,border:"1.5px solid "+l.color,background:l.color+"18"}}/>
-                {l.label}
+
+              {/* Legend */}
+              <div style={{display:"flex",flexWrap:"wrap",gap:"1rem",padding:"0.65rem 1rem",borderTop:"1px solid #1C2128"}}>
+                {[{color:"#EF4444",label:"Critical / Zero float"},{color:T.amber,label:"At risk"},{color:G,label:"On track"},{color:"#3E4E3E",label:"Has buffer"}].map((l,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.67rem",color:"#8A9E8A"}}>
+                    <div style={{width:8,height:8,borderRadius:3,border:"1.5px solid "+l.color,background:l.color+"18"}}/>
+                    {l.label}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </RevealSection>
