@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { supabase } from "@/lib/supabase";
 const T = {
   bg: "#080A08", surface: "#111511", surface2: "#161D16",
   border: "#1E251E", border2: "#252D25",
@@ -44,6 +45,9 @@ export default function AppPage() {
   const [pendingPreds, setPendingPreds] = useState([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [showPlan, setShowPlan] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [savedProjects, setSavedProjects] = useState([]);
+  const [showSaved, setShowSaved] = useState(false);
 
   const counter = useRef(0);
   const bottomRef = useRef(null);
@@ -59,6 +63,44 @@ export default function AppPage() {
   useEffect(() => { curRef.current = currentTask; }, [currentTask]);
   useEffect(() => { projRef.current = project; }, [project]);
   useEffect(() => { predsRef.current = pendingPreds; }, [pendingPreds]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setAuthUser(user);
+      if (user) loadSavedProjects(user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user ?? null;
+      setAuthUser(u);
+      if (u) loadSavedProjects(u); else setSavedProjects([]);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function loadSavedProjects(user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return;
+    const res = await fetch("/api/projects", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      const json = await res.json();
+      setSavedProjects(json.projects || []);
+      if (json.projects?.length > 0) setShowSaved(true);
+    }
+  }
+
+  function loadProject(p) {
+    const d = p.data;
+    const rd = encodeURIComponent(JSON.stringify({ name: d.name, startDate: d.startDate, targetDate: d.targetDate, budget: d.budget, totalBudget: d.totalBudget || "", tasks: d.tasks }));
+    window.location.href = "/app?revise=" + rd;
+  }
+
+  async function deleteProject(id) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    await fetch(`/api/projects?id=${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    setSavedProjects(p => p.filter(pr => pr.id !== id));
+  }
 
   // ── BOOT ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -462,6 +504,31 @@ export default function AppPage() {
 
       {/* ── CHAT ── */}
       <div className="chat-pad" style={{ flex: 1, overflowY: "auto", padding: "1.25rem", maxWidth: 600, width: "100%", margin: "0 auto", position: "relative", zIndex: 1 }}>
+
+        {/* Saved projects panel — visible when signed in */}
+        {authUser && savedProjects.length > 0 && (
+          <div style={{ marginBottom: "1.25rem", animation: "fadeUp 0.3s ease both" }}>
+            <button onClick={() => setShowSaved(v => !v)} style={{ background: "none", border: "none", color: T.textMid, fontFamily: "inherit", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.1em", cursor: "pointer", padding: "0 0 0.4rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              ⬇ YOUR SAVED PROJECTS ({savedProjects.length}) {showSaved ? "▴" : "▾"}
+            </button>
+            {showSaved && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                {savedProjects.map(p => (
+                  <div key={p.id} style={{ background: T.surface, border: "1px solid " + T.border, borderRadius: 10, padding: "0.65rem 0.85rem", display: "flex", alignItems: "center", gap: "0.65rem" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.88rem", fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                      <div style={{ fontSize: "0.65rem", color: T.textDim, marginTop: "0.1rem" }}>
+                        {p.data?.tasks?.length || 0} milestones · {p.data?.targetDate ? new Date(p.data.targetDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                      </div>
+                    </div>
+                    <button onClick={() => loadProject(p)} style={{ background: T.greenDim, border: "1px solid " + T.greenMid, borderRadius: 7, color: T.green, fontFamily: "inherit", fontWeight: 700, fontSize: "0.72rem", padding: "0.35rem 0.75rem", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>Load →</button>
+                    <button onClick={() => deleteProject(p.id)} title="Delete" style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: "0.75rem", padding: "0.2rem", flexShrink: 0 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {messages.map((msg, i) => (
           <div key={msg.id} style={{ marginBottom: "0.75rem", display: "flex", justifyContent: msg.from === "user" ? "flex-end" : "flex-start", animation: "fadeUp 0.22s ease both" }}>
