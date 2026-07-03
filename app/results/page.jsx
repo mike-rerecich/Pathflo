@@ -4,11 +4,12 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 
-const R_PALETTE = ["#3ECB6F","#3B82F6","#8B5CF6","#14B8A6","#F59E0B","#EC4899"];
-function r_hex2rgb(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];}
+const PALETTE = ["#3ECB6F","#3B82F6","#8B5CF6","#14B8A6","#F59E0B","#EC4899"];
+const G = "#3ECB6F";
+function hex2rgb(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];}
 
 // ── BackgroundField ────────────────────────────────────────────────────────────
-function ResultsBG() {
+function BackgroundField() {
   const canvasRef = useRef(null);
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
@@ -17,20 +18,21 @@ function ResultsBG() {
     const resize = () => { W=canvas.width=canvas.offsetWidth; H=canvas.height=canvas.offsetHeight; };
     resize();
     const ro = new ResizeObserver(resize); ro.observe(canvas);
-    const systems = R_PALETTE.map((col,idx) => ({
-      x:((idx%3)+0.5+Math.random()*0.4)*((W||1200)/3),
-      y:((Math.floor(idx/3))+0.5+Math.random()*0.4)*((H||800)/2),
-      burst:Math.random()*200, rgb:r_hex2rgb(col),
-      orbs:Array.from({length:3+Math.floor(Math.random()*3)},(_,j)=>({
-        angle:Math.random()*Math.PI*2,r:12+j*10,size:0.5+Math.random(),
-        speed:0.0006+Math.random()*0.0018,alpha:0.12+Math.random()*0.3,
-        rgb:r_hex2rgb(R_PALETTE[Math.floor(Math.random()*R_PALETTE.length)]),
+    const systems = PALETTE.map((col,idx) => ({
+      x:((idx%3)+0.5+Math.random()*0.5)*((W||1400)/3),
+      y:((Math.floor(idx/3))+0.5+Math.random()*0.4)*((H||900)/2),
+      burst:Math.random()*280, color:col, rgb:hex2rgb(col),
+      orbs:Array.from({length:4+Math.floor(Math.random()*4)},(_,j)=>({
+        angle:Math.random()*Math.PI*2, r:18+j*15,
+        size:0.7+Math.random()*1.3, speed:0.0006+Math.random()*0.0018,
+        alpha:0.2+Math.random()*0.5,
+        rgb:hex2rgb(PALETTE[Math.floor(Math.random()*PALETTE.length)]),
       })),
     }));
-    const mesh = Array.from({length:16},()=>({
-      x:Math.random()*(W||1200),y:Math.random()*(H||800),
-      vx:(Math.random()-0.5)*0.16,vy:(Math.random()-0.5)*0.16,
-      rgb:r_hex2rgb(R_PALETTE[Math.floor(Math.random()*R_PALETTE.length)]),
+    const mesh = Array.from({length:28},()=>({
+      x:Math.random()*(W||1400), y:Math.random()*(H||900),
+      vx:(Math.random()-0.5)*0.2, vy:(Math.random()-0.5)*0.2,
+      rgb:hex2rgb(PALETTE[Math.floor(Math.random()*PALETTE.length)]),
     }));
     const draw = () => {
       ctx.clearRect(0,0,W,H);
@@ -39,27 +41,30 @@ function ResultsBG() {
         if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
         for(let j=i+1;j<mesh.length;j++){
           const q=mesh[j];const d=Math.hypot(p.x-q.x,p.y-q.y);
-          if(d<160){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
-            ctx.strokeStyle=`rgba(${p.rgb[0]},${p.rgb[1]},${p.rgb[2]},${(1-d/160)*0.04})`;
+          if(d<200){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+            ctx.strokeStyle=`rgba(${p.rgb[0]},${p.rgb[1]},${p.rgb[2]},${(1-d/200)*0.07})`;
             ctx.lineWidth=0.5;ctx.stroke();}
         }
       }
       systems.forEach(s=>{
-        s.burst++;const[r,g,b]=s.rgb;
-        const grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,55);
-        grd.addColorStop(0,`rgba(${r},${g},${b},0.03)`);grd.addColorStop(1,"transparent");
-        ctx.beginPath();ctx.arc(s.x,s.y,55,0,Math.PI*2);ctx.fillStyle=grd;ctx.fill();
+        s.burst++;const bst=s.burst%260<22;const[r,g,b]=s.rgb;
+        const grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,80);
+        grd.addColorStop(0,`rgba(${r},${g},${b},${bst?0.09:0.04})`);grd.addColorStop(1,"transparent");
+        ctx.beginPath();ctx.arc(s.x,s.y,80,0,Math.PI*2);ctx.fillStyle=grd;ctx.fill();
         s.orbs.forEach(o=>{o.angle+=o.speed;
           const px=s.x+Math.cos(o.angle)*o.r,py=s.y+Math.sin(o.angle)*o.r;
-          const[or,og,ob]=o.rgb;ctx.beginPath();ctx.arc(px,py,o.size,0,Math.PI*2);
-          ctx.fillStyle=`rgba(${or},${og},${ob},${o.alpha})`;ctx.fill();});
+          const[or,og,ob]=o.rgb;ctx.beginPath();ctx.arc(px,py,o.size*(bst?1.9:1),0,Math.PI*2);
+          ctx.fillStyle=`rgba(${or},${og},${ob},${o.alpha*(bst?1.7:1)})`;ctx.fill();});
+        const outerR=s.orbs[s.orbs.length-1]?.r||40;
+        ctx.beginPath();ctx.arc(s.x,s.y,outerR,0,Math.PI*2);
+        ctx.strokeStyle=`rgba(${r},${g},${b},0.03)`;ctx.lineWidth=1;ctx.stroke();
       });
       animId=requestAnimationFrame(draw);
     };
     draw();
     return()=>{cancelAnimationFrame(animId);ro.disconnect();};
   },[]);
-  return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0,pointerEvents:"none",opacity:0.5}}/>;
+  return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0,pointerEvents:"none",opacity:0.72}}/>;
 }
 
 // ── COLOR SYSTEM ──────────────────────────────────────────────────────────────
@@ -1345,14 +1350,21 @@ function ResultsContent() {
   ];
 
   const style = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,700;1,300&display=swap');
     *{box-sizing:border-box;margin:0;padding:0}
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
     @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes r-drift{0%,100%{transform:translateY(0) translateX(0)}50%{transform:translateY(-20px) translateX(12px)}}
+    @keyframes r-drift2{0%,100%{transform:translateY(0) translateX(0)}50%{transform:translateY(14px) translateX(-12px)}}
+    @keyframes r-noiseShift{0%{background-position:0 0}100%{background-position:100px 100px}}
     ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px}
     .tip-icon{font-size:0.6rem;opacity:0.5;cursor:pointer;user-select:none;vertical-align:middle;margin-left:2px}
+    .r-grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.022;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size:200px 200px;animation:r-noiseShift 8s linear infinite}
+    .r-mist{position:absolute;border-radius:50%;pointer-events:none}
     @media(max-width:768px){
       .r-nav{display:none !important}
       .r-hero-grid{grid-template-columns:1fr !important}
@@ -1587,10 +1599,11 @@ function ResultsContent() {
   );
 
   return (
-    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",display:"flex",flexDirection:"column",position:"relative"}}>
+    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",display:"flex",flexDirection:"column",position:"relative",overflowX:"hidden"}}>
       <style>{style}</style>
       {saveModal && <SaveModal />}
-      <ResultsBG/>
+      <div className="r-grain"/>
+      <BackgroundField/>
 
       {/* Ambient mist */}
       <div style={{position:"fixed",inset:0,zIndex:0,pointerEvents:"none",overflow:"hidden"}}>
