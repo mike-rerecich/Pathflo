@@ -4,13 +4,71 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 
-// ── COLOR SYSTEM (v7.1 locked) ────────────────────────────────────────────────
+const R_PALETTE = ["#3ECB6F","#3B82F6","#8B5CF6","#14B8A6","#F59E0B","#EC4899"];
+function r_hex2rgb(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];}
+
+// ── BackgroundField ────────────────────────────────────────────────────────────
+function ResultsBG() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let animId, W, H;
+    const resize = () => { W=canvas.width=canvas.offsetWidth; H=canvas.height=canvas.offsetHeight; };
+    resize();
+    const ro = new ResizeObserver(resize); ro.observe(canvas);
+    const systems = R_PALETTE.map((col,idx) => ({
+      x:((idx%3)+0.5+Math.random()*0.4)*((W||1200)/3),
+      y:((Math.floor(idx/3))+0.5+Math.random()*0.4)*((H||800)/2),
+      burst:Math.random()*200, rgb:r_hex2rgb(col),
+      orbs:Array.from({length:3+Math.floor(Math.random()*3)},(_,j)=>({
+        angle:Math.random()*Math.PI*2,r:12+j*10,size:0.5+Math.random(),
+        speed:0.0006+Math.random()*0.0018,alpha:0.12+Math.random()*0.3,
+        rgb:r_hex2rgb(R_PALETTE[Math.floor(Math.random()*R_PALETTE.length)]),
+      })),
+    }));
+    const mesh = Array.from({length:16},()=>({
+      x:Math.random()*(W||1200),y:Math.random()*(H||800),
+      vx:(Math.random()-0.5)*0.16,vy:(Math.random()-0.5)*0.16,
+      rgb:r_hex2rgb(R_PALETTE[Math.floor(Math.random()*R_PALETTE.length)]),
+    }));
+    const draw = () => {
+      ctx.clearRect(0,0,W,H);
+      for(let i=0;i<mesh.length;i++){
+        const p=mesh[i];p.x+=p.vx;p.y+=p.vy;
+        if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+        for(let j=i+1;j<mesh.length;j++){
+          const q=mesh[j];const d=Math.hypot(p.x-q.x,p.y-q.y);
+          if(d<160){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+            ctx.strokeStyle=`rgba(${p.rgb[0]},${p.rgb[1]},${p.rgb[2]},${(1-d/160)*0.04})`;
+            ctx.lineWidth=0.5;ctx.stroke();}
+        }
+      }
+      systems.forEach(s=>{
+        s.burst++;const[r,g,b]=s.rgb;
+        const grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,55);
+        grd.addColorStop(0,`rgba(${r},${g},${b},0.03)`);grd.addColorStop(1,"transparent");
+        ctx.beginPath();ctx.arc(s.x,s.y,55,0,Math.PI*2);ctx.fillStyle=grd;ctx.fill();
+        s.orbs.forEach(o=>{o.angle+=o.speed;
+          const px=s.x+Math.cos(o.angle)*o.r,py=s.y+Math.sin(o.angle)*o.r;
+          const[or,og,ob]=o.rgb;ctx.beginPath();ctx.arc(px,py,o.size,0,Math.PI*2);
+          ctx.fillStyle=`rgba(${or},${og},${ob},${o.alpha})`;ctx.fill();});
+      });
+      animId=requestAnimationFrame(draw);
+    };
+    draw();
+    return()=>{cancelAnimationFrame(animId);ro.disconnect();};
+  },[]);
+  return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0,pointerEvents:"none",opacity:0.5}}/>;
+}
+
+// ── COLOR SYSTEM ──────────────────────────────────────────────────────────────
 const C = {
-  bg: "#0D1117", surface: "#161B22", surface2: "#1C2128", surface3: "#21262D",
-  border: "#30363D", border2: "#21262D",
-  text: "#E6EDF3", textMid: "#8B949E", textDim: "#484F58",
-  purple: "#7C3AED", purpleLight: "#A78BFA", purpleDim: "#1A1035",
-  green: "#22C55E", greenDim: "#0D2818", greenLight: "#4ADE80",
+  bg: "#080A08", surface: "#0D1117", surface2: "#111519", surface3: "#161A1D",
+  border: "#1C2128", border2: "#252D25",
+  text: "#EEF2EE", textMid: "#8A9E8A", textDim: "#484F58",
+  purple: "#8B5CF6", purpleLight: "#A78BFA", purpleDim: "#1A1035",
+  green: "#3ECB6F", greenDim: "#0A1F12", greenLight: "#4ADE80",
   amber: "#F59E0B", amberDim: "#2D1F00",
   red: "#EF4444", redDim: "#2D0808",
   blue: "#3B82F6",
@@ -356,7 +414,6 @@ function CascadeSimulator({ tasks, result, simulatorTaskId, onTaskChange, startD
                 { label: "TASKS BLOCKED", val: impact.downstreamCount, sub: `${impact.criticalDownstreamCount} on critical path`, color: C.amber },
                 { label: "CONFIDENCE", val: `${impact.newConf}%`, sub: `was ${impact.oldConf}% (${impact.confDelta>0?"+":""}${impact.confDelta}pts)`, color: impact.confDelta<-10?C.red:impact.confDelta<0?C.amber:C.green },
                 { label: "DEADLINE RISK", val: `${impact.newRisk}%`, sub: `was ${impact.oldRisk}% (+${impact.newRisk-impact.oldRisk}pts)`, color: impact.newRisk>=75?C.red:impact.newRisk>=55?C.amber:C.green },
-                ...(impact.dailyBurn>0?[{ label: "COST EXPOSURE", val: `$${Math.round(impact.costExposure).toLocaleString()}`, sub: `at $${Math.round(impact.dailyBurn)}/day`, color: C.amber }]:[]),
               ].map((m, i) => (
                 <div key={i} style={{ ...card2(), padding: "0.75rem 0.85rem" }}>
                   <div style={{ fontSize: "0.55rem", color: C.textDim, fontWeight: 700, letterSpacing: "0.1em", marginBottom: "0.3rem" }}>{m.label}</div>
@@ -594,8 +651,8 @@ function DependencyGraph({ tasks, result, onNodeClick, simulatorTaskId }) {
               strokeDasharray="6 4"
             />
             <text
-              x={cascadeRect.x + 10} y={cascadeRect.y + 14}
-              fontSize="8" fontFamily="system-ui" fontWeight="700"
+              x={cascadeRect.x + cascadeRect.w / 2} y={cascadeRect.y + 14}
+              textAnchor="middle" fontSize="8" fontFamily="system-ui" fontWeight="700"
               fill="rgba(239,68,68,0.6)" letterSpacing="0.08em"
             >CASCADE IMPACT ZONE</text>
           </g>
@@ -1115,7 +1172,7 @@ function Tooltip({ text, children }) {
           transform: "translateX(-50%)", background: "#1C2128",
           border: "1px solid #30363D", borderRadius: 8, padding: "0.5rem 0.7rem",
           fontSize: "0.75rem", color: "#E6EDF3", lineHeight: 1.55,
-          whiteSpace: "nowrap", maxWidth: 240, whiteSpace: "normal",
+          maxWidth: 240, whiteSpace: "normal",
           zIndex: 999, pointerEvents: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
           animation: "fadeUp 0.15s ease both",
         }}>{text}</span>
@@ -1130,7 +1187,7 @@ function ShareButton({ data, result, confScore }) {
   const [open, setOpen] = useState(false);
 
   function copyLink() {
-    const url = window.location.href;
+    const url = window.location.origin + "/results?data=" + encodeURIComponent(JSON.stringify(data));
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -1191,9 +1248,14 @@ function ResultsContent() {
   const searchParams = useSearchParams();
   const [data, setData] = useState(null);
   const [result, setResult] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [activeNav, setActiveNav] = useState("overview");
   const [aiReadout, setAiReadout] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [stakeholderVersions, setStakeholderVersions] = useState(null);
+  const [deadlineReversal, setDeadlineReversal] = useState(null);
+  const [aiTier, setAiTier] = useState("free");
+  const [stakeholderTab, setStakeholderTab] = useState("client");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState(null); // P1-1
   const [simulatorTaskId, setSimulatorTaskId] = useState(null); // P1-2
@@ -1204,21 +1266,46 @@ function ResultsContent() {
   const [savedProjectId, setSavedProjectId] = useState(null);
 
   useEffect(() => {
-    const raw = searchParams.get("data");
-    if (!raw) return;
     try {
-      const parsed = JSON.parse(decodeURIComponent(raw));
+      const analysisId = searchParams.get("id");
+      const raw = analysisId
+        ? window.sessionStorage.getItem(analysisId)
+        : searchParams.get("data");
+
+      if (!raw) {
+        setLoadError("No analysis data was found. Start a new plan to generate a results report.");
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      if (!parsed?.tasks?.length) {
+        setLoadError("This analysis does not include any milestones. Start a new plan to generate a results report.");
+        return;
+      }
+
       setData(parsed);
-      const r = computeCPM(parsed.tasks, parsed.startDate, parsed.targetDate, parsed.budget||"Flexible");
+      const stakes = parsed.deadlineStakes || "";
+      const derivedBudget = (stakes.includes("penalty") || stakes.includes("Regulatory") || stakes.includes("legal")) ? "Fixed"
+        : (stakes.includes("Revenue") || stakes.includes("Client")) ? "Tight" : "Flexible";
+      const r = computeCPM(parsed.tasks, parsed.startDate, parsed.targetDate, parsed.budget || derivedBudget);
       setResult(r);
       setAiLoading(true);
       fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectData:parsed})})
-        .then(res=>res.json()).then(d=>{setAiReadout(d.readout||null);setAiLoading(false);}).catch(()=>setAiLoading(false));
+        .then(res=>res.json()).then(d=>{
+          setAiReadout(d.readout||null);
+          if (d.stakeholderVersions) setStakeholderVersions(d.stakeholderVersions);
+          if (d.deadlineReversal) setDeadlineReversal(d.deadlineReversal);
+          if (d.tier) setAiTier(d.tier);
+          setAiLoading(false);
+        }).catch(()=>setAiLoading(false));
       // Check for saved project id in URL
       const pid = new URLSearchParams(window.location.search).get("pid");
       if (pid) setSavedProjectId(pid);
-    } catch(e){ console.error(e); }
-  }, []);
+    } catch(e){
+      console.error(e);
+      setLoadError("This analysis link could not be opened. Start a new plan to generate a fresh results report.");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setAuthUser(user));
@@ -1278,10 +1365,9 @@ function ResultsContent() {
     }
   `;
 
-
-  // ── WORKLOAD INTELLIGENCE ENGINE (P1-3) ──────────────────────────────────────
+  // ── WORKLOAD INTELLIGENCE ENGINE (P1-3) — must be before any early return ─────
   const workloadData = useMemo(() => {
-    if (!result || !data.tasks.length) return null;
+    if (!result || !data || !data.tasks.length) return null;
 
     // Group tasks by owner
     const byOwner = {};
@@ -1320,6 +1406,66 @@ function ResultsContent() {
 
     return { owners, maxDays, concentrationRisk, bottlenecks, sequentialRisk, totalCritical };
   }, [result, data]);
+
+  if (loadError) return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui",padding:"1rem"}}>
+      <div style={{textAlign:"center",maxWidth:460}}>
+        <div style={{fontSize:"1.05rem",color:C.text,fontWeight:700,marginBottom:"0.5rem"}}>Results unavailable</div>
+        <div style={{fontSize:"0.9rem",lineHeight:1.6,marginBottom:"1.2rem"}}>{loadError}</div>
+        <a href="/app" style={{display:"inline-block",background:C.green,color:"#081008",borderRadius:8,padding:"0.7rem 1.2rem",fontWeight:700,textDecoration:"none"}}>Start a new plan</a>
+      </div>
+    </div>
+  );
+
+  if (!data||!result) return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{width:40,height:40,border:"2px solid "+C.green,borderTopColor:"transparent",borderRadius:"50%",margin:"0 auto 1rem",animation:"spin 0.8s linear infinite"}}/>
+        <div style={{fontSize:"0.9rem"}}>Building your execution intelligence report...</div>
+      </div>
+    </div>
+  );
+
+  const totalCost = data.tasks.reduce((a,t)=>{const c=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;return a+c;},0);
+  const dailyBurn = totalCost > 0 && result.projectDuration > 0 ? totalCost/result.projectDuration : 0;
+  const overrunCost = result.bufferDays < 0 && dailyBurn > 0 ? Math.abs(result.bufferDays)*dailyBurn : 0;
+  const entityName = data.company || data.name || "Project";
+  const confScore = result.confidence.score;
+  const confBand = result.confidence.band;
+  const hasRealOptimization = result.shuffleOps?.length > 0 && result.confidenceOptimized?.score > confScore;
+  const confScoreOptimized = hasRealOptimization ? result.confidenceOptimized.score : confScore;
+  const planRisk = result.predictiveRisk?.planProb || 0;
+  const navItems = [
+    { id:"overview",  label:"Overview",        icon:"⬡" },
+    { id:"plan",      label:"Execution Plan",  icon:"◈" },
+    { id:"risk",      label:"Risk & Fixes",    icon:"⚠" },
+    { id:"workload",  label:"Workload",         icon:"⊞" },
+    { id:"readout",   label:"AI Readout",      icon:"✦" },
+  ];
+  const style = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,700;1,300&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
+    @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes r-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+    @keyframes r-drift2{0%,100%{transform:translateY(0)}50%{transform:translateY(14px)}}
+    @keyframes r-pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#252D25;border-radius:2px}
+    .tip-icon{font-size:0.6rem;opacity:0.5;cursor:pointer;user-select:none;vertical-align:middle;margin-left:2px}
+    .r-mist{position:fixed;border-radius:50%;pointer-events:none}
+    @media(max-width:768px){
+      .r-nav{display:none !important}
+      .r-hero-grid{grid-template-columns:1fr !important}
+      .r-2col{grid-template-columns:1fr !important}
+      .r-3col{grid-template-columns:1fr !important}
+      .r-briefing{grid-template-columns:1fr !important}
+      .r-graph-wrap{flex-direction:column !important}
+      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #1C2128 !important;max-height:60vh}
+      .r-main{padding:0.75rem !important}
+    }
+  `;
 
   const card =(extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
   const label = (color=C.purple) => ({fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color,marginBottom:"0.4rem"});
@@ -1441,12 +1587,20 @@ function ResultsContent() {
   );
 
   return (
-    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Inter,system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
+    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"'DM Sans',system-ui,sans-serif",display:"flex",flexDirection:"column",position:"relative"}}>
       <style>{style}</style>
       {saveModal && <SaveModal />}
+      <ResultsBG/>
+
+      {/* Ambient mist */}
+      <div style={{position:"fixed",inset:0,zIndex:0,pointerEvents:"none",overflow:"hidden"}}>
+        <div className="r-mist" style={{width:700,height:700,top:"-15%",left:"25%",background:"radial-gradient(circle,rgba(62,203,111,0.04) 0%,transparent 65%)",filter:"blur(60px)",animation:"r-drift 32s ease-in-out infinite"}}/>
+        <div className="r-mist" style={{width:500,height:500,top:"45%",right:"-5%",background:"radial-gradient(circle,rgba(59,130,246,0.035) 0%,transparent 65%)",filter:"blur(70px)",animation:"r-drift2 26s ease-in-out infinite"}}/>
+        <div className="r-mist" style={{width:450,height:450,bottom:"5%",left:"-5%",background:"radial-gradient(circle,rgba(139,92,246,0.03) 0%,transparent 65%)",filter:"blur(60px)",animation:"r-drift 38s ease-in-out infinite reverse"}}/>
+      </div>
 
       {/* ── TOP BAR ── */}
-      <div style={{background:C.surface,borderBottom:"1px solid "+C.border,minHeight:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.75rem",position:"sticky",top:0,zIndex:200,gap:"0.5rem",flexShrink:0,flexWrap:"wrap"}}>
+      <div style={{background:"rgba(8,10,8,0.94)",backdropFilter:"blur(20px)",borderBottom:"1px solid "+C.border,minHeight:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.75rem",position:"sticky",top:0,zIndex:200,gap:"0.5rem",flexShrink:0,flexWrap:"wrap"}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
           <button onClick={()=>setNavCollapsed(v=>!v)} style={{background:"transparent",border:"none",color:C.textMid,cursor:"pointer",fontSize:"1rem",padding:"0.25rem"}}>☰</button>
           <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
@@ -1464,25 +1618,36 @@ function ResultsContent() {
         <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.78rem",color:C.textMid}}>
             <span style={{color:verdColor,fontWeight:700,fontSize:"1rem"}}>{confScore}%</span>
-            <span style={{color:C.textDim}}>→</span>
-            <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
-            <span>if optimized</span>
+            {hasRealOptimization && (<>
+              <span style={{color:C.textDim}}>→</span>
+              <span style={{color:C.green,fontWeight:700,fontSize:"1rem"}}>{confScoreOptimized}%</span>
+              <span>if optimized</span>
+            </>)}
           </div>
           <ShareButton data={data} result={result} confScore={confScore} />
           <button onClick={()=>setSaveModal(true)} style={{background:savedProjectId?C.greenDim:"transparent",border:"1px solid "+(savedProjectId?C.green+"50":C.border2),borderRadius:8,color:savedProjectId?C.green:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
             {savedProjectId?"✓ Saved":"⬆ Save"}
           </button>
-          <button onClick={()=>{const rd=encodeURIComponent(JSON.stringify({name:data.name,startDate:data.startDate,targetDate:data.targetDate,budget:data.budget,totalBudget:data.totalBudget||"",tasks:data.tasks}));window.location.href="/app?revise="+rd;}} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
+          <button onClick={()=>{
+            const reviseData = {name:data.name,startDate:data.startDate,targetDate:data.targetDate,dailyBurnRate:data.dailyBurnRate||"",deadlineStakes:data.deadlineStakes||"",deadlinePenalty:data.deadlinePenalty||"",tasks:data.tasks};
+            try {
+              const id = "pathflo-revise-" + Date.now().toString(36);
+              window.sessionStorage.setItem(id, JSON.stringify(reviseData));
+              window.location.href = "/app?revise-id=" + id;
+            } catch(e) {
+              window.location.href = "/app?revise=" + encodeURIComponent(JSON.stringify(reviseData));
+            }
+          }} style={{background:"transparent",border:"1px solid "+C.border2,borderRadius:8,color:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>✎ Revise</button>
           <a href="/app" style={{background:C.green,color:"#080A08",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",padding:"0.45rem 1rem",cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",flexShrink:0}}>+ New</a>
         </div>
       </div>
 
       {/* ── MAIN LAYOUT ── */}
-      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{display:"flex",flex:1,overflow:"hidden",position:"relative",zIndex:2}}>
 
         {/* ── LEFT NAV ── */}
         {!navCollapsed && (
-          <nav style={{width:220,background:C.surface,borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
+          <nav style={{width:220,background:"rgba(8,10,8,0.88)",backdropFilter:"blur(16px)",borderRight:"1px solid "+C.border,padding:"1rem 0",display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"0 0.75rem 0.75rem",fontSize:"0.6rem",color:C.textDim,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase"}}>{entityName}</div>
             {navItems.map(n => (
               <button key={n.id} onClick={()=>setActiveNav(n.id)} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.6rem 0.75rem",background:activeNav===n.id?C.greenDim:"transparent",border:"none",borderLeft:activeNav===n.id?`2px solid ${C.green}`:"2px solid transparent",color:activeNav===n.id?C.green:C.textMid,fontFamily:"inherit",fontSize:"0.8rem",fontWeight:activeNav===n.id?600:400,cursor:"pointer",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
@@ -1525,11 +1690,13 @@ function ResultsContent() {
                     <div style={{display:"flex",alignItems:"baseline",gap:"0.5rem"}}>
                       <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:verdColor,lineHeight:1}}>{confScore}</span>
                       <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
-                      <span style={{color:C.textDim,fontSize:"1.2rem"}}>→</span>
-                      <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:C.green,lineHeight:1}}>{confScoreOptimized}</span>
-                      <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
+                      {hasRealOptimization && (<>
+                        <span style={{color:C.textDim,fontSize:"1.2rem"}}>→</span>
+                        <span style={{fontFamily:"Georgia,serif",fontSize:"3rem",color:C.green,lineHeight:1}}>{confScoreOptimized}</span>
+                        <span style={{fontSize:"1.2rem",color:C.textDim}}>%</span>
+                      </>)}
                     </div>
-                    <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.2rem"}}>As-is → with Pathflo's fixes applied</div>
+                    <div style={{fontSize:"0.72rem",color:C.textMid,marginTop:"0.2rem"}}>{hasRealOptimization ? "As-is → with Pathflo's fixes applied" : "On-time delivery confidence"}</div>
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div style={{background:verdColor+"20",color:verdColor,fontSize:"0.78rem",fontWeight:700,padding:"0.35rem 0.85rem",borderRadius:100,border:"1px solid "+verdColor+"40",marginBottom:"0.4rem",display:"inline-block"}}>{result.verdict}</div>
@@ -1571,14 +1738,26 @@ function ResultsContent() {
                 const sScore = result.confidence.breakdown.find(f=>f.name==="Plan sequencing")?.score||50;
                 const oScore = result.confidence.breakdown.find(f=>f.name==="Optimization gaps")?.score||50;
                 const opScore = Math.round((sScore+oScore)/2);
+                const extScore = result.confidence.breakdown.find(f=>f.name==="External dependencies")?.score||50;
+                const budgetScore = result.confidence.breakdown.find(f=>f.name==="Budget pressure")?.score||50;
+                const pillars = [
+                  { label:"01 · Timeline Health", title:"On time?", color:C.blue,
+                    values:[tScore, Math.round((tScore+extScore)/2), budgetScore],
+                    labels:["BUFFER","DEPS","BUDGET"], score:tScore+"%", scoreLabel:"TIMELINE",
+                    stats:[{name:"Schedule buffer",val:tScore+"%",color:tScore>=70?C.green:tScore>=45?C.amber:C.red},{name:"Dep exposure",val:Math.round((tScore+extScore)/2)+"%",color:C.blue},{name:"Budget pressure",val:budgetScore+"%",color:budgetScore>=70?C.green:C.amber}] },
+                  { label:"02 · Workload Intel", title:"Team capacity?", color:C.purple,
+                    values:[rScore, ownerConc, scopeCap],
+                    labels:["LOAD","OWNER","SCOPE"], score:rScore+"%", scoreLabel:"CAPACITY",
+                    stats:[{name:"Workload balance",val:rScore+"%",color:rScore>=70?C.green:rScore>=45?C.amber:C.red},{name:"Owner concentration",val:ownerConc+"%",color:ownerConc>=70?C.green:C.amber},{name:"Scope vs capacity",val:scopeCap+"%",color:scopeCap>=70?C.green:C.amber}] },
+                  { label:"03 · Operational Health", title:"Plan efficiency?", color:C.green,
+                    values:[opScore, sScore, oScore],
+                    labels:["OVERALL","SEQUENCE","OPTIM"], score:opScore+"%", scoreLabel:"EFFICIENCY",
+                    stats:[{name:"Plan efficiency",val:opScore+"%",color:opScore>=70?C.green:opScore>=45?C.amber:C.red},{name:"Sequencing",val:sScore+"%",color:sScore>=70?C.green:C.amber},{name:"Optimization",val:oScore+"%",color:oScore>=70?C.green:C.amber}] },
+                ];
                 return (
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                    {[
-                      {label:"Timeline",score:tScore,q:"On time?",color:C.blue},
-                      {label:"Resources",score:rScore,q:"Team capacity?",color:C.purple},
-                      {label:"Structure",score:opScore,q:"Plan efficiency?",color:C.green},
-                    ].map((p,i)=>{
-                      const col=p.score>=70?C.green:p.score>=45?C.amber:C.red;
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"0.75rem",marginBottom:"0.75rem"}}>
+                    {pillars.map((p,i)=>{
+                      const col=parseInt(p.score)>=70?C.green:parseInt(p.score)>=45?C.amber:C.red;
                       return(
                         <div key={i} style={{...card({background:C.surface2}),padding:"0.75rem",borderTop:"2px solid "+p.color,cursor:"pointer"}} onClick={()=>setActiveNav("confidence")}>
                           <div style={{fontSize:"0.58rem",color:p.color,fontWeight:700,letterSpacing:"0.08em",marginBottom:"0.2rem"}}>{p.label}</div>
@@ -1587,6 +1766,12 @@ function ResultsContent() {
                           <div style={{height:3,background:C.border2,borderRadius:2,marginTop:"0.4rem"}}>
                             <div style={{height:"100%",width:p.score+"%",background:col,borderRadius:2}}/>
                           </div>
+                          {p.stats.map((s,j)=>(
+                            <div key={j} style={{display:"flex",justifyContent:"space-between",fontSize:"0.75rem",padding:"0.3rem 0",borderBottom:j<p.stats.length-1?"1px solid "+C.border2:"none"}}>
+                              <span style={{color:C.textMid}}>{s.name}</span>
+                              <span style={{fontWeight:700,color:s.color}}>{s.val}</span>
+                            </div>
+                          ))}
                         </div>
                       );
                     })}
@@ -2053,7 +2238,7 @@ function ResultsContent() {
                       result.verdict+" · "+confScore+"% on-time confidence",
                       "Projected completion: "+result.projectedDate,
                       "Buffer: "+(result.bufferDays>=0?result.bufferDays+" days":Math.abs(result.bufferDays)+" days over deadline"),
-                      "With fixes applied: "+confScoreOptimized+"% confidence",
+                      ...(hasRealOptimization?["With fixes applied: "+confScoreOptimized+"% confidence"]:[]),
                       "",
                       "━━━ CRITICAL PATH ━━━",
                       result.criticalPath.join(" → "),
@@ -2094,8 +2279,8 @@ function ResultsContent() {
                 {/* Confidence */}
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"0.65rem",marginBottom:"1rem"}}>
                   {[
-                    {label:"Confidence (now)",val:confScore+"%",color:verdColor,sub:"current plan"},
-                    {label:"Confidence (optimized)",val:confScoreOptimized+"%",color:C.green,sub:"with fixes applied"},
+                    {label:"Confidence",val:confScore+"%",color:verdColor,sub:"current plan"},
+                    ...(hasRealOptimization?[{label:"Confidence (optimized)",val:confScoreOptimized+"%",color:C.green,sub:"with fixes applied"}]:[]),
                     {label:"Projected finish",val:result.projectedRange,color:C.text,sub:result.bufferDays>=0?result.bufferDays+"d buffer":Math.abs(result.bufferDays)+"d over"},
                     {label:"Failure probability",val:(result.predictiveRisk?.planProb||0)+"%",color:result.predictiveRisk?.planBand||C.amber,sub:"without intervention"},
                   ].map((s,i)=>(
@@ -2185,18 +2370,72 @@ function ResultsContent() {
                   <p style={{fontSize:"0.88rem",color:C.textMid,lineHeight:1.8}}>
                     {data.name} has a <strong style={{color:verdColor}}>{confScore}% chance of delivering on time</strong> as currently planned. {result.confidence.reason}. The critical path runs through {result.criticalPath.length} tasks — {result.criticalPath.slice(0,3).join(", ")}{result.criticalPath.length>3?`, and ${result.criticalPath.length-3} more`:""} — with {result.bufferDays>=0?result.bufferDays+" days of buffer":Math.abs(result.bufferDays)+" days of overrun"}.
                     {result.shuffleOps.length>0&&` ${result.shuffleOps.length} scheduling optimization${result.shuffleOps.length>1?"s are":" is"} available: running "${result.shuffleOps[0].task}" in parallel with "${result.shuffleOps[0].sharedPredecessor||result.shuffleOps[0].predecessor}" recovers approximately ${result.shuffleOps[0].daysSaved} days at zero additional cost.`}
-                    {` With recommended changes applied, on-time confidence rises to ${confScoreOptimized}% — a +${confScoreOptimized-confScore} point improvement.`}
+                    {hasRealOptimization&&` With recommended changes applied, on-time confidence rises to ${confScoreOptimized}% — a +${confScoreOptimized-confScore} point improvement.`}
                     <span style={{display:"block",marginTop:"0.75rem",fontSize:"0.7rem",color:C.textDim,fontStyle:"italic"}}>Add your Anthropic API key to Vercel for a fully AI-generated narrative.</span>
                   </p>
                 )}
               </div>
+
+              {/* ── Stakeholder Adapter (Solo+) ── */}
+              {stakeholderVersions ? (
+                <div style={{...card({border:"1px solid #7C3AED40"}),padding:"1.25rem",marginBottom:"0.75rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                    <span style={{color:"#A78BFA"}}>◈</span>
+                    <span style={{fontSize:"0.58rem",color:"#A78BFA",fontWeight:700,letterSpacing:"0.1em"}}>STAKEHOLDER ADAPTER — SOLO</span>
+                    <span style={{fontSize:"0.6rem",color:C.textDim,marginLeft:"auto"}}>Three versions, ready to send</span>
+                  </div>
+                  <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                    {["client","team","exec"].map(t=>(
+                      <button key={t} onClick={()=>setStakeholderTab(t)} style={{
+                        background:stakeholderTab===t?"#7C3AED":"transparent",
+                        border:"1px solid "+(stakeholderTab===t?"#7C3AED":"#30363D"),
+                        borderRadius:6, color:stakeholderTab===t?"#fff":C.textMid,
+                        fontFamily:"inherit",fontWeight:600,fontSize:"0.7rem",
+                        padding:"0.3rem 0.75rem",cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.05em",
+                      }}>{t==="client"?"Client":t==="team"?"Team":"Exec"}</button>
+                    ))}
+                  </div>
+                  <p style={{fontSize:"0.88rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif",whiteSpace:"pre-wrap"}}>
+                    {stakeholderVersions[stakeholderTab]}
+                  </p>
+                </div>
+              ) : (
+                <div style={{...card({border:"1px solid #7C3AED30",background:"#0D0A1A"}),padding:"1.25rem",marginBottom:"0.75rem",textAlign:"center"}}>
+                  <div style={{fontSize:"1.25rem",marginBottom:"0.5rem"}}>◈</div>
+                  <div style={{fontSize:"0.78rem",fontWeight:700,color:"#A78BFA",marginBottom:"0.35rem"}}>Stakeholder Adapter — Solo Plan</div>
+                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.7,marginBottom:"0.85rem"}}>
+                    Turn this report into three ready-to-send messages — one for your client, one for your team, one for leadership. Zero rewriting.
+                  </div>
+                  <a href="/#pricing" style={{display:"inline-block",background:"#7C3AED",color:"#fff",borderRadius:8,padding:"0.5rem 1.25rem",fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",textDecoration:"none"}}>Upgrade to Solo →</a>
+                </div>
+              )}
+
+              {/* ── Deadline Reverse-Engineer (Team+) ── */}
+              {deadlineReversal ? (
+                <div style={{...card({border:"1px solid "+C.amber+"40"}),padding:"1.25rem",marginBottom:"0.75rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                    <span style={{color:C.amber}}>⟵</span>
+                    <span style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em"}}>DEADLINE REVERSE-ENGINEER — TEAM</span>
+                  </div>
+                  <p style={{fontSize:"0.88rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif",whiteSpace:"pre-wrap"}}>{deadlineReversal}</p>
+                </div>
+              ) : (
+                <div style={{...card({border:"1px solid "+C.amber+"20",background:"#12100A"}),padding:"1.25rem",marginBottom:"0.75rem",textAlign:"center"}}>
+                  <div style={{fontSize:"1.25rem",marginBottom:"0.5rem"}}>⟵</div>
+                  <div style={{fontSize:"0.78rem",fontWeight:700,color:C.amber,marginBottom:"0.35rem"}}>Deadline Reverse-Engineer — Team Plan</div>
+                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.7,marginBottom:"0.85rem"}}>
+                    The deadline is fixed. This agent works backwards and gives you three concrete options — cut scope, compress timeline, or add resource — ranked by what's most realistic.
+                  </div>
+                  <a href="/#pricing" style={{display:"inline-block",background:C.amber,color:"#080A08",borderRadius:8,padding:"0.5rem 1.25rem",fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",textDecoration:"none"}}>Upgrade to Team →</a>
+                </div>
+              )}
 
               {/* Key bullets — for quick copy */}
               <div style={{...card(),padding:"1.25rem"}}>
                 <div style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>KEY TAKEAWAYS — quick copy</div>
                 <div style={{display:"flex",flexDirection:"column",gap:"0.55rem"}}>
                   {[
-                    {icon:"◈",text:`**${data.name}** — ${result.verdict}. On-time confidence: **${confScore}%** → **${confScoreOptimized}%** with fixes.`,color:verdColor},
+                    {icon:"◈",text:`**${data.name}** — ${result.verdict}. On-time confidence: **${confScore}%**`+(hasRealOptimization?` → **${confScoreOptimized}%** with fixes.`:"."),color:verdColor},
                     {icon:"⚠",text:`Critical path: **${result.criticalPath.length} tasks**${result.criticalPath.length>0?" — "+result.criticalPath.slice(0,2).join(", ")+(result.criticalPath.length>2?"...":""):""}. Buffer: **${result.bufferDays>=0?result.bufferDays+"d":"OVERRUN "+Math.abs(result.bufferDays)+"d"}**.`,color:result.bufferDays>=0?C.amber:C.red},
                     {icon:"⚡",text:`Highest risk: **${result.predictiveRisk?.top3[0]?.name||"—"}** — ${result.predictiveRisk?.top3[0]?.reason||""}. **${result.predictiveRisk?.planProb||0}%** chance of missing deadline.`,color:C.red},
                     ...(result.shuffleOps.length>0?[{icon:"✓",text:`Fix: Run **"${result.shuffleOps[0].task}"** in parallel — recovers **~${result.shuffleOps.reduce((a,o)=>a+o.daysSaved,0)} days at zero cost**.`,color:C.green}]:[]),
