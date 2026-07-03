@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { supabase } from "@/lib/supabase";
 
 const G = "#3ECB6F";
 const PALETTE = ["#3ECB6F","#3B82F6","#8B5CF6","#14B8A6","#F59E0B","#EC4899"];
@@ -28,22 +29,25 @@ function BackgroundField() {
     const ro = new ResizeObserver(resize); ro.observe(canvas);
 
     const systems = PALETTE.map((col, idx) => ({
-      x: ((idx%3)+0.5+Math.random()*0.4) * ((W||900)/3),
-      y: ((Math.floor(idx/3))+0.5+Math.random()*0.3) * ((H||700)/2),
-      burst: Math.random()*200,
+      x: ((idx%3)+0.5+Math.random()*0.5) * ((W||1400)/3),
+      y: ((Math.floor(idx/3))+0.5+Math.random()*0.4) * ((H||900)/2),
+      burst: Math.random()*280,
+      color: col,
       rgb: hex2rgb(col),
-      orbs: Array.from({length:3+Math.floor(Math.random()*3)}, (_,j) => ({
+      orbs: Array.from({length:4+Math.floor(Math.random()*4)}, (_,j) => ({
         angle: Math.random()*Math.PI*2,
-        r: 14+j*12, size: 0.5+Math.random()*1.1, speed: 0.0007+Math.random()*0.002,
-        alpha: 0.15+Math.random()*0.35,
+        r: 18 + j*15,
+        size: 0.7 + Math.random()*1.3,
+        speed: 0.0006 + Math.random()*0.0018,
+        alpha: 0.2 + Math.random()*0.5,
         rgb: hex2rgb(PALETTE[Math.floor(Math.random()*PALETTE.length)]),
       })),
     }));
 
-    const mesh = Array.from({length:18}, () => ({
-      x:Math.random()*(W||900), y:Math.random()*(H||700),
-      vx:(Math.random()-0.5)*0.18, vy:(Math.random()-0.5)*0.18,
-      rgb:hex2rgb(PALETTE[Math.floor(Math.random()*PALETTE.length)]),
+    const mesh = Array.from({length:28}, () => ({
+      x: Math.random()*(W||1400), y: Math.random()*(H||900),
+      vx:(Math.random()-0.5)*0.2, vy:(Math.random()-0.5)*0.2,
+      rgb: hex2rgb(PALETTE[Math.floor(Math.random()*PALETTE.length)]),
     }));
 
     const draw = () => {
@@ -53,38 +57,44 @@ function BackgroundField() {
         if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>H) p.vy*=-1;
         for(let j=i+1;j<mesh.length;j++) {
           const q=mesh[j]; const d=Math.hypot(p.x-q.x,p.y-q.y);
-          if(d<180) { ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y);
-            ctx.strokeStyle=`rgba(${p.rgb[0]},${p.rgb[1]},${p.rgb[2]},${(1-d/180)*0.05})`;
+          if(d<200) { ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y);
+            ctx.strokeStyle=`rgba(${p.rgb[0]},${p.rgb[1]},${p.rgb[2]},${(1-d/200)*0.07})`;
             ctx.lineWidth=0.5; ctx.stroke(); }
         }
       }
       systems.forEach(s => {
         s.burst++;
+        const bst = s.burst%260<22;
         const [r,g,b]=s.rgb;
-        const grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,60);
-        grd.addColorStop(0,`rgba(${r},${g},${b},0.035)`); grd.addColorStop(1,"transparent");
-        ctx.beginPath(); ctx.arc(s.x,s.y,60,0,Math.PI*2); ctx.fillStyle=grd; ctx.fill();
+        const grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,80);
+        grd.addColorStop(0,`rgba(${r},${g},${b},${bst?0.09:0.04})`); grd.addColorStop(1,"transparent");
+        ctx.beginPath(); ctx.arc(s.x,s.y,80,0,Math.PI*2); ctx.fillStyle=grd; ctx.fill();
         s.orbs.forEach(o => {
           o.angle+=o.speed;
           const px=s.x+Math.cos(o.angle)*o.r, py=s.y+Math.sin(o.angle)*o.r;
           const [or,og,ob]=o.rgb;
-          ctx.beginPath(); ctx.arc(px,py,o.size,0,Math.PI*2);
-          ctx.fillStyle=`rgba(${or},${og},${ob},${o.alpha})`; ctx.fill();
+          ctx.beginPath(); ctx.arc(px,py,o.size*(bst?1.9:1),0,Math.PI*2);
+          ctx.fillStyle=`rgba(${or},${og},${ob},${o.alpha*(bst?1.7:1)})`; ctx.fill();
         });
+        const outerR=s.orbs[s.orbs.length-1]?.r||40;
+        ctx.beginPath(); ctx.arc(s.x,s.y,outerR,0,Math.PI*2);
+        ctx.strokeStyle=`rgba(${r},${g},${b},0.03)`; ctx.lineWidth=1; ctx.stroke();
       });
       animId=requestAnimationFrame(draw);
     };
     draw();
     return () => { cancelAnimationFrame(animId); ro.disconnect(); };
   },[]);
-  return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0,pointerEvents:"none",opacity:0.55}}/>;
+  return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0,pointerEvents:"none",opacity:0.72}}/>;
 }
 
 /* ─── Logo ────────────────────────────────────────────────────── */
 const Logo = ({ size=18 }) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{display:"inline-block",verticalAlign:"middle"}}>
     <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={G} strokeWidth="2.2" strokeLinecap="round" fill="none"/>
-    <circle cx="4" cy="24" r="3" fill={G}/>
+    <circle cx="4"  cy="24" r="3"   fill={G}/>
+    <circle cx="15" cy="14" r="2.5" fill={G} opacity="0.7"/>
+    <circle cx="26" cy="6"  r="2.5" fill={G} opacity="0.5"/>
     <circle cx="31" cy="14" r="2.5" fill={G} opacity="0.9"/>
   </svg>
 );
@@ -126,6 +136,9 @@ export default function AppPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [showPlan, setShowPlan] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [savedProjects, setSavedProjects] = useState([]);
+  const [showSaved, setShowSaved] = useState(false);
 
   const counter  = useRef(0);
   const bottomRef = useRef(null);
@@ -142,6 +155,51 @@ export default function AppPage() {
   useEffect(()=>{projRef.current=project;},[project]);
   useEffect(()=>{predsRef.current=pendingPreds;},[pendingPreds]);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setAuthUser(user);
+      if (user) loadSavedProjects(user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user ?? null;
+      setAuthUser(u);
+      if (u) loadSavedProjects(u); else setSavedProjects([]);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function loadSavedProjects(user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return;
+    const res = await fetch("/api/projects", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      const json = await res.json();
+      setSavedProjects(json.projects || []);
+      if (json.projects?.length > 0) setShowSaved(true);
+    }
+  }
+
+  function loadProject(p) {
+    const d = p.data;
+    const reviseData = {name:d.name,startDate:d.startDate,targetDate:d.targetDate,dailyBurnRate:d.dailyBurnRate||"",deadlineStakes:d.deadlineStakes||"",deadlinePenalty:d.deadlinePenalty||"",tasks:d.tasks};
+    try {
+      const id = "pathflo-revise-" + Date.now().toString(36);
+      window.sessionStorage.setItem(id, JSON.stringify(reviseData));
+      window.location.href = "/app?revise-id=" + id;
+    } catch(e) {
+      window.location.href = "/app?revise=" + encodeURIComponent(JSON.stringify(reviseData));
+    }
+  }
+
+  async function deleteProject(id) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    await fetch(`/api/projects?id=${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    setSavedProjects(p => p.filter(pr => pr.id !== id));
+  }
+
+  // ── BOOT ─────────────────────────────────────────────────────────────────────
   useEffect(()=>{
     const url=new URL(window.location.href);
     const reviseId=url.searchParams.get("revise-id");
@@ -546,6 +604,32 @@ export default function AppPage() {
 
       {/* Chat */}
       <div className="app-chat-pad" style={{flex:1,overflowY:"auto",padding:"1.25rem",maxWidth:600,width:"100%",margin:"0 auto",position:"relative",zIndex:2}}>
+
+        {/* Saved projects panel — visible when signed in */}
+        {authUser && savedProjects.length > 0 && (
+          <div style={{ marginBottom: "1.25rem", animation: "app-fadeUp 0.3s ease both" }}>
+            <button onClick={() => setShowSaved(v => !v)} style={{ background: "none", border: "none", color: T.textMid, fontFamily: "inherit", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.1em", cursor: "pointer", padding: "0 0 0.4rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              ⬇ YOUR SAVED PROJECTS ({savedProjects.length}) {showSaved ? "▴" : "▾"}
+            </button>
+            {showSaved && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                {savedProjects.map(p => (
+                  <div key={p.id} style={{ background: T.surface, border: "1px solid " + T.border, borderRadius: 10, padding: "0.65rem 0.85rem", display: "flex", alignItems: "center", gap: "0.65rem" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.88rem", fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                      <div style={{ fontSize: "0.65rem", color: T.textDim, marginTop: "0.1rem" }}>
+                        {p.data?.tasks?.length || 0} milestones · {p.data?.targetDate ? new Date(p.data.targetDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                      </div>
+                    </div>
+                    <button onClick={() => loadProject(p)} style={{ background: T.greenDim, border: "1px solid " + T.greenMid, borderRadius: 7, color: T.green, fontFamily: "inherit", fontWeight: 700, fontSize: "0.72rem", padding: "0.35rem 0.75rem", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>Load →</button>
+                    <button onClick={() => deleteProject(p.id)} title="Delete" style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: "0.75rem", padding: "0.2rem", flexShrink: 0 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {messages.map((msg,i)=>(
           <div key={msg.id} style={{marginBottom:"0.75rem",display:"flex",justifyContent:msg.from==="user"?"flex-end":"flex-start",animation:"app-fadeUp 0.22s ease both"}}>
             {msg.from==="bot"&&(
