@@ -1336,7 +1336,8 @@ function ResultsContent() {
 
   const confScore = result.confidence.score;
   const confBand = result.confidence.band;
-  const confScoreOptimized = result.confidenceOptimized?.score || Math.min(confScore + 22, 97);
+  const hasRealOptimization = result.shuffleOps?.length > 0 && result.confidenceOptimized?.score > confScore;
+  const confScoreOptimized = hasRealOptimization ? result.confidenceOptimized.score : confScore;
   const planRisk = result.predictiveRisk?.planProb || 0;
 
   const navItems = [
@@ -1428,56 +1429,6 @@ function ResultsContent() {
       </div>
     </div>
   );
-
-  if (!data||!result) return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui"}}>
-      <div style={{textAlign:"center"}}>
-        <div style={{width:40,height:40,border:"2px solid "+C.green,borderTopColor:"transparent",borderRadius:"50%",margin:"0 auto 1rem",animation:"spin 0.8s linear infinite"}}/>
-        <div style={{fontSize:"0.9rem"}}>Building your execution intelligence report...</div>
-      </div>
-    </div>
-  );
-
-  const totalCost = data.tasks.reduce((a,t)=>{const c=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;return a+c;},0);
-  const dailyBurn = totalCost > 0 && result.projectDuration > 0 ? totalCost/result.projectDuration : 0;
-  const overrunCost = result.bufferDays < 0 && dailyBurn > 0 ? Math.abs(result.bufferDays)*dailyBurn : 0;
-  const entityName = data.company || data.name || "Project";
-  const confScore = result.confidence.score;
-  const confBand = result.confidence.band;
-  const hasRealOptimization = result.shuffleOps?.length > 0 && result.confidenceOptimized?.score > confScore;
-  const confScoreOptimized = hasRealOptimization ? result.confidenceOptimized.score : confScore;
-  const planRisk = result.predictiveRisk?.planProb || 0;
-  const navItems = [
-    { id:"overview",  label:"Overview",        icon:"⬡" },
-    { id:"plan",      label:"Execution Plan",  icon:"◈" },
-    { id:"risk",      label:"Risk & Fixes",    icon:"⚠" },
-    { id:"workload",  label:"Workload",         icon:"⊞" },
-    { id:"readout",   label:"AI Readout",      icon:"✦" },
-  ];
-  const style = `
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,700;1,300&display=swap');
-    *{box-sizing:border-box;margin:0;padding:0}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes dotBlink{0%,80%,100%{opacity:0}40%{opacity:1}}
-    @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
-    @keyframes r-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
-    @keyframes r-drift2{0%,100%{transform:translateY(0)}50%{transform:translateY(14px)}}
-    @keyframes r-pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:#252D25;border-radius:2px}
-    .tip-icon{font-size:0.6rem;opacity:0.5;cursor:pointer;user-select:none;vertical-align:middle;margin-left:2px}
-    .r-mist{position:fixed;border-radius:50%;pointer-events:none}
-    @media(max-width:768px){
-      .r-nav{display:none !important}
-      .r-hero-grid{grid-template-columns:1fr !important}
-      .r-2col{grid-template-columns:1fr !important}
-      .r-3col{grid-template-columns:1fr !important}
-      .r-briefing{grid-template-columns:1fr !important}
-      .r-graph-wrap{flex-direction:column !important}
-      .r-detail-panel{width:100% !important;border-left:none !important;border-top:1px solid #1C2128 !important;max-height:60vh}
-      .r-main{padding:0.75rem !important}
-    }
-  `;
 
   const card =(extra={}) => ({background:C.surface,border:"1px solid "+C.border,borderRadius:12,...extra});
   const label = (color=C.purple) => ({fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color,marginBottom:"0.4rem"});
