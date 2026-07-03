@@ -1341,13 +1341,11 @@ function ResultsContent() {
   const planRisk = result.predictiveRisk?.planProb || 0;
 
   const navItems = [
-    { id:"overview",    label:"Overview",            icon:"⬡",  agent:null },
-    { id:"dependency",  label:"Dependency Map",      icon:"◎",  agent:"01" },
-    { id:"critical",    label:"Critical Path",       icon:"◈",  agent:"02" },
-    { id:"cascade",     label:"Cascade Risk",        icon:"⚡",  agent:"03" },
-    { id:"confidence",  label:"Confidence Score",    icon:"⊞",  agent:"04" },
-    { id:"optimize",    label:"Scheduling Fixes",    icon:"⟳",  agent:"05" },
-    { id:"report",      label:"Intelligence Report", icon:"✦",  agent:"06" },
+    { id:"overview",  label:"Overview",        icon:"⬡" },
+    { id:"plan",      label:"Execution Plan",  icon:"◈" },
+    { id:"risk",      label:"Risk & Fixes",    icon:"⚠" },
+    { id:"workload",  label:"Workload",        icon:"⊞" },
+    { id:"readout",   label:"AI Readout",      icon:"✦" },
   ];
 
   const style = `
@@ -1617,7 +1615,6 @@ function ResultsContent() {
               <button key={n.id} onClick={()=>setActiveNav(n.id)} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.6rem 0.75rem",background:activeNav===n.id?C.greenDim:"transparent",border:"none",borderLeft:activeNav===n.id?`2px solid ${C.green}`:"2px solid transparent",color:activeNav===n.id?C.green:C.textMid,fontFamily:"inherit",fontSize:"0.8rem",fontWeight:activeNav===n.id?600:400,cursor:"pointer",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
                 <span style={{fontSize:"0.82rem",opacity:0.8,flexShrink:0}}>{n.icon}</span>
                 <span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.label}</span>
-                {n.agent && <span style={{fontSize:"0.52rem",fontWeight:700,color:activeNav===n.id?C.green:C.textDim,opacity:0.7,flexShrink:0}}>{n.agent}</span>}
               </button>
             ))}
             <div style={{flex:1}}/>
@@ -1776,15 +1773,12 @@ function ResultsContent() {
           )}
 
 
-          {/* ══ AGENT 01 — DEPENDENCY MAP ══ */}
-          {activeNav==="dependency" && (
+          {/* ══ EXECUTION PLAN ══ */}
+          {activeNav==="plan" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:"0.65rem",flexWrap:"wrap"}}>
-                <span style={{fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",color:C.green,background:C.greenDim,border:"1px solid "+C.green+"40",borderRadius:100,padding:"0.2rem 0.65rem",flexShrink:0}}>Agent 01</span>
-                <div>
-                  <div style={{fontSize:"1.1rem",fontWeight:700}}>Dependency Map</div>
-                  <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Visual network of task relationships. Tap any node to inspect it — then use ⚡ to simulate a delay.</div>
-                </div>
+              <div style={{marginBottom:"1rem"}}>
+                <div style={{fontSize:"1.1rem",fontWeight:700}}>Execution Plan</div>
+                <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Tap any node to see its detail and cascade chain. Use ⚡ to simulate a delay.</div>
               </div>
 
               {/* Stat chips */}
@@ -1826,22 +1820,16 @@ function ResultsContent() {
                   )}
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* ══ AGENT 02 — CRITICAL PATH ══ */}
-          {activeNav==="critical" && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:"0.65rem",flexWrap:"wrap"}}>
-                <span style={{fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",color:C.red,background:C.redDim,border:"1px solid "+C.red+"40",borderRadius:100,padding:"0.2rem 0.65rem",flexShrink:0}}>Agent 02</span>
-                <div>
-                  <div style={{fontSize:"1.1rem",fontWeight:700}}>Critical Path</div>
-                  <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>The chain of tasks with zero float. Any slip here cascades directly to your deadline.</div>
-                </div>
-              </div>
+              {/* Cascade simulator */}
+              <CascadeSimulator
+                tasks={data.tasks} result={result} simulatorTaskId={simulatorTaskId}
+                onTaskChange={setSimulatorTaskId}
+                startDate={data.startDate} targetDate={data.targetDate} budget={data.budget||(()=>{const s=data.deadlineStakes||"";return s.includes("penalty")||s.includes("Regulatory")?"Fixed":s.includes("Revenue")||s.includes("Client")?"Tight":"Flexible";})()}
+              />
 
-              {/* Critical path chain */}
-              <div style={{...card(),padding:"1rem",marginBottom:"0.75rem"}}>
+              {/* Critical path */}
+              <div style={{...card(),padding:"1rem",marginTop:"0.75rem"}}>
                 <div style={{fontSize:"0.58rem",color:C.red,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.5rem"}}>CRITICAL PATH — zero float, any slip cascades</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",alignItems:"center"}}>
                   {result.criticalPath.map((name,i)=>(
@@ -1854,7 +1842,7 @@ function ResultsContent() {
               </div>
 
               {/* Gantt */}
-              <div style={{...card(),padding:"1rem 1.25rem",marginBottom:"0.75rem"}}>
+              <div style={{...card(),padding:"1rem 1.25rem",marginTop:"0.75rem"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.65rem"}}>
                   <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>GANTT TIMELINE</div>
                   <div style={{display:"flex",gap:"0.75rem"}}>
@@ -1869,7 +1857,7 @@ function ResultsContent() {
               </div>
 
               {/* All milestones table */}
-              <div style={{...card(),padding:"0"}}>
+              <div style={{...card(),padding:"0",marginTop:"0.75rem"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0.75rem 1rem",borderBottom:"1px solid "+C.border}}>
                   <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em"}}>ALL MILESTONES</div>
                   <button onClick={()=>{
@@ -1889,30 +1877,22 @@ function ResultsContent() {
                   </div>
                 ))}
               </div>
+
             </div>
           )}
 
-          {/* ══ AGENT 03 — CASCADE RISK ══ */}
-          {activeNav==="cascade" && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:"0.65rem",flexWrap:"wrap"}}>
-                <span style={{fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",color:C.amber,background:C.amberDim,border:"1px solid "+C.amber+"40",borderRadius:100,padding:"0.2rem 0.65rem",flexShrink:0}}>Agent 03</span>
-                <div>
-                  <div style={{fontSize:"1.1rem",fontWeight:700}}>Cascade Risk</div>
-                  <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Simulate a task slipping. See the downstream effect instantly — updated finish date, new confidence, blocked tasks.</div>
-                </div>
-              </div>
 
-              {/* Cascade simulator */}
-              <CascadeSimulator
-                tasks={data.tasks} result={result} simulatorTaskId={simulatorTaskId}
-                onTaskChange={setSimulatorTaskId}
-                startDate={data.startDate} targetDate={data.targetDate} budget={data.budget||"Flexible"}
-              />
+          {/* ══ RISK & FIXES ══ */}
+          {activeNav==="risk" && (
+            <div style={{animation:"fadeUp 0.3s ease both"}}>
+              <div style={{marginBottom:"1rem"}}>
+                <div style={{fontSize:"1.1rem",fontWeight:700}}>Risk & Fixes</div>
+                <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Where your plan is most likely to break, and exactly what to do about it.</div>
+              </div>
 
               {/* Overall risk */}
               {result.predictiveRisk && (
-                <div style={{...card({border:"1px solid "+result.predictiveRisk.planBand+"40"}),padding:"1.25rem",marginBottom:"0.75rem",marginTop:"0.75rem",position:"relative",overflow:"hidden"}}>
+                <div style={{...card({border:"1px solid "+result.predictiveRisk.planBand+"40"}),padding:"1.25rem",marginBottom:"0.75rem",position:"relative",overflow:"hidden"}}>
                   <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:result.predictiveRisk.planBand}}/>
                   <div style={{display:"flex",alignItems:"baseline",gap:"0.65rem",marginBottom:"0.4rem"}}>
                     <span style={{fontFamily:"Georgia,serif",fontSize:"2.8rem",color:result.predictiveRisk.planBand,lineHeight:1}}>{result.predictiveRisk.planProb}%</span>
@@ -1941,19 +1921,22 @@ function ResultsContent() {
                   })}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* ══ AGENT 04 — CONFIDENCE SCORE ══ */}
-          {activeNav==="confidence" && (
-            <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:"0.65rem",flexWrap:"wrap"}}>
-                <span style={{fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",color:C.blue,background:C.blue+"18",border:"1px solid "+C.blue+"40",borderRadius:100,padding:"0.2rem 0.65rem",flexShrink:0}}>Agent 04</span>
-                <div>
-                  <div style={{fontSize:"1.1rem",fontWeight:700}}>Confidence Score</div>
-                  <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Three questions every project manager needs answered: timeline, team capacity, and plan efficiency.</div>
+              {/* Optimization opportunities */}
+              {result.shuffleOps.length > 0 && (
+                <div style={{...card({border:"1px solid "+C.green+"25"}),padding:"1rem",marginBottom:"0.75rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.65rem"}}>◈ SCHEDULING FIXES — zero cost, immediate impact</div>
+                  {result.shuffleOps.map((op,i)=>(
+                    <div key={i} style={{display:"flex",gap:"0.75rem",alignItems:"flex-start",padding:"0.6rem 0",borderBottom:i<result.shuffleOps.length-1?"1px solid "+C.border2:"none"}}>
+                      <div style={{background:C.green+"20",border:"1px solid "+C.green+"40",borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:C.green,flexShrink:0}}>{i+1}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text,marginBottom:"0.2rem"}}>{op.reason}</div>
+                        <div style={{fontSize:"0.72rem",color:C.green,fontWeight:600}}>Recovers ~{op.daysSaved} days at zero additional cost</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
 
               {/* Intelligence pillars */}
               {(() => {
@@ -2006,190 +1989,125 @@ function ResultsContent() {
                 );
               })()}
 
-              {/* Workload by owner */}
-              {workloadData && (
-                <>
-                  {workloadData.concentrationRisk && (
-                    <div style={{...card({border:"1px solid "+C.red+"40",background:C.redDim}),padding:"1rem",marginBottom:"0.75rem"}}>
-                      <div style={{fontSize:"0.58rem",color:C.red,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.4rem"}}>⚠ SINGLE POINT OF FAILURE</div>
-                      <div style={{fontSize:"0.88rem",color:C.text,fontWeight:600,marginBottom:"0.2rem"}}>{workloadData.concentrationRisk.name} owns {workloadData.concentrationRisk.criticalTasks.length} of {workloadData.totalCritical} critical path tasks</div>
-                      <div style={{fontSize:"0.78rem",color:C.textMid,lineHeight:1.6}}>If they get stuck, blocked, or unavailable — everything waiting on them stops. That's {workloadData.concentrationRisk.criticalDays} days of critical work on one person.</div>
-                      <div style={{marginTop:"0.6rem",fontSize:"0.75rem",color:C.green,fontWeight:600}}>→ Review whether any of their critical tasks can be redistributed or started earlier by someone else.</div>
-                    </div>
-                  )}
-
-                  {workloadData.bottlenecks.length > 0 && (
-                    <div style={{...card(),padding:"1rem",marginBottom:"0.75rem"}}>
-                      <div style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.6rem"}}>APPROVAL BOTTLENECKS — tasks that gate the most work</div>
-                      {workloadData.bottlenecks.map((b,i) => (
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:i<workloadData.bottlenecks.length-1?"1px solid "+C.border2:"none"}}>
-                          <div style={{width:38,height:38,borderRadius:"50%",background:C.amber+"18",border:"1px solid "+C.amber+"40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:C.amber,flexShrink:0}}>{b.dependents}</div>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text}}>{b.name}</div>
-                            <div style={{fontSize:"0.72rem",color:C.textDim}}>{b.owner} · {b.dependents} tasks waiting on this · zero float</div>
-                            <div style={{fontSize:"0.75rem",color:C.amber,marginTop:"0.15rem"}}>This task gates {b.dependents} others — prioritize it</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div style={{...card(),padding:"1rem",marginBottom:"0.75rem"}}>
-                    <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>WORKLOAD BY OWNER</div>
-                    {workloadData.owners.map((owner, i) => {
-                      const loadPct = Math.round(owner.totalDays / workloadData.maxDays * 100);
-                      const critPct = Math.round(owner.criticalDays / workloadData.maxDays * 100);
-                      const isOverloaded = owner.criticalTasks.length >= 3 || loadPct > 70;
-                      const ownerColor = isOverloaded ? C.red : owner.criticalTasks.length >= 2 ? C.amber : C.green;
-                      return (
-                        <div key={i} style={{marginBottom:"0.85rem"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.3rem"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                              <div style={{width:28,height:28,borderRadius:"50%",background:ownerColor+"18",border:"1px solid "+ownerColor+"40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:ownerColor,flexShrink:0}}>
-                                {owner.name.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text}}>{owner.name}</div>
-                                <div style={{fontSize:"0.68rem",color:C.textDim}}>{owner.tasks.length} milestone{owner.tasks.length!==1?"s":""} · {owner.totalDays} days total</div>
-                              </div>
-                            </div>
-                            <div style={{textAlign:"right",flexShrink:0}}>
-                              {isOverloaded && <div style={{fontSize:"0.6rem",color:C.red,fontWeight:700,background:C.red+"15",borderRadius:4,padding:"0.1rem 0.4rem",marginBottom:"0.15rem"}}>HIGH LOAD</div>}
-                              <div style={{fontSize:"0.72rem",color:owner.criticalTasks.length>0?C.red:C.textDim}}>{owner.criticalTasks.length} critical</div>
-                            </div>
-                          </div>
-                          <div style={{height:6,background:C.border2,borderRadius:3,overflow:"hidden"}}>
-                            <div style={{height:"100%",display:"flex"}}>
-                              <div style={{width:critPct+"%",background:C.red,borderRadius:"3px 0 0 3px",transition:"width 0.8s ease"}}/>
-                              <div style={{width:Math.max(0,loadPct-critPct)+"%",background:C.blue+"80",transition:"width 0.8s ease"}}/>
-                            </div>
-                          </div>
-                          <div style={{display:"flex",gap:"0.75rem",marginTop:"0.25rem",fontSize:"0.62rem",color:C.textDim}}>
-                            {owner.criticalTasks.length>0&&<span style={{color:C.red}}>◆ Critical: {owner.criticalTasks.slice(0,2).join(", ")}{owner.criticalTasks.length>2?` +${owner.criticalTasks.length-2} more`:""}</span>}
-                            {owner.tasks.filter(t=>!t.isCritical).length>0&&<span>Also: {owner.tasks.filter(t=>!t.isCritical).length} non-critical</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div style={{display:"flex",gap:"0.75rem",marginTop:"0.25rem",flexWrap:"wrap"}}>
-                      {[{color:C.red,label:"Critical path tasks"},{color:C.blue+"80",label:"Non-critical tasks"}].map((l,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:"0.3rem",fontSize:"0.68rem",color:C.textMid}}>
-                          <div style={{width:10,height:4,background:l.color,borderRadius:2}}/>{l.label}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {workloadData.sequentialRisk.length > 0 && (
-                    <div style={{...card({border:"1px solid "+C.amber+"30"}),padding:"1rem",marginBottom:"0.75rem"}}>
-                      <div style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.5rem"}}>SEQUENTIAL OVERLOAD</div>
-                      {workloadData.sequentialRisk.map((o,i)=>(
-                        <div key={i} style={{fontSize:"0.82rem",color:C.textMid,lineHeight:1.65,marginBottom:"0.4rem"}}>
-                          <strong style={{color:C.text}}>{o.name}</strong> has {o.criticalTasks.length} critical tasks in sequence: {o.criticalTasks.join(" → ")}. If they fall behind on the first, everything after moves too.
-                        </div>
-                      ))}
-                      <div style={{fontSize:"0.75rem",color:C.amber,fontWeight:600,marginTop:"0.4rem"}}>→ Build explicit check-ins at each handoff point for these owners.</div>
-                    </div>
-                  )}
-
-                  {!workloadData.concentrationRisk && workloadData.bottlenecks.length === 0 && workloadData.sequentialRisk.length === 0 && (
-                    <div style={{...card({border:"1px solid "+C.green+"30",background:C.greenDim}),padding:"1rem"}}>
-                      <div style={{fontSize:"0.88rem",fontWeight:600,color:C.green,marginBottom:"0.3rem"}}>✓ Team workload looks balanced</div>
-                      <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.65}}>No single person is carrying an outsized share of the critical work. No approval bottlenecks detected.</div>
-                    </div>
-                  )}
-                </>
-              )}
             </div>
           )}
 
-          {/* ══ AGENT 05 — SCHEDULING FIXES ══ */}
-          {activeNav==="optimize" && (
+
+
+          {/* ══ WORKLOAD INTELLIGENCE (P1-3) ══ */}
+          {activeNav==="workload" && workloadData && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
-              <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:"0.65rem",flexWrap:"wrap"}}>
-                <span style={{fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",color:C.green,background:C.greenDim,border:"1px solid "+C.green+"40",borderRadius:100,padding:"0.2rem 0.65rem",flexShrink:0}}>Agent 05</span>
-                <div>
-                  <div style={{fontSize:"1.1rem",fontWeight:700}}>Scheduling Fixes</div>
-                  <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Zero-cost improvements. Run these tasks in parallel to recover days without adding budget or headcount.</div>
-                </div>
+              <div style={{marginBottom:"1rem"}}>
+                <div style={{fontSize:"1.1rem",fontWeight:700}}>Workload Intelligence</div>
+                <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Who's carrying the most risk — and where a single person getting stuck would stall everything.</div>
               </div>
 
-              {result.shuffleOps.length > 0 ? (
-                <div style={{...card({border:"1px solid "+C.green+"25"}),padding:"1rem",marginBottom:"0.75rem"}}>
-                  <div style={{fontSize:"0.58rem",color:C.green,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.65rem"}}>◈ SCHEDULING FIXES — zero cost, immediate impact</div>
-                  {result.shuffleOps.map((op,i)=>(
-                    <div key={i} style={{display:"flex",gap:"0.75rem",alignItems:"flex-start",padding:"0.6rem 0",borderBottom:i<result.shuffleOps.length-1?"1px solid "+C.border2:"none"}}>
-                      <div style={{background:C.green+"20",border:"1px solid "+C.green+"40",borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:C.green,flexShrink:0}}>{i+1}</div>
+              {/* Concentration risk alert */}
+              {workloadData.concentrationRisk && (
+                <div style={{...card({border:"1px solid "+C.red+"40",background:C.redDim}),padding:"1rem",marginBottom:"0.75rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.red,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.4rem"}}>⚠ SINGLE POINT OF FAILURE</div>
+                  <div style={{fontSize:"0.88rem",color:C.text,fontWeight:600,marginBottom:"0.2rem"}}>{workloadData.concentrationRisk.name} owns {workloadData.concentrationRisk.criticalTasks.length} of {workloadData.totalCritical} critical path tasks</div>
+                  <div style={{fontSize:"0.78rem",color:C.textMid,lineHeight:1.6}}>If they get stuck, blocked, or unavailable — everything waiting on them stops. That's {workloadData.concentrationRisk.criticalDays} days of critical work on one person.</div>
+                  <div style={{marginTop:"0.6rem",fontSize:"0.75rem",color:C.green,fontWeight:600}}>→ Review whether any of their critical tasks can be redistributed or started earlier by someone else.</div>
+                </div>
+              )}
+
+              {/* Approval bottlenecks */}
+              {workloadData.bottlenecks.length > 0 && (
+                <div style={{...card(),padding:"1rem",marginBottom:"0.75rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.6rem"}}>APPROVAL BOTTLENECKS — tasks that gate the most work</div>
+                  {workloadData.bottlenecks.map((b,i) => (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:i<workloadData.bottlenecks.length-1?"1px solid "+C.border2:"none"}}>
+                      <div style={{width:38,height:38,borderRadius:"50%",background:C.amber+"18",border:"1px solid "+C.amber+"40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:C.amber,flexShrink:0}}>{b.dependents}</div>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text,marginBottom:"0.2rem"}}>{op.reason}</div>
-                        <div style={{fontSize:"0.72rem",color:C.green,fontWeight:600}}>Recovers ~{op.daysSaved} days at zero additional cost</div>
+                        <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text}}>{b.name}</div>
+                        <div style={{fontSize:"0.72rem",color:C.textDim}}>{b.owner} · {b.dependents} tasks waiting on this · zero float</div>
+                        <div style={{fontSize:"0.75rem",color:C.amber,marginTop:"0.15rem"}}>This task gates {b.dependents} others — prioritize it</div>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div style={{...card({border:"1px solid "+C.green+"30",background:C.greenDim}),padding:"1rem",marginBottom:"0.75rem"}}>
-                  <div style={{fontSize:"0.88rem",fontWeight:600,color:C.green,marginBottom:"0.3rem"}}>✓ Plan is already well-sequenced</div>
-                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.65}}>No obvious parallelization opportunities found. The current task order appears optimal.</div>
+              )}
+
+              {/* Owner workload breakdown */}
+              <div style={{...card(),padding:"1rem",marginBottom:"0.75rem"}}>
+                <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.75rem"}}>WORKLOAD BY OWNER</div>
+                {workloadData.owners.map((owner, i) => {
+                  const loadPct = Math.round(owner.totalDays / workloadData.maxDays * 100);
+                  const critPct = Math.round(owner.criticalDays / workloadData.maxDays * 100);
+                  const isOverloaded = owner.criticalTasks.length >= 3 || loadPct > 70;
+                  const ownerColor = isOverloaded ? C.red : owner.criticalTasks.length >= 2 ? C.amber : C.green;
+                  return (
+                    <div key={i} style={{marginBottom:"0.85rem"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.3rem"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                          <div style={{width:28,height:28,borderRadius:"50%",background:ownerColor+"18",border:"1px solid "+ownerColor+"40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.75rem",fontWeight:700,color:ownerColor,flexShrink:0}}>
+                            {owner.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{fontSize:"0.85rem",fontWeight:600,color:C.text}}>{owner.name}</div>
+                            <div style={{fontSize:"0.68rem",color:C.textDim}}>{owner.tasks.length} milestone{owner.tasks.length!==1?"s":""} · {owner.totalDays} days total</div>
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          {isOverloaded && <div style={{fontSize:"0.6rem",color:C.red,fontWeight:700,background:C.red+"15",borderRadius:4,padding:"0.1rem 0.4rem",marginBottom:"0.15rem"}}>HIGH LOAD</div>}
+                          <div style={{fontSize:"0.72rem",color:owner.criticalTasks.length>0?C.red:C.textDim}}>{owner.criticalTasks.length} critical</div>
+                        </div>
+                      </div>
+                      {/* Workload bar */}
+                      <div style={{height:6,background:C.border2,borderRadius:3,overflow:"hidden"}}>
+                        <div style={{height:"100%",display:"flex"}}>
+                          <div style={{width:critPct+"%",background:C.red,borderRadius:"3px 0 0 3px",transition:"width 0.8s ease"}}/>
+                          <div style={{width:Math.max(0,loadPct-critPct)+"%",background:C.blue+"80",transition:"width 0.8s ease"}}/>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:"0.75rem",marginTop:"0.25rem",fontSize:"0.62rem",color:C.textDim}}>
+                        {owner.criticalTasks.length>0&&<span style={{color:C.red}}>◆ Critical: {owner.criticalTasks.slice(0,2).join(", ")}{owner.criticalTasks.length>2?` +${owner.criticalTasks.length-2} more`:""}</span>}
+                        {owner.tasks.filter(t=>!t.isCritical).length>0&&<span>Also: {owner.tasks.filter(t=>!t.isCritical).length} non-critical</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{display:"flex",gap:"0.75rem",marginTop:"0.25rem",flexWrap:"wrap"}}>
+                  {[{color:C.red,label:"Critical path tasks"},{color:C.blue+"80",label:"Non-critical tasks"}].map((l,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.3rem",fontSize:"0.68rem",color:C.textMid}}>
+                      <div style={{width:10,height:4,background:l.color,borderRadius:2}}/>{l.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sequential overload warnings */}
+              {workloadData.sequentialRisk.length > 0 && (
+                <div style={{...card({border:"1px solid "+C.amber+"30"}),padding:"1rem"}}>
+                  <div style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.5rem"}}>SEQUENTIAL OVERLOAD</div>
+                  {workloadData.sequentialRisk.map((o,i)=>(
+                    <div key={i} style={{fontSize:"0.82rem",color:C.textMid,lineHeight:1.65,marginBottom:"0.4rem"}}>
+                      <strong style={{color:C.text}}>{o.name}</strong> has {o.criticalTasks.length} critical tasks in sequence: {o.criticalTasks.join(" → ")}. If they fall behind on the first, everything after moves too.
+                    </div>
+                  ))}
+                  <div style={{fontSize:"0.75rem",color:C.amber,fontWeight:600,marginTop:"0.4rem"}}>→ Build explicit check-ins at each handoff point for these owners.</div>
                 </div>
               )}
 
-              {/* Cost exposure */}
-              {(() => {
-                const totalCost = data.tasks.reduce((a,t)=>{const c=parseFloat((t.cost||"0").replace(/[^0-9.]/g,""))||0;return a+c;},0);
-                if (totalCost === 0) return null;
-                const dailyBurn = totalCost > 0 && result.projectDuration > 0 ? totalCost/result.projectDuration : 0;
-                const overrunCost = result.bufferDays < 0 && dailyBurn > 0 ? Math.abs(result.bufferDays)*dailyBurn : 0;
-                const tasksWithCost = data.tasks.filter(t=>t.cost&&parseFloat(t.cost.replace(/[^0-9.]/g,""))>0);
-                const criticalWithCost = tasksWithCost.filter(t=>result.criticalPath.includes(t.name));
-                const timeOnlyDelays = result.tasks.filter(t=>t.slack===0&&!data.tasks.find(dt=>dt.id===t.id)?.cost);
-                return (
-                  <div style={{...card({border:"1px solid "+(overrunCost>0?C.red:C.green)+"30"}),padding:"1rem"}}>
-                    <div style={{fontSize:"0.58rem",color:C.textDim,fontWeight:700,letterSpacing:"0.1em",marginBottom:"0.65rem"}}>COST EXPOSURE</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                      {[
-                        {label:"Total mapped cost",val:"$"+totalCost.toLocaleString(),color:C.text},
-                        {label:"Daily burn rate",val:"$"+Math.round(dailyBurn).toLocaleString()+"/day",color:C.textMid},
-                        {label:"Overrun exposure",val:overrunCost>0?"$"+Math.round(overrunCost).toLocaleString():"None",color:overrunCost>0?C.red:C.green},
-                      ].map((s,i)=>(
-                        <div key={i} style={{background:C.surface2,borderRadius:8,padding:"0.6rem 0.75rem"}}>
-                          <div style={{fontSize:"0.55rem",color:C.textDim,marginBottom:"0.2rem"}}>{s.label}</div>
-                          <div style={{fontSize:"0.95rem",fontWeight:700,color:s.color}}>{s.val}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {criticalWithCost.length > 0 && (
-                      <div>
-                        <div style={{fontSize:"0.62rem",color:C.red,fontWeight:600,marginBottom:"0.35rem"}}>Labor/cost-impacting delays (critical path tasks with budgets):</div>
-                        {criticalWithCost.map((t,i)=>(
-                          <div key={i} style={{fontSize:"0.78rem",color:C.textMid,padding:"0.2rem 0"}}>◆ {t.name} — {t.cost} — <span style={{color:C.red}}>miss this and you pay for the delay</span></div>
-                        ))}
-                      </div>
-                    )}
-                    {timeOnlyDelays.length > 0 && (
-                      <div style={{marginTop:"0.5rem"}}>
-                        <div style={{fontSize:"0.62rem",color:C.amber,fontWeight:600,marginBottom:"0.35rem"}}>Time-only delays (critical, no direct cost):</div>
-                        {timeOnlyDelays.slice(0,3).map((t,i)=>(
-                          <div key={i} style={{fontSize:"0.78rem",color:C.textMid,padding:"0.2rem 0"}}>◆ {t.name} — slip cascades to downstream tasks</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+              {/* Team health summary */}
+              {!workloadData.concentrationRisk && workloadData.bottlenecks.length === 0 && workloadData.sequentialRisk.length === 0 && (
+                <div style={{...card({border:"1px solid "+C.green+"30",background:C.greenDim}),padding:"1rem"}}>
+                  <div style={{fontSize:"0.88rem",fontWeight:600,color:C.green,marginBottom:"0.3rem"}}>✓ Team workload looks balanced</div>
+                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.65}}>No single person is carrying an outsized share of the critical work. No approval bottlenecks detected.</div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ══ AGENT 06 — INTELLIGENCE REPORT ══ */}
-          {activeNav==="report" && (
+
+          {/* ══ AI READOUT (P1-4) ══ */}
+          {activeNav==="readout" && (
             <div style={{animation:"fadeUp 0.3s ease both"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",flexWrap:"wrap",gap:"0.5rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.65rem",flexWrap:"wrap"}}>
-                  <span style={{fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.12em",color:C.purpleLight,background:C.purpleDim,border:"1px solid "+C.purple+"50",borderRadius:100,padding:"0.2rem 0.65rem",flexShrink:0}}>Agent 06</span>
-                  <div>
-                    <div style={{fontSize:"1.1rem",fontWeight:700}}>Intelligence Report</div>
-                    <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Ready to forward. Copy and send — no editing needed.</div>
-                  </div>
+                <div>
+                  <div style={{fontSize:"1.1rem",fontWeight:700}}>AI Readout</div>
+                  <div style={{fontSize:"0.78rem",color:C.textMid,marginTop:"0.15rem"}}>Ready to forward. Copy and send — no editing needed.</div>
                 </div>
                 <div style={{display:"flex",gap:"0.4rem"}}>
                   <button onClick={()=>{
@@ -2339,60 +2257,6 @@ function ResultsContent() {
                   </p>
                 )}
               </div>
-
-              {/* ── Stakeholder Adapter (Solo+) ── */}
-              {stakeholderVersions ? (
-                <div style={{...card({border:"1px solid #7C3AED40"}),padding:"1.25rem",marginBottom:"0.75rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.85rem"}}>
-                    <span style={{color:"#A78BFA"}}>◈</span>
-                    <span style={{fontSize:"0.58rem",color:"#A78BFA",fontWeight:700,letterSpacing:"0.1em"}}>STAKEHOLDER ADAPTER — SOLO</span>
-                    <span style={{fontSize:"0.6rem",color:C.textDim,marginLeft:"auto"}}>Three versions, ready to send</span>
-                  </div>
-                  <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.85rem"}}>
-                    {["client","team","exec"].map(t=>(
-                      <button key={t} onClick={()=>setStakeholderTab(t)} style={{
-                        background:stakeholderTab===t?"#7C3AED":"transparent",
-                        border:"1px solid "+(stakeholderTab===t?"#7C3AED":"#30363D"),
-                        borderRadius:6, color:stakeholderTab===t?"#fff":C.textMid,
-                        fontFamily:"inherit",fontWeight:600,fontSize:"0.7rem",
-                        padding:"0.3rem 0.75rem",cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.05em",
-                      }}>{t==="client"?"Client":t==="team"?"Team":"Exec"}</button>
-                    ))}
-                  </div>
-                  <p style={{fontSize:"0.88rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif",whiteSpace:"pre-wrap"}}>
-                    {stakeholderVersions[stakeholderTab]}
-                  </p>
-                </div>
-              ) : (
-                <div style={{...card({border:"1px solid #7C3AED30",background:"#0D0A1A"}),padding:"1.25rem",marginBottom:"0.75rem",textAlign:"center"}}>
-                  <div style={{fontSize:"1.25rem",marginBottom:"0.5rem"}}>◈</div>
-                  <div style={{fontSize:"0.78rem",fontWeight:700,color:"#A78BFA",marginBottom:"0.35rem"}}>Stakeholder Adapter — Solo Plan</div>
-                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.7,marginBottom:"0.85rem"}}>
-                    Turn this report into three ready-to-send messages — one for your client, one for your team, one for leadership. Zero rewriting.
-                  </div>
-                  <a href="/#pricing" style={{display:"inline-block",background:"#7C3AED",color:"#fff",borderRadius:8,padding:"0.5rem 1.25rem",fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",textDecoration:"none"}}>Upgrade to Solo →</a>
-                </div>
-              )}
-
-              {/* ── Deadline Reverse-Engineer (Team+) ── */}
-              {deadlineReversal ? (
-                <div style={{...card({border:"1px solid "+C.amber+"40"}),padding:"1.25rem",marginBottom:"0.75rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.85rem"}}>
-                    <span style={{color:C.amber}}>⟵</span>
-                    <span style={{fontSize:"0.58rem",color:C.amber,fontWeight:700,letterSpacing:"0.1em"}}>DEADLINE REVERSE-ENGINEER — TEAM</span>
-                  </div>
-                  <p style={{fontSize:"0.88rem",color:C.text,lineHeight:1.85,fontFamily:"Georgia,serif",whiteSpace:"pre-wrap"}}>{deadlineReversal}</p>
-                </div>
-              ) : (
-                <div style={{...card({border:"1px solid "+C.amber+"20",background:"#12100A"}),padding:"1.25rem",marginBottom:"0.75rem",textAlign:"center"}}>
-                  <div style={{fontSize:"1.25rem",marginBottom:"0.5rem"}}>⟵</div>
-                  <div style={{fontSize:"0.78rem",fontWeight:700,color:C.amber,marginBottom:"0.35rem"}}>Deadline Reverse-Engineer — Team Plan</div>
-                  <div style={{fontSize:"0.8rem",color:C.textMid,lineHeight:1.7,marginBottom:"0.85rem"}}>
-                    The deadline is fixed. This agent works backwards and gives you three concrete options — cut scope, compress timeline, or add resource — ranked by what's most realistic.
-                  </div>
-                  <a href="/#pricing" style={{display:"inline-block",background:C.amber,color:"#080A08",borderRadius:8,padding:"0.5rem 1.25rem",fontFamily:"inherit",fontWeight:600,fontSize:"0.8rem",textDecoration:"none"}}>Upgrade to Team →</a>
-                </div>
-              )}
 
               {/* Key bullets — for quick copy */}
               <div style={{...card(),padding:"1.25rem"}}>
