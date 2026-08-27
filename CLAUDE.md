@@ -68,6 +68,42 @@ page's `useSearchParams`/`useEffect` picks up on mount.
 
 Use the harness's real `EnterPlanMode` tool — write the plan, get explicit approval — **before** any edit, not a verbal "here's my plan" followed immediately by tool calls. Trivial, single-file, obviously-scoped fixes (a copy tweak, a color change, a one-line bug fix) don't need it — don't over-apply this to busywork. This mirrors the standing rule already in production on the user's other project (GL Insights / Mighty Monday Power Points), adapted to what "non-trivial" means here.
 
+## Custom subagents — not yet built
+
+The user's other project (GL Insights / Mighty Monday Power Points) has 15 custom review subagents
+defined in `.claude/agents/*.md` (a router called `wizard`, a mandatory-first `code-architect`, a
+mandatory-last `completion-critic`, plus domain reviewers for layout, charts, data integrity, etc.). **This
+project has none of that today** — no `.claude/agents/` directory exists, and only generic built-in agent
+types (`general-purpose`, `Explore`, `Plan`, `claude-code-guide`) are available. What follows is a proposed
+roster, adapted to Pathflo's actual codebase, documented here as a reference — the `.md` files themselves
+haven't been created and no dispatch mechanism has been wired up. Creating them is a separate task from
+maintaining this file.
+
+Proposed roster, if/when built:
+
+1. **wizard** — router. Given a task, greps `.claude/agents/*.md` and returns which of the below should run
+   and in what order. Classification only, doesn't execute anything.
+2. **code-architect** — runs first, unconditionally, on any code-touching task. Confirms the code about to
+   be touched is the real current version, not a stale duplicate — relevant here because this repo already
+   has two known duplicates (`app/Layout.jsx` vs. `app/layout.jsx`; `app/page.jsx` vs. `app/preview/page.jsx`).
+3. **scoring-engine-reviewer** — for any change to `computeCPM`/`computeConfidence`/`computePredictiveRisk`/
+   `computeCascadeImpact`: checks edge cases (0 tasks, 1 task, a cyclic dependency, all-concurrent, all-
+   sequential) actually produce sane output, not just that the happy path does.
+4. **prompt-chain-reviewer** — for changes to `app/api/analyze/route.js`: checks a prompt/output-format
+   change doesn't break the frontend's regex parsing of the response, and that tier-gating (`tierAtLeast`)
+   still matches which agents are supposed to run at which tier.
+5. **layout-consistency-reviewer** — for visual changes: checks the duplicated `T`/`C` color-token objects
+   across `app/page.jsx`/`app/preview/page.jsx`/`app/app/page.jsx`/`app/results/page.jsx` stay in sync rather
+   than drifting.
+6. **data-integrity-reviewer** — for changes touching Supabase: checks RLS assumptions, the Bearer-token
+   auth pattern in `app/api/projects/route.js`, and schema changes against `supabase-setup.sql`.
+7. **completion-critic** — runs last, unconditionally, on every task. Re-reads the real diff against this file's
+   standing rules (Plan Mode triggers, the conventions below) and whether the diff actually completes what
+   was asked — doesn't duplicate the other agents' domain checklists.
+
+Dispatch order, if built: `code-architect` first on anything touching code; `completion-critic` last on every
+task; the domain reviewers (3–6) in between, whichever apply.
+
 ## Product roadmap — fundamental systems update
 
 These are proposed, not-yet-built directions for Pathflo's engine, synthesized from three sources: the
