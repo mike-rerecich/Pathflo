@@ -57,6 +57,63 @@ page's `useSearchParams`/`useEffect` picks up on mount.
 
 - **`app/auth/callback/page.jsx`** — Handles the Supabase OAuth/magic-link redirect (`exchangeCodeForSession`), then forwards to `/app` or a `?next=` target.
 
+## Plan Mode is mandatory before starting work, not optional, when a task:
+
+- touches more than 2 files
+- changes the scoring/formula logic in `computeCPM`, `computeConfidence`, `computePredictiveRisk`, or `computeCascadeImpact`
+- changes tier-gating logic (`tierAtLeast`, the free/solo/team hierarchy) or pricing
+- changes the Supabase schema (`supabase-setup.sql`) or what gets persisted per project
+- adds a new page/route, a new backend service, or a new data pipeline (i.e. a new "system," not a tweak to an existing one)
+- restructures this CLAUDE.md itself
+
+Use the harness's real `EnterPlanMode` tool — write the plan, get explicit approval — **before** any edit, not a verbal "here's my plan" followed immediately by tool calls. Trivial, single-file, obviously-scoped fixes (a copy tweak, a color change, a one-line bug fix) don't need it — don't over-apply this to busywork. This mirrors the standing rule already in production on the user's other project (GL Insights / Mighty Monday Power Points), adapted to what "non-trivial" means here.
+
+## Product roadmap — fundamental systems update
+
+These are proposed, not-yet-built directions for Pathflo's engine, synthesized from three sources: the
+MR Operating Partners deck's positioning (self-validated, backtested milestone-chain forecasting; portfolio
+vs. single-company deployment), the mature patterns already proven out on the user's GL Insights project
+(chain-projection from the last real anchor, honest data-quality surfacing, fact-checked verification before
+shipping), and gaps in Pathflo's current heuristic scoring. **None of this is implemented yet** — each item
+needs its own Plan Mode pass (per the rule above) before code changes, since each is a genuine
+architecture change, not a tweak.
+
+1. **Backtested/self-validating confidence scoring.** Today `computeConfidence`/`computePredictiveRisk` are
+   fixed heuristic weightings (timeline tightness × 0.25, etc. — see `app/results/page.jsx`) with no evidence
+   they predict real outcomes. To make the "self-validated" claim in the MR Operating Partners deck true for
+   Pathflo: persist actual task completion dates (not just the plan) per project in Supabase, then build a
+   chain-validation backtest — for each completed project, treat only the first N of its milestones as known,
+   project the rest forward, and compare the projection to what actually happened. Reliability / bias / accuracy
+   numbers come out of that comparison, not out of the current fixed weights. Requires a schema change
+   (actual dates, not just planned `days`) — Plan Mode required.
+
+2. **Milestone-chain forecasting from real historical durations.** Today task duration is whatever the user
+   types in during the wizard (`currentTask.days`) — there's no learning from prior projects. A chained
+   forecast (mirroring the technique already proven on GL Insights: project each remaining milestone by
+   adding that milestone's real historical average duration to the last actually-completed anchor date,
+   rather than the user's own estimate) would need a durations-by-task-type/owner dataset accumulated
+   across a user's own completed projects — only meaningful once (1) exists and there's enough completed-
+   project history to compute real averages from.
+
+3. **Honest data-quality surfacing in the risk UI.** When a score is based on thin data (few historical
+   completions, a brand-new owner, a task type never seen before), say so in the UI rather than presenting
+   every score with equal confidence — the same principle GL Insights applies to blank/sentinel/backwards-
+   date cells. Concretely: a `dataQuality`/`sampleSize` flag alongside each computed score, surfaced as a
+   visible caveat, never silently blended into the number as if it were equally reliable.
+
+4. **Portfolio-wide view.** The MR Operating Partners deck's "portfolio-wide vs. single-company" deployment
+   split has no equivalent in this codebase — Pathflo today is strictly one project at a time (`/app` →
+   `/results`). A portfolio rollup (multiple projects, aggregated risk/confidence across all of them) would be a
+   new page/route, a new Supabase query pattern (per-user project list already exists via `/api/projects`,
+   but nothing aggregates across it), and arguably a new pricing tier — genuinely new system, not a
+   modification of `/results`.
+
+5. **Verification standard for shipping scoring changes.** Whatever from (1)–(4) actually gets built: before
+   calling it done, run it against a concrete before/after example (a real task list through the new code path)
+   and show the actual numbers, not just that the code compiles/reads correctly — same fact-check-gate
+   principle as the Engineering conventions section below, called out here because a scoring/forecasting
+   change is exactly the kind of thing that "looks right" in a diff and is wrong in practice.
+
 ## Engineering conventions for this project
 
 - **Fact-check before calling something done.** Verify a fix or new score against a real computed example (actual task list through `computeCPM`/the API route), not just that the code reads correctly. This matters especially for `computeConfidence`/`computePredictiveRisk`/`computeCascadeImpact` — a plausible-looking weight change can silently produce nonsense scores at the edges (0 tasks, 1 task, all-concurrent, all-sequential).
