@@ -664,14 +664,14 @@ export default function Home() {
           <div className="pv-price-card">
             <div style={{fontSize:"0.65rem",fontWeight:700,color:"#8A9E8A",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"0.65rem"}}>The Retainer</div>
             <div style={{display:"flex",alignItems:"baseline",gap:"0.2rem",marginBottom:"0.5rem"}}>
-              <span style={{fontFamily:"'Fraunces',serif",fontSize:"2.8rem",fontWeight:700,color:"#EEF2EE",lineHeight:1}}>$10K</span>
-              <span style={{fontSize:"0.8rem",color:"#3E4E3E"}}>/month</span>
+              <span style={{fontFamily:"'Fraunces',serif",fontSize:"2.8rem",fontWeight:700,color:"#EEF2EE",lineHeight:1}}>$200</span>
+              <span style={{fontSize:"0.8rem",color:"#3E4E3E"}}>/hr · capped at 80 hrs/mo</span>
             </div>
             <p style={{fontSize:"0.83rem",color:"#8A9E8A",lineHeight:1.65,marginBottom:"1.5rem"}}>
-              For teams who want to keep going past the sprint — ongoing support and the rest of the curriculum, as follow-on work.
+              For teams who want to keep going past the sprint — ongoing support and the rest of the curriculum, as follow-on work. You only pay for hours actually used, up to the cap.
             </p>
             <div style={{display:"flex",flexDirection:"column",gap:"0.6rem",marginBottom:"1.75rem"}}>
-              {["Direct access for questions and troubleshooting","Special projects, scoped month to month","Phase 2 & 3 curriculum modules as follow-on engagements","Cancel anytime — no lock-in"].map(item=>(
+              {["Billed hourly, never more than 80 hrs in a month","Direct access for questions and troubleshooting","Special projects, scoped month to month","Phase 2 & 3 curriculum modules as follow-on engagements","Cancel anytime — no lock-in"].map(item=>(
                 <div key={item} style={{display:"flex",gap:"0.65rem",fontSize:"0.85rem",color:"#EEF2EE",alignItems:"flex-start"}}>
                   <span style={{color:G,flexShrink:0,fontSize:"0.7rem",marginTop:"0.15rem"}}>✓</span>
                   <span style={{fontWeight:300}}>{item}</span>
@@ -681,7 +681,7 @@ export default function Home() {
             <a href={BOOK_CALL} className="pv-btn-s" style={{width:"100%",justifyContent:"center"}}>Ask about the retainer</a>
           </div>
         </div>
-        <p style={{textAlign:"center",marginTop:"1.75rem",fontSize:"0.75rem",color:"#3E4E3E"}}>The retainer is scoped month to month, not unlimited — you'll always know what's included.</p>
+        <p style={{textAlign:"center",marginTop:"1.75rem",fontSize:"0.75rem",color:"#3E4E3E"}}>The retainer is billed hourly and capped at 80 hrs/month — you'll always know what's included, and what it costs.</p>
       </RevealSection>
 
       {/* PROOF, NOT THEORY */}

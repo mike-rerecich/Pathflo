@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What Pathflo is
 
 Pathflo is a project-management + AI-adoption **consulting practice first, self-serve SaaS second** — as
-of the site revamp, `app/page.jsx` (the homepage) sells a $20K / ~4-week sprint and an optional $10K/mo
-retainer that teach a client's own team the underlying methodology (a 3-phase, 12-module curriculum:
+of the site revamp, `app/page.jsx` (the homepage) sells a $20K / ~4-week sprint and an optional
+$200/hr retainer (capped at 80 hrs/month) that teach a client's own team the underlying methodology
+(a 3-phase, 12-module curriculum:
 institutional AI memory, forecasting/predictive modeling, risk scoring, comment rollup, charting,
 document generation, review architecture, and more). This is the primary go-to-market now; don't revert
 the homepage back to SaaS-first framing without being asked.
