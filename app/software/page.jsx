@@ -427,8 +427,13 @@ export default function Home() {
         .pv-btn-s{display:inline-flex;align-items:center;justify-content:center;background:${WHITE};color:${TEXT};border:1.5px solid ${BORDER};border-radius:100px;font-family:inherit;font-weight:500;font-size:0.95rem;padding:0.9rem 2rem;cursor:pointer;text-decoration:none;transition:all 0.15s}
         .pv-btn-s:hover{border-color:${BRAND_DEEP};color:${BRAND_DEEP}}
 
-        .pv-card{background:${WHITE};border:1px solid ${BORDER};border-radius:16px;padding:1.75rem;position:relative;transition:box-shadow 0.2s,border-color 0.2s;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+        .pv-card{background:${WHITE};border:1px solid ${BORDER};border-radius:16px;padding:1.75rem;position:relative;overflow:hidden;transition:box-shadow 0.2s,border-color 0.2s;box-shadow:0 1px 2px rgba(0,0,0,.03)}
         .pv-card:hover{box-shadow:0 1px 2px rgba(0,0,0,.04), 0 12px 28px rgba(0,0,0,.06);border-color:${BORDER_HOVER}}
+        .pv-card::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:${BRAND};transform:scaleX(0);transform-origin:left;opacity:0;transition:transform 0.3s ease,opacity 0.3s ease}
+        .pv-card:hover::after{transform:scaleX(1);opacity:1}
+
+        a:focus-visible,button:focus-visible{outline:none;box-shadow:0 0 0 2px ${WHITE},0 0 0 4px ${BRAND};border-radius:4px;transition:box-shadow 0.2s ease}
+        .pv-btn-p:focus-visible,.pv-btn-s:focus-visible{box-shadow:0 0 0 2px ${WHITE},0 0 0 4px ${BRAND},0 1px 2px rgba(0,0,0,.06)}
 
         .pv-price-card{background:${WHITE};border:1px solid ${BORDER};border-radius:20px;padding:1.75rem;position:relative;overflow:visible;box-shadow:0 1px 2px rgba(0,0,0,.03);transition:box-shadow 0.2s}
         .pv-price-card:hover{box-shadow:0 1px 2px rgba(0,0,0,.04), 0 12px 28px rgba(0,0,0,.06)}
