@@ -8,7 +8,7 @@ function hex2rgb(hex) {
   return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
 }
 
-/* ─── Logo ───────────────────────────────────────────────────── */
+/* ─── Logo ───────────────────────────────────────────────────────── */
 const Logo = ({ color=G, size=18 }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{display:"inline-block",verticalAlign:"middle"}}>
     <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none"/>
@@ -19,7 +19,7 @@ const Logo = ({ color=G, size=18 }) => (
   </svg>
 );
 
-/* ─── useReveal ──────────────────────────────────────────────── */
+/* ─── useReveal ──────────────────────────────────────────────────── */
 function useReveal(threshold=0.1) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -47,7 +47,7 @@ function RevealSection({ children, id, style }) {
   );
 }
 
-/* ─── ScrollProgress ─────────────────────────────────────────── */
+/* ─── ScrollProgress ─────────────────────────────────────────────── */
 function ScrollProgress() {
   const barRef = useRef(null);
   useEffect(() => {
@@ -68,9 +68,9 @@ function ScrollProgress() {
   );
 }
 
-/* ─── Preloader — text flash only ───────────────────────────── */
+/* ─── Preloader — text flash only ───────────────────────────────── */
 function Preloader() {
-  const [phase, setPhase] = useState("in"); // in → out → done
+  const [phase, setPhase] = useState("in");
   useEffect(() => {
     const t1 = setTimeout(() => setPhase("out"), 1200);
     const t2 = setTimeout(() => setPhase("done"), 1900);
@@ -100,7 +100,7 @@ function Preloader() {
   );
 }
 
-/* ─── BackgroundField — multicolor canvas ────────────────────── */
+/* ─── BackgroundField — multicolor canvas ────────────────────────── */
 function BackgroundField() {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -135,8 +135,6 @@ function BackgroundField() {
 
     const draw = () => {
       ctx.clearRect(0,0,W,H);
-
-      // Mesh threads — multicolor
       for (let i=0;i<mesh.length;i++) {
         const p=mesh[i];
         p.x+=p.vx; p.y+=p.vy;
@@ -152,8 +150,6 @@ function BackgroundField() {
           }
         }
       }
-
-      // Solar systems — each its own color
       systems.forEach(s => {
         s.burst++;
         const bst=s.burst%260<22;
@@ -163,7 +159,6 @@ function BackgroundField() {
         grd.addColorStop(1,"transparent");
         ctx.beginPath(); ctx.arc(s.x,s.y,80,0,Math.PI*2);
         ctx.fillStyle=grd; ctx.fill();
-
         s.orbs.forEach(o => {
           o.angle+=o.speed;
           const px=s.x+Math.cos(o.angle)*o.r;
@@ -173,7 +168,6 @@ function BackgroundField() {
           ctx.fillStyle=`rgba(${or},${og},${ob},${o.alpha*(bst?1.7:1)})`;
           ctx.fill();
         });
-
         const outerR=s.orbs[s.orbs.length-1]?.r||40;
         ctx.beginPath(); ctx.arc(s.x,s.y,outerR,0,Math.PI*2);
         ctx.strokeStyle=`rgba(${r},${g},${b},0.03)`; ctx.lineWidth=1; ctx.stroke();
@@ -186,14 +180,14 @@ function BackgroundField() {
   return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0,pointerEvents:"none",opacity:0.72}}/>;
 }
 
-/* ─── AgentFlow — comet bursts into agent nodes ──────────────── */
+/* ─── AgentFlow — comet travels between nodes ────────────────────── */
 const AGENT_NODES = [
-  {n:"01",name:"Risk Scanner",    short:"Top failure points",    tier:"Free",  color:"#3ECB6F", col:0,row:0},
-  {n:"02",name:"Fix Generator",   short:"Specific fixes",        tier:"Free",  color:"#22D3EE", col:1,row:0},
-  {n:"03",name:"Cascade Modeler", short:"Domino simulation",     tier:"Free",  color:"#3B82F6", col:1,row:1},
-  {n:"04",name:"Exec Writer",     short:"60s forwardable readout",tier:"Free", color:"#8B5CF6", col:0,row:1},
-  {n:"05",name:"Stakeholder",     short:"3 audience versions",   tier:"Solo",  color:"#A78BFA", col:0,row:2},
-  {n:"06",name:"Deadline RE",     short:"Work backwards to hit date",tier:"Team",color:"#F59E0B",col:1,row:2},
+  {n:"01",name:"Risk Scanner",    short:"Top failure points",         tier:"Free", color:"#3ECB6F", col:0,row:0},
+  {n:"02",name:"Fix Generator",   short:"Specific fixes",             tier:"Free", color:"#22D3EE", col:1,row:0},
+  {n:"03",name:"Cascade Modeler", short:"Domino simulation",          tier:"Free", color:"#3B82F6", col:1,row:1},
+  {n:"04",name:"Exec Writer",     short:"60s forwardable readout",    tier:"Free", color:"#8B5CF6", col:0,row:1},
+  {n:"05",name:"Stakeholder",     short:"3 audience versions",        tier:"Solo", color:"#A78BFA", col:0,row:2},
+  {n:"06",name:"Deadline RE",     short:"Work backwards to hit date", tier:"Team", color:"#F59E0B", col:1,row:2},
 ];
 
 function CometDot({ fromCx, fromCy, toCx, toCy, color }) {
@@ -207,7 +201,7 @@ function CometDot({ fromCx, fromCy, toCx, toCy, color }) {
     const animate = ts => {
       if (!start) start = ts;
       const t = Math.min((ts-start)/dur, 1);
-      const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOut
+      const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t;
       el.style.left = (fromCx+(toCx-fromCx)*ease - 4)+"px";
       el.style.top  = (fromCy+(toCy-fromCy)*ease - 4)+"px";
       el.style.opacity = t>0.88 ? String(1-(t-0.88)/0.12) : "1";
@@ -215,7 +209,6 @@ function CometDot({ fromCx, fromCy, toCx, toCy, color }) {
     };
     requestAnimationFrame(animate);
   }, [fromCx,fromCy,toCx,toCy,color]);
-  const [r,g,b] = hex2rgb(color);
   return (
     <div ref={ref} style={{
       position:"absolute", left:fromCx-4, top:fromCy-4,
@@ -255,29 +248,26 @@ function AgentFlow() {
     cx: PAD+col*(CW+GX)+CW/2, cy: PAD+row*(CH+GY)+CH/2,
   });
 
-  // Connection edges between consecutive nodes (snake: 0→1→2→3→4→5)
   const edges = AGENT_NODES.map((a,i) => {
     if (i>=5) return null;
     const fp=nodePos(a.col,a.row), np=AGENT_NODES[i+1], tp=nodePos(np.col,np.row);
     let x1,y1,x2,y2;
-    if (fp.cy===tp.cy) { // horizontal
+    if (fp.cy===tp.cy) {
       x1=a.col<np.col?fp.x+CW:fp.x; y1=fp.cy;
       x2=a.col<np.col?tp.x:tp.x+CW; y2=tp.cy;
-    } else { // vertical
+    } else {
       x1=fp.cx; y1=fp.cy<tp.cy?fp.y+CH:fp.y;
       x2=tp.cx; y2=fp.cy<tp.cy?tp.y:tp.y+CH;
     }
     return {x1,y1,x2,y2,color:a.color};
   }).filter(Boolean);
 
-  // Active comet: traveling from phase node to phase+1 node
   const showComet = phase>=0 && phase<5;
   const fp = showComet ? nodePos(AGENT_NODES[phase].col, AGENT_NODES[phase].row) : null;
   const tp = showComet ? nodePos(AGENT_NODES[phase+1].col, AGENT_NODES[phase+1].row) : null;
 
   return (
     <div style={{background:"rgba(7,10,8,0.93)",border:"1px solid #1C2128",borderRadius:14,overflow:"hidden",boxShadow:"0 28px 70px rgba(0,0,0,0.7), 0 0 0 1px rgba(62,203,111,0.05)",backdropFilter:"blur(16px)"}}>
-      {/* Header */}
       <div style={{padding:"10px 14px",borderBottom:"1px solid #1C2128",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{fontSize:"0.68rem",fontWeight:600,color:"#8A9E8A",display:"flex",alignItems:"center",gap:"0.4rem"}}>
           <span style={{width:5,height:5,borderRadius:"50%",background:G,animation:"pv-pulse 2s infinite",flexShrink:0}}/>
@@ -285,10 +275,7 @@ function AgentFlow() {
         </div>
         <div style={{fontSize:"0.6rem",color:"#3E4E3E",fontFamily:"monospace"}}>6 agents</div>
       </div>
-
-      {/* Grid */}
       <div style={{position:"relative",width:W,height:H}}>
-        {/* SVG edges */}
         <svg style={{position:"absolute",inset:0,overflow:"visible",pointerEvents:"none"}} width={W} height={H}>
           {edges.map((e,i) => {
             const active = phase>i;
@@ -305,8 +292,6 @@ function AgentFlow() {
             );
           })}
         </svg>
-
-        {/* Agent nodes */}
         {AGENT_NODES.map((a,i) => {
           const p=nodePos(a.col,a.row);
           const active=phase>=i, current=phase===i;
@@ -334,8 +319,6 @@ function AgentFlow() {
             </div>
           );
         })}
-
-        {/* Traveling comet */}
         {showComet && (
           <CometDot key={phase}
             fromCx={fp.cx} fromCy={fp.cy}
@@ -344,8 +327,6 @@ function AgentFlow() {
           />
         )}
       </div>
-
-      {/* Confidence footer */}
       <div style={{padding:"10px 14px",borderTop:"1px solid #1C2128",display:"flex",alignItems:"center",gap:"0.75rem"}}>
         <div style={{fontSize:"0.6rem",fontWeight:600,letterSpacing:"0.08em",color:"#484F58",textTransform:"uppercase",flexShrink:0}}>On-time</div>
         <div style={{flex:1,height:3,borderRadius:2,background:"#1C2128"}}>
@@ -357,7 +338,7 @@ function AgentFlow() {
   );
 }
 
-/* ─── Demo data ──────────────────────────────────────────────── */
+/* ─── Demo data ──────────────────────────────────────────────────── */
 const DEMO_TASKS = [
   {id:"t0",name:"Strategy & Planning",days:5, owner:"Marcus",  predecessors:[],          concurrent:false},
   {id:"t1",name:"Content & Copy",     days:8, owner:"Sarah",   predecessors:["t0"],      concurrent:false},
@@ -384,11 +365,11 @@ const DEMO_RESULT = {
   ],
 };
 
-/* ─── DependencyGraph ────────────────────────────────────────── */
+/* ─── DependencyGraph ────────────────────────────────────────────── */
 function DependencyGraph({ tasks, result }) {
   const [selectedId, setSelectedId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
-  const C = {
+  const DC = {
     nodeFill:"rgba(22,27,34,0.85)",nodeBorder:"#30363D",
     text:"#E6EDF3",textDim:"#8B949E",textSub:"#484F58",
     crit:"#EF4444",critFill:"rgba(239,68,68,0.1)",
@@ -431,21 +412,21 @@ function DependencyGraph({ tasks, result }) {
     <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",width:"100%"}}>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{display:"block",minWidth:W}}>
         <defs>
-          <marker id="pv-ac" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.crit} opacity="0.85"/></marker>
-          <marker id="pv-an" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.textSub} opacity="0.5"/></marker>
-          <marker id="pv-au" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.blue} opacity="0.9"/></marker>
-          <marker id="pv-ad" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.crit} opacity="0.7"/></marker>
-          <marker id="pv-dim" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={C.textSub} opacity="0.2"/></marker>
+          <marker id="pv-ac" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={DC.crit} opacity="0.85"/></marker>
+          <marker id="pv-an" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={DC.textSub} opacity="0.5"/></marker>
+          <marker id="pv-au" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={DC.blue} opacity="0.9"/></marker>
+          <marker id="pv-ad" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={DC.crit} opacity="0.7"/></marker>
+          <marker id="pv-dim" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill={DC.textSub} opacity="0.2"/></marker>
           <filter id="pv-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
-        {cascadeRect&&<g><rect x={cascadeRect.x} y={cascadeRect.y} width={cascadeRect.w} height={cascadeRect.h} rx="10" fill={C.cascadeFill} stroke={C.cascadeStroke} strokeWidth="1" strokeDasharray="6 4"/><text x={cascadeRect.x+cascadeRect.w/2} y={cascadeRect.y+13} textAnchor="middle" fontSize="7.5" fontFamily="system-ui" fontWeight="700" fill="rgba(239,68,68,0.7)" letterSpacing="0.08em">CASCADE IMPACT ZONE</text></g>}
+        {cascadeRect&&<g><rect x={cascadeRect.x} y={cascadeRect.y} width={cascadeRect.w} height={cascadeRect.h} rx="10" fill={DC.cascadeFill} stroke={DC.cascadeStroke} strokeWidth="1" strokeDasharray="6 4"/><text x={cascadeRect.x+cascadeRect.w/2} y={cascadeRect.y+13} textAnchor="middle" fontSize="7.5" fontFamily="system-ui" fontWeight="700" fill="rgba(239,68,68,0.7)" letterSpacing="0.08em">CASCADE IMPACT ZONE</text></g>}
         {tasks.map(t=>t.predecessors.map(pid=>{
           const from=positions[pid],to=positions[t.id];if(!from||!to)return null;
           const isCritE=criticalIds.has(pid)&&criticalIds.has(t.id);
           const isUp=focusId&&upstream.has(pid)&&(upstream.has(t.id)||t.id===focusId);
           const isDown=focusId&&downstream.has(t.id)&&(downstream.has(pid)||pid===focusId);
           const isDim=focusId&&!isUp&&!isDown&&pid!==focusId&&t.id!==focusId;
-          const stroke=isDim?`${C.textSub}33`:isUp?C.blue:isDown?C.crit:isCritE?`${C.crit}AA`:`${C.textSub}55`;
+          const stroke=isDim?`${DC.textSub}33`:isUp?DC.blue:isDown?DC.crit:isCritE?`${DC.crit}AA`:`${DC.textSub}55`;
           const marker=isDim?"url(#pv-dim)":isUp?"url(#pv-au)":isDown?"url(#pv-ad)":isCritE?"url(#pv-ac)":"url(#pv-an)";
           return <path key={`${pid}-${t.id}`} d={edgePath(from,to)} fill="none" stroke={stroke} strokeWidth={isDim?1:isCritE||isUp||isDown?2:1.5} markerEnd={marker} strokeDasharray={t.concurrent?"5 4":"none"} style={{transition:"stroke 0.2s"}}/>;
         }))}
@@ -456,25 +437,25 @@ function DependencyGraph({ tasks, result }) {
           const isUp=upstream.has(t.id),isDown=downstream.has(t.id);
           const isDim=focusId&&t.id!==focusId&&!connected.has(t.id);
           const floatDays=rt?.slack||0;
-          const fill=isDim?"rgba(15,20,15,0.5)":isSelected?`${C.blue}22`:isUp?`${C.blue}18`:isDown?`${C.crit}12`:isCrit?C.critFill:t.concurrent?C.greenFill:C.nodeFill;
-          const stroke=isDim?"#1E251E":isSelected?C.blue:isUp?C.blue:isDown?C.crit:isCrit?C.crit:C.nodeBorder;
+          const fill=isDim?"rgba(15,20,15,0.5)":isSelected?`${DC.blue}22`:isUp?`${DC.blue}18`:isDown?`${DC.crit}12`:isCrit?DC.critFill:t.concurrent?DC.greenFill:DC.nodeFill;
+          const stroke=isDim?"#1E251E":isSelected?DC.blue:isUp?DC.blue:isDown?DC.crit:isCrit?DC.crit:DC.nodeBorder;
           const strokeW=isDim?1:(isSelected||isUp||isDown||isCrit)?2:1.5;
-          const textFill=isDim?C.textSub:isSelected?C.blue:isUp?C.blue:isDown?C.crit:isCrit?C.crit:C.text;
-          const subFill=isDim?C.textSub:isUp?`${C.blue}CC`:isDown?`${C.crit}CC`:C.textDim;
-          const dotFill=isDim?"#252D25":isCrit?C.crit:C.green;
+          const textFill=isDim?DC.textSub:isSelected?DC.blue:isUp?DC.blue:isDown?DC.crit:isCrit?DC.crit:DC.text;
+          const subFill=isDim?DC.textSub:isUp?`${DC.blue}CC`:isDown?`${DC.crit}CC`:DC.textDim;
+          const dotFill=isDim?"#252D25":isCrit?DC.crit:DC.green;
           const subLabel=`${t.days}d · ${(t.owner==="UNASSIGNED"?"Unassigned":t.owner)||"?"}`.slice(0,18);
           return (
             <g key={t.id} style={{cursor:"pointer",opacity:isDim?0.3:1,transition:"opacity 0.2s"}}
               onClick={()=>setSelectedId(t.id===selectedId?null:t.id)}
               onMouseEnter={()=>setHoveredId(t.id)} onMouseLeave={()=>setHoveredId(null)}
               filter={isSelected?"url(#pv-glow)":undefined}>
-              {isSelected&&<rect x={pos.x-4} y={pos.y-4} width={pos.w+8} height={pos.h+8} rx="13" fill="none" stroke={`${C.blue}33`} strokeWidth="2"/>}
+              {isSelected&&<rect x={pos.x-4} y={pos.y-4} width={pos.w+8} height={pos.h+8} rx="13" fill="none" stroke={`${DC.blue}33`} strokeWidth="2"/>}
               <rect x={pos.x} y={pos.y} width={pos.w} height={pos.h} rx="8" fill={fill} stroke={stroke} strokeWidth={strokeW} style={{transition:"fill 0.2s,stroke 0.2s"}}/>
-              {isCrit&&!isDim&&<rect x={pos.x+1} y={pos.y+1} width={pos.w-2} height="2" rx="1" fill={C.crit} opacity="0.55"/>}
-              <text x={pos.x+9} y={pos.y+18} fontSize="10" fontFamily="system-ui" fontWeight={isCrit?"700":"500"} fill={isDim?C.textSub:textFill} style={{transition:"fill 0.2s"}}>{t.name.length>14?t.name.slice(0,13)+"…":t.name}</text>
-              <text x={pos.x+9} y={pos.y+32} fontSize="8.5" fontFamily="system-ui" fontWeight="400" fill={isDim?C.textSub:subFill} style={{transition:"fill 0.2s"}}>{subLabel}</text>
+              {isCrit&&!isDim&&<rect x={pos.x+1} y={pos.y+1} width={pos.w-2} height="2" rx="1" fill={DC.crit} opacity="0.55"/>}
+              <text x={pos.x+9} y={pos.y+18} fontSize="10" fontFamily="system-ui" fontWeight={isCrit?"700":"500"} fill={isDim?DC.textSub:textFill} style={{transition:"fill 0.2s"}}>{t.name.length>14?t.name.slice(0,13)+"…":t.name}</text>
+              <text x={pos.x+9} y={pos.y+32} fontSize="8.5" fontFamily="system-ui" fontWeight="400" fill={isDim?DC.textSub:subFill} style={{transition:"fill 0.2s"}}>{subLabel}</text>
               <circle cx={pos.x+pos.w-11} cy={pos.y+12} r="3.5" fill={dotFill} style={{transition:"fill 0.2s"}}/>
-              {floatDays>0&&!isDim&&<g><rect x={pos.x+pos.w-28} y={pos.y+pos.h-13} width={24} height={10} rx="3" fill="rgba(34,197,94,0.18)"/><text x={pos.x+pos.w-16} y={pos.y+pos.h-5} fontSize="7" fontFamily="system-ui" fontWeight="700" fill={C.green} textAnchor="middle">+{floatDays}d</text></g>}
+              {floatDays>0&&!isDim&&<g><rect x={pos.x+pos.w-28} y={pos.y+pos.h-13} width={24} height={10} rx="3" fill="rgba(34,197,94,0.18)"/><text x={pos.x+pos.w-16} y={pos.y+pos.h-5} fontSize="7" fontFamily="system-ui" fontWeight="700" fill={DC.green} textAnchor="middle">+{floatDays}d</text></g>}
             </g>
           );
         })}
@@ -483,8 +464,8 @@ function DependencyGraph({ tasks, result }) {
   );
 }
 
-/* ─── Main ───────────────────────────────────────────────────── */
-export default function PreviewPage() {
+/* ─── Main page ──────────────────────────────────────────────────── */
+export default function Home() {
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -512,26 +493,26 @@ export default function PreviewPage() {
     {q:"How do I explain this to my client?",a:"One tap generates a shareable executive readout — formatted to forward. No PM skills needed to send it or understand it.",icon:"↗"},
   ];
   const comparison=[
-    {pm:"Store your tasks",              pathflo:"Predict your outcomes before work begins"},
-    {pm:"Tell you you're behind",        pathflo:"Tell you why — before it happens"},
-    {pm:"Show you a Gantt chart",        pathflo:"Show you the critical path, cascade risks, and what to fix"},
-    {pm:"Track what exists",             pathflo:"Forecast what's coming — confidence, failure probability, buffer"},
-    {pm:"No workload visibility",        pathflo:"Flags who's overloaded and who's a single point of failure"},
+    {pm:"Store your tasks",               pathflo:"Predict your outcomes before work begins"},
+    {pm:"Tell you you're behind",         pathflo:"Tell you why — before it happens"},
+    {pm:"Show you a Gantt chart",         pathflo:"Show you the critical path, cascade risks, and what to fix"},
+    {pm:"Track what exists",              pathflo:"Forecast what's coming — confidence, failure probability, buffer"},
+    {pm:"No workload visibility",         pathflo:"Flags who's overloaded and who's a single point of failure"},
     {pm:"Require a PM to read the output",pathflo:"One-tap shareable report — forward it from your phone"},
-    {pm:"React to problems",             pathflo:"Prevent them"},
+    {pm:"React to problems",              pathflo:"Prevent them"},
   ];
   const agents=[
-    {n:"01",name:"Risk Scanner",   tier:"Free", color:G,       plain:"Reads your project plan and finds the top 3-5 things most likely to blow up — before they do. Each risk comes with a probability score and exactly which tasks are the trigger."},
-    {n:"02",name:"Fix Generator",  tier:"Free", color:"#22D3EE",plain:"Takes the risks and produces specific actions to fix them. Not generic advice — it references your actual tasks and owners."},
-    {n:"03",name:"Cascade Modeler",tier:"Free", color:T.blue,  plain:"Picks the highest-risk failure point and plays it out step by step. If Task A slips 5 days, here's exactly which tasks get blocked, in what order, and what the final deadline impact is."},
-    {n:"04",name:"Executive Writer",tier:"Free",color:"#8B5CF6",plain:"Turns everything above into a clean, one-page project status summary you can read in 60 seconds. Verdict, top risks, recommended actions — ready to share."},
-    {n:"05",name:"Stakeholder Adapter",tier:"Solo",color:"#A78BFA",plain:"Takes the executive summary and rewrites it three ways: client, team, and exec. Three audiences, zero rewriting."},
-    {n:"06",name:"Deadline Reverse-Engineer",tier:"Team",color:T.amber,plain:"The deadline is fixed. This agent works backwards from it and tells you exactly what has to be cut, compressed, or resourced to hit it."},
+    {n:"01",name:"Risk Scanner",             tier:"Free", color:G,         plain:"Reads your project plan and finds the top 3-5 things most likely to blow up — before they do. Each risk comes with a probability score and exactly which tasks are the trigger."},
+    {n:"02",name:"Fix Generator",            tier:"Free", color:"#22D3EE", plain:"Takes the risks and produces specific actions to fix them. Not generic advice — it references your actual tasks and owners."},
+    {n:"03",name:"Cascade Modeler",          tier:"Free", color:T.blue,    plain:"Picks the highest-risk failure point and plays it out step by step. If Task A slips 5 days, here's exactly which tasks get blocked, in what order, and what the final deadline impact is."},
+    {n:"04",name:"Executive Writer",         tier:"Free", color:"#8B5CF6", plain:"Turns everything above into a clean, one-page project status summary you can read in 60 seconds. Verdict, top risks, recommended actions — ready to share."},
+    {n:"05",name:"Stakeholder Adapter",      tier:"Solo", color:"#A78BFA", plain:"Takes the executive summary and rewrites it three ways: client, team, and exec. Three audiences, zero rewriting."},
+    {n:"06",name:"Deadline Reverse-Engineer",tier:"Team", color:T.amber,   plain:"The deadline is fixed. This agent works backwards from it and tells you exactly what has to be cut, compressed, or resourced to hit it."},
   ];
   const pricing=[
-    {name:"Free",price:"$0",period:"forever",tag:null,primary:false,cta:"Start free",desc:"Run your first analysis and see exactly where your project stands.",items:["1 project analysis","Critical path + dependency graph","Cascade impact simulator","Workload intelligence","AI Executive Readout","Risk Scanner","Fix Generator"]},
-    {name:"Solo",price:"$49",period:"/mo",tag:"Most popular",primary:true,cta:"Start Solo",desc:"For contractors and operators who need to communicate project status to clients and leadership.",items:["Everything in Free","Unlimited projects","Stakeholder Adapter — 3 ready-to-send report versions","Cascade Modeler — full domino-effect simulation","Save & revisit projects"]},
-    {name:"Team",price:"$99",period:"/mo",tag:null,primary:false,cta:"Start Team",desc:"For agencies and teams managing multiple projects with multiple owners.",items:["Everything in Solo","Deadline Reverse-Engineer","Multi-owner workload mapping","Priority support"]},
+    {name:"Free", price:"$0",  period:"forever",tag:null,          primary:false,cta:"Start free",  desc:"Run your first analysis and see exactly where your project stands.",items:["1 project analysis","Critical path + dependency graph","Cascade impact simulator","Workload intelligence","AI Executive Readout","Risk Scanner","Fix Generator"]},
+    {name:"Solo", price:"$49", period:"/mo",    tag:"Most popular", primary:true, cta:"Start Solo",  desc:"For contractors and operators who need to communicate project status to clients and leadership.",items:["Everything in Free","Unlimited projects","Stakeholder Adapter — 3 ready-to-send report versions","Cascade Modeler — full domino-effect simulation","Save & revisit projects"]},
+    {name:"Team", price:"$99", period:"/mo",    tag:null,          primary:false,cta:"Start Team",  desc:"For agencies and teams managing multiple projects with multiple owners.",items:["Everything in Solo","Deadline Reverse-Engineer","Multi-owner workload mapping","Priority support"]},
   ];
 
   return (
@@ -582,7 +563,6 @@ export default function PreviewPage() {
         .pv-price-card:hover{transform:translateY(-3px);box-shadow:0 12px 48px rgba(0,0,0,0.4)}
         .pv-price-card.pv-featured{background:linear-gradient(145deg,rgba(62,203,111,0.08),rgba(13,17,13,0.95));border-color:rgba(62,203,111,0.35);box-shadow:0 0 0 1px rgba(62,203,111,0.15),0 20px 60px rgba(62,203,111,0.1)}
 
-        /* Left slide-out nav */
         .pv-ham{display:flex;flex-direction:column;gap:5px;cursor:pointer;padding:4px;border:none;background:transparent;z-index:202;position:relative}
         .pv-ham span{display:block;width:22px;height:2px;background:#EEF2EE;border-radius:2px;transition:all 0.28s}
         .pv-ham.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
@@ -614,19 +594,12 @@ export default function PreviewPage() {
         }
       `}</style>
 
-      {/* Grain */}
       <div className="pv-grain"/>
-
-      {/* Preloader */}
       <Preloader/>
-
-      {/* Scroll progress */}
       <ScrollProgress/>
-
-      {/* Multicolor canvas */}
       <BackgroundField/>
 
-      {/* Fixed ambient cloudiness layer */}
+      {/* Fixed ambient cloudiness */}
       <div style={{position:"fixed",inset:0,zIndex:0,pointerEvents:"none",overflow:"hidden"}}>
         <div style={{position:"absolute",top:"-15vh",left:"28%",width:900,height:900,borderRadius:"50%",background:"radial-gradient(circle,rgba(62,203,111,0.055) 0%,transparent 65%)",filter:"blur(50px)",animation:"pv-drift 32s ease-in-out infinite"}}/>
         <div style={{position:"absolute",top:"35vh",right:"-8%",width:700,height:700,borderRadius:"50%",background:"radial-gradient(circle,rgba(59,130,246,0.045) 0%,transparent 65%)",filter:"blur(70px)",animation:"pv-drift2 27s ease-in-out infinite"}}/>
@@ -635,10 +608,8 @@ export default function PreviewPage() {
         <div style={{position:"absolute",top:"10vh",right:"15%",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(236,72,153,0.025) 0%,transparent 65%)",filter:"blur(90px)",animation:"pv-drift 42s ease-in-out infinite"}}/>
       </div>
 
-      {/* Nav backdrop */}
       <div className={`pv-nav-backdrop ${navOpen?"open":""}`} onClick={()=>setNavOpen(false)}/>
 
-      {/* Left slide-out drawer */}
       <div className={`pv-nav-drawer ${navOpen?"open":""}`}>
         <div className="pv-drawer-links">
           {[["#how","How it works"],["#why","Why it works"],["#graph","See it live"],["#pricing","Pricing"]].map(([href,label])=>(
@@ -652,7 +623,6 @@ export default function PreviewPage() {
         </div>
       </div>
 
-      {/* Nav bar */}
       <nav style={{
         position:"fixed",top:2,left:0,right:0,zIndex:201,height:62,
         display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 1.75rem",
@@ -664,7 +634,7 @@ export default function PreviewPage() {
         <button className={`pv-ham ${navOpen?"open":""}`} onClick={()=>setNavOpen(o=>!o)} aria-label="Menu">
           <span/><span/><span/>
         </button>
-        <a href="/preview" style={{textDecoration:"none",display:"flex",alignItems:"center",gap:"0.5rem",position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
+        <a href="/" style={{textDecoration:"none",display:"flex",alignItems:"center",gap:"0.5rem",position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
           <Logo color={G} size={22}/>
           <span style={{fontWeight:700,fontSize:"1.05rem",color:"#EEF2EE",letterSpacing:"-0.02em"}}>
             Path<span style={{color:G}}>flo</span>
@@ -675,33 +645,28 @@ export default function PreviewPage() {
 
       {/* ── HERO ── */}
       <section style={{position:"relative",zIndex:1,padding:"148px 2rem 110px",maxWidth:1200,margin:"0 auto",overflow:"hidden"}}>
-        {/* Misty orbs — more, colored */}
         <div className="pv-mist" style={{width:560,height:560,background:"radial-gradient(circle,rgba(62,203,111,0.1) 0%,transparent 70%)",top:"-12%",left:"52%",animation:"pv-drift 22s ease-in-out infinite"}}/>
         <div className="pv-mist" style={{width:380,height:380,background:"radial-gradient(circle,rgba(62,203,111,0.07) 0%,transparent 70%)",top:"18%",left:"-6%",animation:"pv-drift2 18s ease-in-out infinite"}}/>
         <div className="pv-mist" style={{width:300,height:300,background:"radial-gradient(circle,rgba(59,130,246,0.06) 0%,transparent 70%)",top:"55%",right:"-2%",animation:"pv-drift 26s ease-in-out infinite reverse"}}/>
         <div className="pv-mist" style={{width:220,height:220,background:"radial-gradient(circle,rgba(139,92,246,0.05) 0%,transparent 70%)",bottom:"8%",left:"25%",animation:"pv-drift2 20s ease-in-out infinite"}}/>
         <div className="pv-mist" style={{width:180,height:180,background:"radial-gradient(circle,rgba(20,184,166,0.05) 0%,transparent 70%)",top:"35%",left:"45%",animation:"pv-drift 24s ease-in-out infinite reverse"}}/>
-        {/* Halos */}
         <div className="pv-halo"  style={{width:580,height:580,top:"calc(50% - 290px)",left:"calc(50% - 290px)"}}/>
         <div className="pv-halo2" style={{width:780,height:780,top:"calc(50% - 390px)",left:"calc(50% - 390px)"}}/>
-        {/* Embers */}
         {[
           {l:"8%",b:"18%",d:"0s",r:"4.2s"},{l:"14%",b:"22%",d:"0.7s",r:"5.1s"},
           {l:"22%",b:"15%",d:"1.3s",r:"3.9s"},{l:"32%",b:"25%",d:"0.4s",r:"4.7s"},
           {l:"45%",b:"20%",d:"1.8s",r:"5.5s"},{l:"55%",b:"30%",d:"0.2s",r:"4.0s"},
           {l:"63%",b:"12%",d:"1.1s",r:"5.2s"},{l:"72%",b:"22%",d:"0.9s",r:"3.7s"},
           {l:"80%",b:"18%",d:"1.6s",r:"4.4s"},{l:"88%",b:"28%",d:"0.5s",r:"5.0s"},
-          {l:"18%",b:"10%",d:"2.1s",r:"4.8s"},{l:"38%",b:"8%",d:"1.4s",r:"3.5s"},
+          {l:"18%",b:"10%",d:"2.1s",r:"4.8s"},{l:"38%",b:"8%", d:"1.4s",r:"3.5s"},
           {l:"58%",b:"14%",d:"0.3s",r:"4.6s"},{l:"76%",b:"10%",d:"1.9s",r:"5.3s"},
         ].map((e,i)=>(
           <div key={i} className="pv-ember" style={{left:e.l,bottom:e.b,animationDelay:e.d,animationDuration:e.r}}/>
         ))}
-        {/* Comets */}
         <div className="pv-comet" style={{top:"22%",left:"58%",animationDuration:"6s",animationDelay:"0s"}}/>
         <div className="pv-comet" style={{top:"54%",left:"18%",animationDuration:"8.5s",animationDelay:"3.2s"}}/>
 
         <div className="pv-hero-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4rem",alignItems:"center"}}>
-          {/* Left */}
           <div>
             <div className="pv-h1" style={{marginBottom:"1.75rem"}}>
               <span style={{display:"inline-flex",alignItems:"center",gap:"0.5rem",background:"rgba(13,17,13,0.8)",border:"1px solid #252D25",borderRadius:"100px",padding:"0.4rem 1.1rem",fontSize:"0.68rem",fontWeight:600,color:"#8A9E8A",letterSpacing:"0.1em",backdropFilter:"blur(8px)"}}>
@@ -730,7 +695,6 @@ export default function PreviewPage() {
               ))}
             </div>
           </div>
-          {/* Right: AgentFlow */}
           <div className="pv-hero-right pv-float">
             <AgentFlow/>
           </div>
@@ -787,74 +751,149 @@ export default function PreviewPage() {
         </div>
       </RevealSection>
 
-      {/* DEPENDENCY GRAPH */}
-      <RevealSection id="graph" style={{padding:"0 1.5rem",maxWidth:1140,margin:"0 auto 5rem"}}>
+      {/* RESULTS PAGE MOCKUP */}
+      <RevealSection id="graph" style={{padding:"0 1.5rem",maxWidth:1200,margin:"0 auto 5rem"}}>
         <div style={{textAlign:"center",marginBottom:"2.5rem"}}>
-          <div style={{fontSize:"0.65rem",color:G,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:"0.75rem"}}>DEPENDENCY INTELLIGENCE</div>
+          <div style={{fontSize:"0.65rem",color:G,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:"0.75rem"}}>YOUR RESULTS DASHBOARD</div>
           <h2 style={{fontFamily:"'Fraunces',serif",fontSize:"clamp(1.8rem,4vw,2.6rem)",fontWeight:700,lineHeight:1.1,letterSpacing:"-0.025em",marginBottom:"0.85rem"}}>
-            See the failure chain<br/><em style={{color:G,fontStyle:"italic",fontWeight:300}}>before it happens.</em>
+            This is exactly what<br/><em style={{color:G,fontStyle:"italic",fontWeight:300}}>you'll see after analysis.</em>
           </h2>
           <p style={{color:"#8A9E8A",fontSize:"0.95rem",fontWeight:300,lineHeight:1.8,maxWidth:"480px",margin:"0 auto"}}>
-            Every dependency mapped. Every cascade risk surfaced. Every optimization identified — before a single day of work begins.
+            Live demo of the real dashboard. Click any task node to see its cascade impact.
           </p>
         </div>
-        <div style={{background:"#0D1117",border:"1px solid #1C2128",borderRadius:20,overflow:"hidden",boxShadow:"0 8px 40px rgba(0,0,0,0.5)"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"1rem 1.5rem",borderBottom:"1px solid #1C2128",flexWrap:"wrap",gap:"0.5rem"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"0.6rem",fontSize:"0.85rem",fontWeight:600,color:"#EEF2EE"}}>
-              <span style={{width:7,height:7,borderRadius:"50%",background:G,display:"inline-block",animation:"pv-pulse 2s infinite"}}/>
-              Website Launch — Northstar Nutrition
+
+        {/* Results page shell — matches /results exactly */}
+        <div style={{borderRadius:16,overflow:"hidden",border:"1px solid #252D25",boxShadow:"0 24px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(62,203,111,0.06)",background:"#080A08"}}>
+
+          {/* Top bar — identical to results page */}
+          <div style={{background:"rgba(8,10,8,0.96)",backdropFilter:"blur(20px)",borderBottom:"1px solid #1C2128",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 0.85rem",gap:"0.5rem",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.65rem",minWidth:0}}>
+              <span style={{color:"#484F58",fontSize:"1rem",flexShrink:0}}>☰</span>
+              <svg width="18" height="18" viewBox="0 0 32 32" fill="none" style={{flexShrink:0}}>
+                <path d="M4 24 C8 24 10 14 15 14 C20 14 22 6 26 6 C29 6 30 12 31 14" stroke={G} strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                <circle cx="4" cy="24" r="3" fill={G}/>
+                <circle cx="15" cy="14" r="2.5" fill={G} opacity="0.7"/>
+                <circle cx="26" cy="6" r="2.5" fill={G} opacity="0.5"/>
+                <circle cx="31" cy="14" r="2.5" fill={G} opacity="0.9"/>
+              </svg>
+              <span style={{fontWeight:700,color:"#EEF2EE",fontSize:"0.9rem",flexShrink:0}}>Path<span style={{color:G}}>flo</span></span>
+              <span style={{color:"#1C2128",fontSize:"1.2rem",flexShrink:0}}>|</span>
+              <span style={{color:"#8A9E8A",fontSize:"0.82rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Website Launch — Northstar Nutrition</span>
+              <span style={{background:"rgba(239,68,68,0.18)",color:"#EF4444",fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.08em",padding:"0.18rem 0.55rem",borderRadius:100,border:"1px solid rgba(239,68,68,0.35)",flexShrink:0}}>AT RISK</span>
             </div>
-            <div style={{display:"flex",gap:"1.5rem",flexWrap:"wrap"}}>
-              {[{label:"Tasks",val:"9"},{label:"Dependencies",val:"11"},{label:"Critical Path",val:"5 tasks"}].map(s=>(
-                <div key={s.label} style={{fontSize:"0.72rem",color:"#8A9E8A"}}>{s.label} <span style={{color:"#EEF2EE",fontWeight:700}}>{s.val}</span></div>
-              ))}
-            </div>
-            <div style={{fontSize:"0.68rem",borderRadius:6,padding:"0.25rem 0.75rem",fontWeight:700,letterSpacing:"0.06em",background:"rgba(239,68,68,0.08)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.25)"}}>⚠ CASCADE RISK DETECTED</div>
-          </div>
-          <div className="pv-graph-body" style={{display:"grid",gridTemplateColumns:"1fr 272px",overflow:"visible"}}>
-            <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT}/>
-            <div className="pv-graph-rp" style={{borderLeft:"1px solid #1C2128",padding:"1.25rem",display:"flex",flexDirection:"column",gap:"1rem"}}>
-              <div>
-                <div style={{fontSize:"0.6rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#EF4444",marginBottom:"0.4rem"}}>BIGGEST RISK</div>
-                <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"0.85rem"}}>
-                  <div style={{fontSize:"0.8rem",fontWeight:700,color:"#EF4444",marginBottom:"0.3rem"}}>⚠ Development is the bottleneck</div>
-                  <div style={{fontSize:"0.77rem",lineHeight:1.65,color:"#8A9E8A"}}>QA & Testing can't start until it's done. 2 days of buffer remain — any slip cascades into Launch.</div>
-                </div>
+            <div style={{display:"flex",alignItems:"center",gap:"0.75rem",flexShrink:0}}>
+              <div style={{fontSize:"0.78rem",color:"#8A9E8A",display:"flex",alignItems:"center",gap:"0.35rem"}}>
+                <span style={{color:"#EF4444",fontWeight:700,fontSize:"1rem"}}>74%</span>
+                <span style={{color:"#484F58"}}>→</span>
+                <span style={{color:G,fontWeight:700,fontSize:"1rem"}}>86%</span>
+                <span>if optimized</span>
               </div>
-              <div>
-                <div style={{fontSize:"0.6rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A9E8A",marginBottom:"0.4rem"}}>CASCADE IMPACT</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.4rem"}}>
-                  {[{label:"Delay Risk",val:"+5–7d",color:"#EF4444"},{label:"Tasks Blocked",val:"3 tasks",color:"#EF4444"},{label:"Owners at Risk",val:"3 people",color:T.amber},{label:"Cost Exposure",val:"$4,200",color:T.amber}].map((s,i)=>(
-                    <div key={i} style={{background:"#111519",border:"1px solid #1C2128",borderRadius:8,padding:"0.5rem 0.65rem"}}>
-                      <div style={{fontSize:"0.56rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",color:"#3E4E3E",marginBottom:"0.15rem"}}>{s.label}</div>
-                      <div style={{fontSize:"0.9rem",fontWeight:700,color:s.color}}>{s.val}</div>
-                    </div>
+              <div style={{background:"transparent",border:"1px solid #252D25",borderRadius:8,color:"#8A9E8A",fontSize:"0.75rem",fontWeight:500,padding:"0.35rem 0.7rem",cursor:"default"}}>⬆ Share</div>
+              <div style={{background:"transparent",border:"1px solid #252D25",borderRadius:8,color:"#8A9E8A",fontSize:"0.75rem",fontWeight:500,padding:"0.35rem 0.7rem",cursor:"default"}}>✎ Revise</div>
+              <div style={{background:G,color:"#080A08",borderRadius:8,fontSize:"0.78rem",fontWeight:600,padding:"0.38rem 0.9rem",cursor:"default"}}>+ New</div>
+            </div>
+          </div>
+
+          {/* Main layout: left nav + content */}
+          <div style={{display:"flex",overflow:"hidden"}}>
+
+            {/* Left sidebar nav — identical to results page */}
+            <nav style={{width:210,background:"rgba(8,10,8,0.92)",borderRight:"1px solid #1C2128",padding:"0.85rem 0",display:"flex",flexDirection:"column",flexShrink:0}}>
+              {[
+                {id:"overview", label:"Overview",       icon:"⬡", active:false},
+                {id:"plan",     label:"Execution Plan", icon:"◈", active:true},
+                {id:"risk",     label:"Risk & Fixes",   icon:"⚠", active:false},
+                {id:"workload", label:"Workload",        icon:"⊞", active:false},
+                {id:"readout",  label:"AI Readout",     icon:"✦", active:false},
+              ].map(n=>(
+                <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.55rem 0.75rem",background:n.active?"#0A1F12":"transparent",borderLeft:n.active?`2px solid ${G}`:"2px solid transparent",color:n.active?G:"#8A9E8A",fontSize:"0.82rem",fontWeight:n.active?600:400,cursor:"default"}}>
+                  <span style={{fontSize:"0.75rem",flexShrink:0}}>{n.icon}</span>
+                  {n.label}
+                </div>
+              ))}
+              <div style={{margin:"0.75rem 0.75rem 0",padding:"0.75rem",background:"rgba(62,203,111,0.04)",border:"1px solid rgba(62,203,111,0.12)",borderRadius:8,marginTop:"auto"}}>
+                <div style={{fontSize:"0.58rem",fontWeight:700,color:G,letterSpacing:"0.1em",marginBottom:"0.3rem"}}>CONFIDENCE</div>
+                <div style={{display:"flex",alignItems:"baseline",gap:"0.4rem"}}>
+                  <span style={{fontFamily:"'Fraunces',serif",fontSize:"1.8rem",fontWeight:700,color:"#EF4444",lineHeight:1}}>74</span>
+                  <span style={{fontSize:"0.7rem",color:"#EF4444"}}>%</span>
+                  <span style={{fontSize:"0.7rem",color:"#484F58",marginLeft:"0.2rem"}}>→</span>
+                  <span style={{fontFamily:"'Fraunces',serif",fontSize:"1.5rem",fontWeight:700,color:G,lineHeight:1}}>86</span>
+                  <span style={{fontSize:"0.65rem",color:G}}>%</span>
+                </div>
+                <div style={{fontSize:"0.62rem",color:"#484F58",marginTop:"0.2rem"}}>if optimized</div>
+              </div>
+            </nav>
+
+            {/* Main content area */}
+            <div style={{flex:1,minWidth:0,overflow:"auto"}}>
+
+              {/* Section header */}
+              <div style={{padding:"0.85rem 1rem",borderBottom:"1px solid #1C2128",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"0.5rem",flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                  <span style={{fontSize:"0.75rem",color:"#8A9E8A"}}>◈</span>
+                  <span style={{fontSize:"0.85rem",fontWeight:600,color:"#EEF2EE"}}>Execution Plan</span>
+                  <span style={{fontSize:"0.62rem",padding:"0.15rem 0.5rem",background:"rgba(239,68,68,0.08)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.2)",borderRadius:100}}>⚠ Cascade risk detected</span>
+                </div>
+                <div style={{display:"flex",gap:"1.25rem"}}>
+                  {[{l:"Tasks",v:"9"},{l:"Deps",v:"11"},{l:"Critical path",v:"5 tasks"},{l:"Buffer",v:"2d"}].map(s=>(
+                    <div key={s.l} style={{fontSize:"0.7rem",color:"#8A9E8A"}}>{s.l} <span style={{color:"#EEF2EE",fontWeight:700}}>{s.v}</span></div>
                   ))}
                 </div>
               </div>
-              <div>
-                <div style={{fontSize:"0.6rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:G,marginBottom:"0.4rem"}}>PATHFLO FIX</div>
-                <div style={{background:"#0A1F12",border:"1px solid rgba(62,203,111,0.15)",borderRadius:10,padding:"0.85rem"}}>
-                  <div style={{fontSize:"0.72rem",fontWeight:700,color:G,marginBottom:"0.35rem"}}>+ Run Photography in parallel with Design</div>
-                  <div style={{fontSize:"0.77rem",lineHeight:1.65,color:"#8A9E8A"}}>Recovers 4 days. Protects the deadline at zero cost.</div>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginTop:"0.65rem"}}>
-                    <div style={{fontSize:"0.6rem",color:"#3E4E3E"}}>Confidence</div>
-                    <div style={{flex:1,height:3,borderRadius:2,background:"#1C2128"}}>
-                      <div style={{height:"100%",width:"86%",background:G,borderRadius:2}}/>
+
+              {/* Graph + right panel */}
+              <div className="pv-graph-body" style={{display:"grid",gridTemplateColumns:"1fr 260px",overflow:"visible"}}>
+                <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT}/>
+                <div className="pv-graph-rp" style={{borderLeft:"1px solid #1C2128",padding:"1rem",display:"flex",flexDirection:"column",gap:"0.85rem"}}>
+                  <div>
+                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#EF4444",marginBottom:"0.35rem"}}>BIGGEST RISK</div>
+                    <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.18)",borderRadius:8,padding:"0.7rem"}}>
+                      <div style={{fontSize:"0.78rem",fontWeight:700,color:"#EF4444",marginBottom:"0.25rem"}}>⚠ Development is the bottleneck</div>
+                      <div style={{fontSize:"0.74rem",lineHeight:1.6,color:"#8A9E8A"}}>QA &amp; Testing can't start until it's done. 2 days of buffer remain.</div>
                     </div>
-                    <div style={{fontSize:"0.72rem",fontWeight:700,color:G}}>86%</div>
                   </div>
+                  <div>
+                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A9E8A",marginBottom:"0.35rem"}}>CASCADE IMPACT</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.35rem"}}>
+                      {[{l:"Delay Risk",v:"+5–7d",c:"#EF4444"},{l:"Blocked",v:"3 tasks",c:"#EF4444"},{l:"At Risk",v:"3 owners",c:T.amber},{l:"Cost",v:"$4,200",c:T.amber}].map((s,i)=>(
+                        <div key={i} style={{background:"#111519",border:"1px solid #1C2128",borderRadius:6,padding:"0.4rem 0.55rem"}}>
+                          <div style={{fontSize:"0.54rem",fontWeight:600,textTransform:"uppercase",color:"#3E4E3E",marginBottom:"0.1rem"}}>{s.l}</div>
+                          <div style={{fontSize:"0.85rem",fontWeight:700,color:s.c}}>{s.v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:G,marginBottom:"0.35rem"}}>PATHFLO FIX</div>
+                    <div style={{background:"#0A1F12",border:"1px solid rgba(62,203,111,0.15)",borderRadius:8,padding:"0.7rem"}}>
+                      <div style={{fontSize:"0.7rem",fontWeight:700,color:G,marginBottom:"0.3rem"}}>+ Run Photography in parallel</div>
+                      <div style={{fontSize:"0.74rem",lineHeight:1.6,color:"#8A9E8A",marginBottom:"0.5rem"}}>Recovers 4 days at zero cost.</div>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                        <div style={{fontSize:"0.58rem",color:"#3E4E3E",flexShrink:0}}>Confidence</div>
+                        <div style={{flex:1,height:3,borderRadius:2,background:"#1C2128"}}>
+                          <div style={{height:"100%",width:"86%",background:G,borderRadius:2,boxShadow:`0 0 4px ${G}66`}}/>
+                        </div>
+                        <div style={{fontSize:"0.7rem",fontWeight:700,color:G,flexShrink:0}}>86%</div>
+                      </div>
+                    </div>
+                  </div>
+                  <a href="/app" className="pv-btn-p" style={{fontSize:"0.8rem",padding:"0.65rem 1rem",justifyContent:"center",borderRadius:8}}>
+                    Run on my project →
+                  </a>
                 </div>
               </div>
-            </div>
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:"1rem",padding:"0.75rem 1.5rem",borderTop:"1px solid #1C2128"}}>
-            {[{color:"#EF4444",label:"Critical / Zero float"},{color:T.amber,label:"At risk"},{color:G,label:"On track"},{color:"#3E4E3E",label:"Has buffer"}].map((l,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.68rem",color:"#8A9E8A"}}>
-                <div style={{width:9,height:9,borderRadius:3,border:"1.5px solid "+l.color,background:l.color+"18"}}/>
-                {l.label}
+
+              {/* Legend */}
+              <div style={{display:"flex",flexWrap:"wrap",gap:"1rem",padding:"0.65rem 1rem",borderTop:"1px solid #1C2128"}}>
+                {[{color:"#EF4444",label:"Critical / Zero float"},{color:T.amber,label:"At risk"},{color:G,label:"On track"},{color:"#3E4E3E",label:"Has buffer"}].map((l,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.67rem",color:"#8A9E8A"}}>
+                    <div style={{width:8,height:8,borderRadius:3,border:"1.5px solid "+l.color,background:l.color+"18"}}/>
+                    {l.label}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </RevealSection>
@@ -986,13 +1025,6 @@ export default function PreviewPage() {
           </div>
         </div>
       </footer>
-
-      {/* Preview banner */}
-      <div style={{position:"fixed",bottom:16,left:"50%",transform:"translateX(-50%)",zIndex:9000,background:"rgba(8,10,8,0.96)",border:"1px solid #252D25",borderRadius:100,padding:"0.5rem 1.25rem",display:"flex",alignItems:"center",gap:"0.75rem",backdropFilter:"blur(16px)",boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
-        <span style={{width:6,height:6,borderRadius:"50%",background:G,animation:"pv-pulse 2s infinite"}}/>
-        <span style={{fontSize:"0.72rem",color:"#8A9E8A",fontFamily:"'DM Mono',monospace"}}>PREVIEW — not the live site</span>
-        <a href="/" style={{fontSize:"0.72rem",color:G,textDecoration:"none",fontWeight:600}}>← Back to live site</a>
-      </div>
     </main>
   );
 }
