@@ -10,6 +10,7 @@ const BORDER = "#E4E7E4";
 const TEXT = "#14171A";
 const TEXT_MID = "#5B6560";
 const TEXT_DIM = "#8A928D";
+const BORDER_HOVER = "#D8DCD8";
 /* Accent set — see brand/Brand.md "Accent set" table; the same agent's color must match
    app/page.jsx's CHAIN_NODES */
 const ACCENT_TEAL = "#0E7490";
@@ -427,7 +428,7 @@ export default function Home() {
         .pv-btn-s:hover{border-color:${BRAND_DEEP};color:${BRAND_DEEP}}
 
         .pv-card{background:${WHITE};border:1px solid ${BORDER};border-radius:16px;padding:1.75rem;position:relative;transition:box-shadow 0.2s,border-color 0.2s;box-shadow:0 1px 2px rgba(0,0,0,.03)}
-        .pv-card:hover{box-shadow:0 1px 2px rgba(0,0,0,.04), 0 12px 28px rgba(0,0,0,.06);border-color:#D8DCD8}
+        .pv-card:hover{box-shadow:0 1px 2px rgba(0,0,0,.04), 0 12px 28px rgba(0,0,0,.06);border-color:${BORDER_HOVER}}
 
         .pv-price-card{background:${WHITE};border:1px solid ${BORDER};border-radius:20px;padding:1.75rem;position:relative;overflow:visible;box-shadow:0 1px 2px rgba(0,0,0,.03);transition:box-shadow 0.2s}
         .pv-price-card:hover{box-shadow:0 1px 2px rgba(0,0,0,.04), 0 12px 28px rgba(0,0,0,.06)}
@@ -844,7 +845,7 @@ export default function Home() {
           </h2>
           <p style={{color:TEXT_MID,fontSize:"1rem",lineHeight:1.8,marginBottom:"2.5rem",fontWeight:400}}>Set up in 5 minutes. No PM required. No credit card needed.</p>
           <a href="/app" className="pv-btn-p" style={{fontSize:"1.05rem",padding:"1.1rem 2.75rem"}}>Start my first project free →</a>
-          <p style={{marginTop:"1.25rem",fontSize:"0.75rem",color:TEXT_DIM}}>Free forever · No setup required</p>
+          <p style={{marginTop:"1.25rem",fontSize:"0.75rem",color:TEXT_MID}}>Free forever · No setup required</p>
         </div>
       </RevealSection>
 

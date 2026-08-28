@@ -85,7 +85,9 @@ if you're tempted to add one back "for polish," don't; ask first.
 
 - Sections alternate `--white` and `--offgrey` for rhythm — never a gradient, never a dark section.
 - Cards: `--white` background, `1px solid var(--border)`, `border-radius: 14–20px`, and a soft **neutral**
-  shadow — `0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05)`. No colored/glow shadows.
+  shadow — `0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05)`. No colored/glow shadows. On hover,
+  the border darkens slightly to `--border-hover` (`#D8DCD8`) alongside a deeper version of the same
+  neutral shadow — never a color shift.
 - No decorative colored top-bars on cards. Color appears only where it's meaningful: a button, a
   checkmark, a status badge, a numbered phase label.
 
