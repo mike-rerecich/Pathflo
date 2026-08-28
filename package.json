@@ -9,6 +9,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
     "next": "latest",
+    "pptxgenjs": "^4.0.1",
     "react": "latest",
     "react-dom": "latest"
   }

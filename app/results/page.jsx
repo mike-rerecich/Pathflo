@@ -1248,6 +1248,144 @@ function ShareButton({ data, result, confScore }) {
   );
 }
 
+// ── POWERPOINT EXPORT ─────────────────────────────────────────────────────────
+// Uses Pathflo's real light brand palette (brand/Brand.md), not this page's dark
+// working-tool theme — the deck is a forwardable business document, not the app UI.
+function parseExecutiveReadout(readout) {
+  if (!readout) return null;
+  const actionsMatch = readout.match(/RECOMMENDED ACTIONS:\s*([\s\S]*?)(?=\n\s*\n[A-Z ]+:|$)/);
+  const bottomMatch = readout.match(/BOTTOM LINE:\s*([\s\S]*?)$/);
+  const actions = actionsMatch
+    ? actionsMatch[1].split("\n").map(l => l.replace(/^\s*\d+\.\s*/, "").trim()).filter(Boolean)
+    : [];
+  const bottomLine = bottomMatch ? bottomMatch[1].trim() : "";
+  if (!actions.length && !bottomLine) {
+    // Format didn't match what the Executive Writer prompt specifies — fall back
+    // to the raw text rather than fabricating structure that isn't there.
+    return { actions: [], bottomLine: "", raw: readout.trim() };
+  }
+  return { actions, bottomLine, raw: "" };
+}
+
+async function exportToPowerPoint(data, result, aiReadout) {
+  const PptxGenJS = (await import("pptxgenjs")).default;
+  const pres = new PptxGenJS();
+  pres.layout = "LAYOUT_WIDE";
+
+  const WHITE = "FFFFFF", OFFGREY = "F6F7F6", BORDER = "E4E7E4";
+  const TEXT = "14171A", TEXT_MID = "5B6560", TEXT_DIM = "8A928D";
+  const BRAND_DEEP = "166F42", DANGER = "DC2626";
+  const TITLE_FONT = "Cambria", BODY_FONT = "Calibri";
+  const verdictHex = (result.verdictColor || "#3ECB6F").replace("#", "");
+  const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+  function eyebrow(slide, text) {
+    slide.addText(text.toUpperCase(), { x: 0.55, y: 0.45, w: 8, h: 0.35, fontFace: BODY_FONT, fontSize: 12, bold: true, color: TEXT_DIM, charSpacing: 2, isTextBox: true, margin: 0 });
+  }
+
+  // ── Slide 1: Title ──────────────────────────────────────────────────────────
+  let s1 = pres.addSlide();
+  s1.background = { color: WHITE };
+  s1.addText([{ text: "Path", options: { color: TEXT } }, { text: "flo", options: { color: BRAND_DEEP } }],
+    { x: 0.55, y: 0.5, w: 3, h: 0.4, fontFace: BODY_FONT, fontSize: 14, bold: true, isTextBox: true, margin: 0 });
+  s1.addText(data.name || "Untitled Project", { x: 0.55, y: 2.3, w: 12.2, h: 1.3, fontFace: TITLE_FONT, fontSize: 40, bold: true, color: TEXT, isTextBox: true, margin: 0, valign: "top" });
+  s1.addText("Execution Intelligence Report", { x: 0.55, y: 3.5, w: 10, h: 0.5, fontFace: BODY_FONT, fontSize: 18, color: TEXT_MID, isTextBox: true, margin: 0 });
+  s1.addText(result.verdict, { x: 0.55, y: 4.35, w: 8, h: 0.5, fontFace: BODY_FONT, fontSize: 16, bold: true, color: verdictHex, isTextBox: true, margin: 0 });
+  s1.addText("Projected completion: " + result.projectedDate, { x: 0.55, y: 4.85, w: 8, h: 0.4, fontFace: BODY_FONT, fontSize: 13, color: TEXT_MID, isTextBox: true, margin: 0 });
+  s1.addText("Generated " + today + " · pathflo.ai", { x: 0.55, y: 6.9, w: 8, h: 0.35, fontFace: BODY_FONT, fontSize: 10, color: TEXT_DIM, isTextBox: true, margin: 0 });
+
+  // ── Slide 2: Key metrics ────────────────────────────────────────────────────
+  let s2 = pres.addSlide();
+  s2.background = { color: WHITE };
+  eyebrow(s2, "Key Metrics");
+  s2.addText("Where this project stands today", { x: 0.55, y: 0.85, w: 10, h: 0.6, fontFace: TITLE_FONT, fontSize: 26, bold: true, color: TEXT, isTextBox: true, margin: 0 });
+  const bufferOverrun = result.bufferDays >= 0;
+  const planProb = result.predictiveRisk?.planProb ?? null;
+  const stats = [
+    { value: result.confidence.score + "%", label: "Delivery Confidence", color: (result.confidence.band || "#166F42").replace("#", "") },
+    { value: bufferOverrun ? result.bufferDays + "d buffer" : Math.abs(result.bufferDays) + "d overrun", label: "Schedule Buffer", color: bufferOverrun ? BRAND_DEEP : DANGER },
+    { value: planProb === null ? "—" : planProb + "%", label: "Failure Probability", color: planProb === null ? TEXT_DIM : (result.predictiveRisk?.planBand || "#F59E0B").replace("#", "") },
+    { value: String(result.teamSize ?? "—"), label: "Team Size", color: TEXT },
+  ];
+  const tileW = 2.85, gap = 0.25, startX = 0.55, tileY = 2.0, tileH = 2.3;
+  stats.forEach((st, i) => {
+    const x = startX + i * (tileW + gap);
+    s2.addShape("roundRect", { x, y: tileY, w: tileW, h: tileH, rectRadius: 0.1, fill: { color: OFFGREY }, line: { color: BORDER, width: 0.75 } });
+    s2.addText(st.value, { x, y: tileY + 0.45, w: tileW, h: 0.9, align: "center", fontFace: TITLE_FONT, fontSize: 34, bold: true, color: st.color, isTextBox: true, margin: 0 });
+    s2.addText(st.label, { x, y: tileY + 1.5, w: tileW, h: 0.5, align: "center", fontFace: BODY_FONT, fontSize: 12, color: TEXT_MID, isTextBox: true, margin: 0 });
+  });
+  s2.addText(result.confidence.reason || "", { x: 0.55, y: 4.7, w: 10.5, h: 0.5, fontFace: BODY_FONT, fontSize: 13, italic: true, color: TEXT_DIM, isTextBox: true, margin: 0 });
+
+  // ── Slide 3: Critical path ──────────────────────────────────────────────────
+  let s3 = pres.addSlide();
+  s3.background = { color: WHITE };
+  eyebrow(s3, "Critical Path");
+  s3.addText("The sequence that determines your finish date", { x: 0.55, y: 0.85, w: 11, h: 0.6, fontFace: TITLE_FONT, fontSize: 26, bold: true, color: TEXT, isTextBox: true, margin: 0 });
+  const cp = Array.isArray(result.criticalPath) ? result.criticalPath : [];
+  if (cp.length) {
+    const shown = cp.slice(0, 8);
+    s3.addText(shown.map((name, i) => ({
+      text: (i + 1 < 10 ? "0" : "") + (i + 1) + "   " + name,
+      options: { breakLine: i < shown.length - 1, fontFace: BODY_FONT, fontSize: 16, color: TEXT, paraSpaceAfter: 12 },
+    })), { x: 0.55, y: 2.0, w: 11, h: 4.5, isTextBox: true, valign: "top" });
+    if (cp.length > shown.length) {
+      s3.addText("+ " + (cp.length - shown.length) + " more milestones on the critical path — see the full plan in Pathflo.",
+        { x: 0.55, y: 6.7, w: 11, h: 0.4, fontFace: BODY_FONT, fontSize: 11, italic: true, color: TEXT_DIM, isTextBox: true, margin: 0 });
+    }
+  } else {
+    s3.addText("Not enough milestone data to determine a critical path.", { x: 0.55, y: 2.2, w: 10, h: 0.5, fontFace: BODY_FONT, fontSize: 14, italic: true, color: TEXT_DIM, isTextBox: true, margin: 0 });
+  }
+
+  // ── Slide 4: Top risks ──────────────────────────────────────────────────────
+  let s4 = pres.addSlide();
+  s4.background = { color: WHITE };
+  eyebrow(s4, "Top Risks");
+  s4.addText("Where this plan is most likely to slip", { x: 0.55, y: 0.85, w: 11, h: 0.6, fontFace: TITLE_FONT, fontSize: 26, bold: true, color: TEXT, isTextBox: true, margin: 0 });
+  const risks = Array.isArray(result.predictiveRisk?.top3) ? result.predictiveRisk.top3 : [];
+  if (risks.length) {
+    let ry = 2.05;
+    risks.forEach(r => {
+      const rowH = 1.35;
+      s4.addText((r.prob ?? 0) + "%", { x: 0.55, y: ry, w: 1.5, h: rowH, fontFace: TITLE_FONT, fontSize: 26, bold: true, color: DANGER, isTextBox: true, margin: 0, valign: "top" });
+      s4.addText(r.name || "Untitled task", { x: 2.3, y: ry, w: 9.5, h: 0.5, fontFace: BODY_FONT, fontSize: 16, bold: true, color: TEXT, isTextBox: true, margin: 0 });
+      s4.addText(r.reason || "", { x: 2.3, y: ry + 0.5, w: 9.5, h: 0.7, fontFace: BODY_FONT, fontSize: 13, color: TEXT_MID, isTextBox: true, margin: 0, valign: "top" });
+      ry += rowH;
+    });
+  } else {
+    s4.addText("No single task stands out as a major risk right now.", { x: 0.55, y: 2.2, w: 10, h: 0.5, fontFace: BODY_FONT, fontSize: 14, italic: true, color: TEXT_DIM, isTextBox: true, margin: 0 });
+  }
+
+  // ── Slide 5: Recommended actions (only if the AI readout is available) ──────
+  const parsed = parseExecutiveReadout(aiReadout);
+  if (parsed) {
+    let s5 = pres.addSlide();
+    s5.background = { color: WHITE };
+    eyebrow(s5, "Recommended Actions");
+    s5.addText("What to do about it", { x: 0.55, y: 0.85, w: 11, h: 0.6, fontFace: TITLE_FONT, fontSize: 26, bold: true, color: TEXT, isTextBox: true, margin: 0 });
+    if (parsed.actions.length) {
+      s5.addText(parsed.actions.map((a, i) => ({
+        text: a, options: { bullet: { type: "number" }, breakLine: i < parsed.actions.length - 1, fontFace: BODY_FONT, fontSize: 15, color: TEXT, paraSpaceAfter: 10 },
+      })), { x: 0.55, y: 2.0, w: 11.5, h: 3.2, isTextBox: true, valign: "top" });
+      if (parsed.bottomLine) {
+        s5.addText(parsed.bottomLine, { x: 0.55, y: 5.4, w: 11.5, h: 1.2, fontFace: TITLE_FONT, fontSize: 18, bold: true, italic: true, color: BRAND_DEEP, isTextBox: true, margin: 0, valign: "top" });
+      }
+    } else {
+      s5.addText(parsed.raw, { x: 0.55, y: 2.0, w: 11.5, h: 4.5, fontFace: BODY_FONT, fontSize: 14, color: TEXT, isTextBox: true, valign: "top" });
+    }
+  }
+
+  // ── Closing slide ────────────────────────────────────────────────────────────
+  let s6 = pres.addSlide();
+  s6.background = { color: WHITE };
+  s6.addText([{ text: "Path", options: { color: TEXT } }, { text: "flo", options: { color: BRAND_DEEP } }],
+    { x: 0, y: 3.1, w: 13.33, h: 0.6, align: "center", fontFace: BODY_FONT, fontSize: 26, bold: true, isTextBox: true, margin: 0 });
+  s6.addText("pathflo.ai", { x: 0, y: 3.75, w: 13.33, h: 0.4, align: "center", fontFace: BODY_FONT, fontSize: 13, color: TEXT_MID, isTextBox: true, margin: 0 });
+  s6.addText("Generated " + today, { x: 0, y: 4.15, w: 13.33, h: 0.35, align: "center", fontFace: BODY_FONT, fontSize: 10, color: TEXT_DIM, isTextBox: true, margin: 0 });
+
+  const fileName = (data.name || "pathflo").replace(/\s+/g, "-").toLowerCase() + "-report.pptx";
+  await pres.writeFile({ fileName });
+}
+
 // ── RESULTS CONTENT ───────────────────────────────────────────────────────────
 function ResultsContent() {
   const searchParams = useSearchParams();
@@ -1269,6 +1407,7 @@ function ResultsContent() {
   const [saveEmail, setSaveEmail] = useState("");
   const [saveStatus, setSaveStatus] = useState(null); // null | "sending" | "sent" | "saving" | "saved" | "error"
   const [savedProjectId, setSavedProjectId] = useState(null);
+  const [pptxBusy, setPptxBusy] = useState(false);
 
   useEffect(() => {
     try {
@@ -1319,6 +1458,48 @@ function ResultsContent() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── WORKLOAD INTELLIGENCE ENGINE (P1-3) — must run before any early return ───
+  const workloadData = useMemo(() => {
+    if (!result || !data || !data.tasks.length) return null;
+
+    // Group tasks by owner
+    const byOwner = {};
+    data.tasks.forEach(t => {
+      const owner = t.owner === "UNASSIGNED" || !t.owner ? "Unassigned" : t.owner;
+      if (!byOwner[owner]) byOwner[owner] = { name: owner, tasks: [], criticalTasks: [], totalDays: 0, criticalDays: 0 };
+      const rt = result.tasks.find(r => r.id === t.id);
+      byOwner[owner].tasks.push({ ...t, slack: rt?.slack || 0, isCritical: rt?.slack === 0 });
+      byOwner[owner].totalDays += parseInt(t.days) || 0;
+      if (rt?.slack === 0) {
+        byOwner[owner].criticalTasks.push(t.name);
+        byOwner[owner].criticalDays += parseInt(t.days) || 0;
+      }
+    });
+
+    const owners = Object.values(byOwner).sort((a, b) => b.criticalDays - a.criticalDays);
+    const maxDays = Math.max(...owners.map(o => o.totalDays), 1);
+    const totalCritical = result.criticalPath.length;
+
+    // Concentration risk: one owner has >50% of critical tasks
+    const concentrationRisk = owners.find(o => o.criticalTasks.length > totalCritical * 0.5 && totalCritical > 1);
+
+    // Approval bottlenecks: tasks with many dependents
+    const bottlenecks = result.tasks
+      .map(rt => {
+        const dependents = data.tasks.filter(t => t.predecessors.includes(rt.id)).length;
+        const task = data.tasks.find(t => t.id === rt.id);
+        return { ...rt, name: task?.name || rt.name, owner: task?.owner || "Unassigned", dependents };
+      })
+      .filter(t => t.dependents >= 2 && t.slack === 0)
+      .sort((a, b) => b.dependents - a.dependents)
+      .slice(0, 3);
+
+    // Sequential overload: owner has 3+ sequential critical tasks
+    const sequentialRisk = owners.filter(o => o.criticalTasks.length >= 3);
+
+    return { owners, maxDays, concentrationRisk, bottlenecks, sequentialRisk, totalCritical };
+  }, [result, data]);
 
   if (!data||!result) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui"}}>
@@ -1375,48 +1556,6 @@ function ResultsContent() {
       .r-main{padding:0.75rem !important}
     }
   `;
-
-  // ── WORKLOAD INTELLIGENCE ENGINE (P1-3) — must be before any early return ─────
-  const workloadData = useMemo(() => {
-    if (!result || !data || !data.tasks.length) return null;
-
-    // Group tasks by owner
-    const byOwner = {};
-    data.tasks.forEach(t => {
-      const owner = t.owner === "UNASSIGNED" || !t.owner ? "Unassigned" : t.owner;
-      if (!byOwner[owner]) byOwner[owner] = { name: owner, tasks: [], criticalTasks: [], totalDays: 0, criticalDays: 0 };
-      const rt = result.tasks.find(r => r.id === t.id);
-      byOwner[owner].tasks.push({ ...t, slack: rt?.slack || 0, isCritical: rt?.slack === 0 });
-      byOwner[owner].totalDays += parseInt(t.days) || 0;
-      if (rt?.slack === 0) {
-        byOwner[owner].criticalTasks.push(t.name);
-        byOwner[owner].criticalDays += parseInt(t.days) || 0;
-      }
-    });
-
-    const owners = Object.values(byOwner).sort((a, b) => b.criticalDays - a.criticalDays);
-    const maxDays = Math.max(...owners.map(o => o.totalDays), 1);
-    const totalCritical = result.criticalPath.length;
-
-    // Concentration risk: one owner has >50% of critical tasks
-    const concentrationRisk = owners.find(o => o.criticalTasks.length > totalCritical * 0.5 && totalCritical > 1);
-
-    // Approval bottlenecks: tasks with many dependents
-    const bottlenecks = result.tasks
-      .map(rt => {
-        const dependents = data.tasks.filter(t => t.predecessors.includes(rt.id)).length;
-        const task = data.tasks.find(t => t.id === rt.id);
-        return { ...rt, name: task?.name || rt.name, owner: task?.owner || "Unassigned", dependents };
-      })
-      .filter(t => t.dependents >= 2 && t.slack === 0)
-      .sort((a, b) => b.dependents - a.dependents)
-      .slice(0, 3);
-
-    // Sequential overload: owner has 3+ sequential critical tasks
-    const sequentialRisk = owners.filter(o => o.criticalTasks.length >= 3);
-
-    return { owners, maxDays, concentrationRisk, bottlenecks, sequentialRisk, totalCritical };
-  }, [result, data]);
 
   if (loadError) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.textMid,fontFamily:"system-ui",padding:"1rem"}}>
@@ -1587,6 +1726,14 @@ function ResultsContent() {
             </>)}
           </div>
           <ShareButton data={data} result={result} confScore={confScore} />
+          <button disabled={pptxBusy} onClick={async()=>{
+            setPptxBusy(true);
+            try { await exportToPowerPoint(data, result, aiReadout); }
+            catch(e) { console.error(e); }
+            finally { setPptxBusy(false); }
+          }} style={{background:C.greenDim,border:"1px solid "+C.green+"30",borderRadius:8,color:C.green,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:pptxBusy?"default":"pointer",whiteSpace:"nowrap",flexShrink:0,opacity:pptxBusy?0.6:1}}>
+            {pptxBusy?"Generating…":"⬇ PPTX"}
+          </button>
           <button onClick={()=>setSaveModal(true)} style={{background:savedProjectId?C.greenDim:"transparent",border:"1px solid "+(savedProjectId?C.green+"50":C.border2),borderRadius:8,color:savedProjectId?C.green:C.textMid,fontFamily:"inherit",fontWeight:500,fontSize:"0.75rem",padding:"0.4rem 0.75rem",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
             {savedProjectId?"✓ Saved":"⬆ Save"}
           </button>
