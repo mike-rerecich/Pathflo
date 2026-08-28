@@ -208,10 +208,10 @@ function AgentFlow() {
               animation: current?"pv-agentBurst 0.42s ease":"none",
             }}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.22rem"}}>
-                <span style={{fontSize:"0.55rem",fontWeight:700,letterSpacing:"0.08em",color:active?a.color:TEXT_DIM}}>{a.n}</span>
+                <span style={{fontSize:"0.55rem",fontWeight:700,letterSpacing:"0.08em",color:active?(a.color===BRAND?BRAND_DEEP:a.color):TEXT_DIM}}>{a.n}</span>
                 <span style={{fontSize:"0.5rem",fontWeight:600,padding:"0.08rem 0.32rem",borderRadius:100,
                   background:active?`rgba(${r},${g},${b},0.12)`:"transparent",
-                  color:active?a.color:TEXT_DIM,
+                  color:active?(a.color===BRAND?BRAND_DEEP:a.color):TEXT_DIM,
                   border:`1px solid ${active?a.color+"35":"transparent"}`,
                 }}>{a.tier}</span>
               </div>
@@ -422,13 +422,18 @@ export default function Home() {
         .pv-h4{animation:pv-fadeUp 0.7s 0.35s ease both}
         .pv-h5{animation:pv-fadeUp 0.7s 0.45s ease both}
 
-        .pv-btn-p{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;background:${BRAND_DEEP};color:#FFFFFF;border:none;border-radius:100px;font-family:inherit;font-weight:700;font-size:0.95rem;padding:0.9rem 2rem;cursor:pointer;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.08);transition:transform 0.15s,box-shadow 0.15s}
+        .pv-btn-p{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;background:${BRAND_DEEP};color:${WHITE};border:none;border-radius:100px;font-family:inherit;font-weight:700;font-size:0.95rem;padding:0.9rem 2rem;cursor:pointer;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.08);transition:transform 0.15s,box-shadow 0.15s}
         .pv-btn-p:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(0,0,0,.08), 0 8px 20px rgba(0,0,0,.12)}
         .pv-btn-s{display:inline-flex;align-items:center;justify-content:center;background:${WHITE};color:${TEXT};border:1.5px solid ${BORDER};border-radius:100px;font-family:inherit;font-weight:500;font-size:0.95rem;padding:0.9rem 2rem;cursor:pointer;text-decoration:none;transition:all 0.15s}
         .pv-btn-s:hover{border-color:${BRAND_DEEP};color:${BRAND_DEEP}}
 
-        .pv-card{background:${WHITE};border:1px solid ${BORDER};border-radius:16px;padding:1.75rem;position:relative;transition:box-shadow 0.2s,border-color 0.2s;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+        .pv-card{background:${WHITE};border:1px solid ${BORDER};border-radius:16px;padding:1.75rem;position:relative;overflow:hidden;transition:box-shadow 0.2s,border-color 0.2s;box-shadow:0 1px 2px rgba(0,0,0,.03)}
         .pv-card:hover{box-shadow:0 1px 2px rgba(0,0,0,.04), 0 12px 28px rgba(0,0,0,.06);border-color:${BORDER_HOVER}}
+        .pv-card::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:${BRAND};transform:scaleX(0);transform-origin:left;opacity:0;transition:transform 0.3s ease,opacity 0.3s ease}
+        .pv-card:hover::after{transform:scaleX(1);opacity:1}
+
+        a:focus-visible,button:focus-visible{outline:none;box-shadow:0 0 0 2px ${WHITE},0 0 0 4px ${BRAND};border-radius:4px;transition:box-shadow 0.2s ease}
+        .pv-btn-p:focus-visible,.pv-btn-s:focus-visible{box-shadow:0 0 0 2px ${WHITE},0 0 0 4px ${BRAND},0 1px 2px rgba(0,0,0,.06)}
 
         .pv-price-card{background:${WHITE};border:1px solid ${BORDER};border-radius:20px;padding:1.75rem;position:relative;overflow:visible;box-shadow:0 1px 2px rgba(0,0,0,.03);transition:box-shadow 0.2s}
         .pv-price-card:hover{box-shadow:0 1px 2px rgba(0,0,0,.04), 0 12px 28px rgba(0,0,0,.06)}
@@ -729,7 +734,7 @@ export default function Home() {
 
               {/* Legend */}
               <div style={{display:"flex",flexWrap:"wrap",gap:"1rem",padding:"0.65rem 1rem",borderTop:"1px solid #1C2128"}}>
-                {[{color:"#EF4444",label:"Critical / Zero float"},{color:"#F59E0B",label:"At risk"},{color:"#3ECB6F",label:"On track"},{color:"#3E4E3E",label:"Has buffer"}].map((l,i)=>(
+                {[{color:"#EF4444",label:"Critical / Zero float"},{color:"#F59E0B",label:"At risk"},{color:"#22C55E",label:"On track"},{color:"#3E4E3E",label:"Has buffer"}].map((l,i)=>(
                   <div key={i} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.67rem",color:"#8A9E8A"}}>
                     <div style={{width:8,height:8,borderRadius:3,border:"1.5px solid "+l.color,background:l.color+"18"}}/>
                     {l.label}

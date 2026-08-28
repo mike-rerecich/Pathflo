@@ -75,6 +75,12 @@ Restrained, not ambient. What's still allowed:
 - At most one small status-dot pulse (e.g. a "taking new engagements" badge)
 - A simple, functional animated diagram where the motion itself communicates something (e.g. a
   step-by-step chain lighting up in sequence) — kept subdued, no glow
+- **Hover/focus affordance line**: a thin (2px) `--brand` line that fades and grows in from the left edge
+  along a card's bottom border on hover (`.pv-card::after`), and a `--brand` focus ring (`box-shadow`,
+  not the browser default) on any link/button when reached via keyboard Tab (`:focus-visible`). This is
+  the one deliberate exception to "color only on hover, never at rest" scoped specifically to interaction
+  affordance — it signals "this responds to you," not decoration. Always `--brand` (the bright accent),
+  never `--brand-deep`, since it's a line/ring, not text.
 
 What's removed entirely from marketing pages: the animated particle-field canvas background, comet
 streaks, halo rings, ember particles, grain/noise texture, and any glow-style `box-shadow` (a colored blur
