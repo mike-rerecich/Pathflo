@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+@brand/Brand.md
+
 ## What Pathflo is
 
 Pathflo is a project-management + AI-adoption **consulting practice first, self-serve SaaS second** — as
@@ -76,43 +78,27 @@ page's `useSearchParams`/`useEffect` picks up on mount.
 
 Use the harness's real `EnterPlanMode` tool — write the plan, get explicit approval — **before** any edit, not a verbal "here's my plan" followed immediately by tool calls. Trivial, single-file, obviously-scoped fixes (a copy tweak, a color change, a one-line bug fix) don't need it — don't over-apply this to busywork. This mirrors the standing rule already in production on the user's other project (GL Insights / Mighty Monday Power Points), adapted to what "non-trivial" means here.
 
-## Custom subagents — not yet built
+## Custom subagents — real, built
 
-The user's other project (GL Insights / Mighty Monday Power Points) has 15 custom review subagents
-defined in `.claude/agents/*.md` (a router called `wizard`, a mandatory-first `code-architect`, a
-mandatory-last `completion-critic`, plus domain reviewers for layout, charts, data integrity, etc.). **This
-project has none of that today** — no `.claude/agents/` directory exists, and only generic built-in agent
-types (`general-purpose`, `Explore`, `Plan`, `claude-code-guide`) are available. What follows is a proposed
-roster, adapted to Pathflo's actual codebase, documented here as a reference — the `.md` files themselves
-haven't been created and no dispatch mechanism has been wired up. Creating them is a separate task from
-maintaining this file.
+Mirrors the pattern already in production on the user's other project (GL Insights / Mighty Monday Power
+Points), adapted to Pathflo's actual codebase. Defined as real Claude Code custom subagents in
+`.claude/agents/*.md`: `wizard` (router), `code-architect` (mandatory first), `scoring-engine-reviewer`,
+`prompt-chain-reviewer`, `layout-consistency-reviewer`, `data-integrity-reviewer`, `completion-critic`
+(mandatory last). Each file's own frontmatter (`description`) is the source of truth for exactly what it
+checks — not duplicated here to avoid the two drifting out of sync; read the `.md` file directly.
 
-Proposed roster, if/when built:
+Standing rule: consult `wizard` before dispatching agent work on any non-trivial task in this repo —
+don't fire a bare `general-purpose` agent as a substitute for routing through it first. Dispatch order:
+`code-architect` first on anything touching code, unconditionally; `completion-critic` last on every task,
+unconditionally; the domain reviewers in between, whichever apply per `wizard`'s plan.
 
-1. **wizard** — router. Given a task, greps `.claude/agents/*.md` and returns which of the below should run
-   and in what order. Classification only, doesn't execute anything.
-2. **code-architect** — runs first, unconditionally, on any code-touching task. Confirms the code about to
-   be touched is the real current version, not a stale duplicate — relevant here because this repo already
-   has a known duplicate (`app/Layout.jsx` vs. `app/layout.jsx`) and two pages that intentionally share
-   visual chrome without sharing content (`app/page.jsx` the consulting homepage, `app/software/page.jsx`
-   the SaaS product page) — don't conflate "shares styling" with "is a stale duplicate."
-3. **scoring-engine-reviewer** — for any change to `computeCPM`/`computeConfidence`/`computePredictiveRisk`/
-   `computeCascadeImpact`: checks edge cases (0 tasks, 1 task, a cyclic dependency, all-concurrent, all-
-   sequential) actually produce sane output, not just that the happy path does.
-4. **prompt-chain-reviewer** — for changes to `app/api/analyze/route.js`: checks a prompt/output-format
-   change doesn't break the frontend's regex parsing of the response, and that tier-gating (`tierAtLeast`)
-   still matches which agents are supposed to run at which tier.
-5. **layout-consistency-reviewer** — for visual changes: checks the duplicated `T`/`C` color-token objects
-   across `app/page.jsx`/`app/software/page.jsx`/`app/app/page.jsx`/`app/results/page.jsx` stay in sync rather
-   than drifting.
-6. **data-integrity-reviewer** — for changes touching Supabase: checks RLS assumptions, the Bearer-token
-   auth pattern in `app/api/projects/route.js`, and schema changes against `supabase-setup.sql`.
-7. **completion-critic** — runs last, unconditionally, on every task. Re-reads the real diff against this file's
-   standing rules (Plan Mode triggers, the conventions below) and whether the diff actually completes what
-   was asked — doesn't duplicate the other agents' domain checklists.
+**Environment caveat**: if this session's `Agent`/`Task` tool doesn't expose these by name via
+`subagent_type` (only generic built-in types show up), fall back to reading the target agent's `.md` file
+directly and embedding its full persona/checklist as instructions inside a `general-purpose` agent call —
+this produces the same real, checkable findings. Try the real name first; only fall back silently if it fails.
 
-Dispatch order, if built: `code-architect` first on anything touching code; `completion-critic` last on every
-task; the domain reviewers (3–6) in between, whichever apply.
+Always independently fact-check a reviewer's findings against the real current code before acting on
+them — a review pass can produce false positives.
 
 ## Product roadmap — fundamental systems update
 
@@ -169,6 +155,6 @@ architecture change, not a tweak.
 
 ## Notes
 
-- All pages/components are hand-rolled with inline `style={{...}}` objects (no CSS framework, no component library). Shared color tokens are redefined per-file as a local `T`/`C` object rather than imported from a common module — if you change the palette, you likely need to edit it in multiple files (`app/page.jsx`, `app/software/page.jsx`, `app/app/page.jsx`, `app/results/page.jsx`).
+- All pages/components are hand-rolled with inline `style={{...}}` objects (no CSS framework, no component library). Shared color tokens are redefined per-file as a local `T`/`C` object rather than imported from a common module. `app/page.jsx` and `app/software/page.jsx` now source their palette from `brand/Brand.md` (imported above) — `app/app/page.jsx` and `app/results/page.jsx` are still on the old dark palette, not yet migrated; don't assume the same values apply there without checking.
 - `app/Layout.jsx` (capital L) and `app/layout.jsx` are duplicate files with identical content — only `app/layout.jsx` is used by Next.js App Router; the capitalized one appears to be a stray/unused copy.
 - The root `index.html` is a standalone static file (not referenced by the Next.js build or `public/`) — appears to be a legacy/reference mockup, not part of the served app.
