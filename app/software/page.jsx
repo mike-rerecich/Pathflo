@@ -234,9 +234,9 @@ function AgentFlow() {
 
 /* ─── Demo data ──────────────────────────────────────────────────── */
 const DEMO_TASKS = [
-  {id:"t0",name:"Strategy & Planning",days:5, owner:"Marcus",  predecessors:[],          concurrent:false},
+  {id:"t0",name:"Kickoff & Plan",     days:5, owner:"Marcus",  predecessors:[],          concurrent:false},
   {id:"t1",name:"Content & Copy",     days:8, owner:"Sarah",   predecessors:["t0"],      concurrent:false},
-  {id:"t2",name:"Product Photography",days:6, owner:"James",   predecessors:["t0"],      concurrent:true},
+  {id:"t2",name:"Product Photos",     days:6, owner:"James",   predecessors:["t0"],      concurrent:true},
   {id:"t3",name:"Design",             days:10,owner:"Marcus",  predecessors:["t1","t2"], concurrent:false},
   {id:"t4",name:"Klaviyo Setup",      days:4, owner:"Sarah",   predecessors:["t3"],      concurrent:true},
   {id:"t5",name:"Development",        days:12,owner:"Dev Team",predecessors:["t3"],      concurrent:false},
@@ -244,6 +244,19 @@ const DEMO_TASKS = [
   {id:"t7",name:"QA & Testing",       days:5, owner:"Dev Team",predecessors:["t5","t4"], concurrent:false},
   {id:"t8",name:"Launch",             days:1, owner:"Marcus",  predecessors:["t7","t6"], concurrent:false},
 ];
+// Cascade-impact copy per node, derived from DEMO_TASKS' real dependency chain above —
+// clicking a node in the demo graph below actually shows this, not a static placeholder.
+const DEMO_RISK = {
+  t0: {title:"Kickoff & Plan is the root dependency",  blurb:"Every other task waits on this. A slip here pushes the entire 41-day plan back day-for-day.",           delay:"+1d per 1d slip", blocked:"8 tasks", owners:"3 owners", cost:"$1,400/day",  fix:{title:"No slack to protect — lock scope before day 1", blurb:"This task can't safely run long. Freeze requirements before kickoff starts.", confidence:74}},
+  t1: {title:"Content & Copy feeds the Design bottleneck", blurb:"Zero float. If copy slips, Design — and everything after it — slips with it.",                       delay:"+3–5d",           blocked:"5 tasks", owners:"3 owners", cost:"$3,100",      fix:{title:"Start copy outline during Kickoff", blurb:"Overlap the first 2 days with planning — recovers most of the float.", confidence:81}},
+  t2: {title:"Product Photos has 4 days of buffer",    blurb:"Not currently a risk — it can run 4 days long without threatening the deadline.",                        delay:"Absorbed",        blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
+  t3: {title:"Design is the critical bottleneck",       blurb:"Both Development and Klaviyo Setup wait on this. Zero float — the highest-leverage task in the plan.",  delay:"+5–7d",           blocked:"4 tasks", owners:"3 owners", cost:"$4,200",      fix:{title:"Run Photography in parallel", blurb:"Already true in this plan — recovers 4 days at zero cost.", confidence:86}},
+  t4: {title:"Klaviyo Setup has 6 days of buffer",      blurb:"Comfortable float. Even a week-long slip won't touch the launch date.",                                 delay:"Absorbed",        blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
+  t5: {title:"Development is the bottleneck",           blurb:"QA & Testing can't start until it's done. 2 days of buffer remain on the critical path.",                delay:"+5–7d",           blocked:"3 tasks", owners:"3 owners", cost:"$4,200",      fix:{title:"Run Photography in parallel", blurb:"Recovers 4 days at zero cost — enough to cover this task's overrun.", confidence:86}},
+  t6: {title:"SEO Setup has 8 days of buffer",          blurb:"The safest task in the plan — could run nearly 2 weeks long with zero downstream impact.",              delay:"Absorbed",        blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
+  t7: {title:"QA & Testing is the last gate before launch", blurb:"Zero float. Everything upstream funnels through here before the site goes live.",                    delay:"+2–4d",           blocked:"1 task",  owners:"1 owner",  cost:"$900",        fix:{title:"Start QA on completed modules early", blurb:"Test Development's finished pieces before the full build lands.", confidence:78}},
+  t8: {title:"Launch is the finish line",                blurb:"Zero float, no downstream tasks — if this slips, the launch date slips with it, one day at a time.",   delay:"+1d per 1d slip", blocked:"0 tasks", owners:"1 owner",  cost:"$1,400/day",  fix:null},
+};
 const DEMO_RESULT = {
   bufferDays:2, bottleneck:{name:"Development"},
   tasks:[
@@ -262,9 +275,14 @@ const DEMO_RESULT = {
 /* ─── DependencyGraph — unchanged, renders inside the dark /results
      mockup shell below, which deliberately still matches the real
      (not-yet-migrated) /results page exactly ─────────────────────── */
-function DependencyGraph({ tasks, result }) {
+function DependencyGraph({ tasks, result, onNodeClick }) {
   const [selectedId, setSelectedId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
+  function handleNodeClick(id) {
+    const next = id === selectedId ? null : id;
+    setSelectedId(next);
+    onNodeClick && onNodeClick(next);
+  }
   const DC = {
     nodeFill:"rgba(22,27,34,0.85)",nodeBorder:"#30363D",
     text:"#E6EDF3",textDim:"#8B949E",textSub:"#484F58",
@@ -342,7 +360,7 @@ function DependencyGraph({ tasks, result }) {
           const subLabel=`${t.days}d · ${(t.owner==="UNASSIGNED"?"Unassigned":t.owner)||"?"}`.slice(0,18);
           return (
             <g key={t.id} style={{cursor:"pointer",opacity:isDim?0.3:1,transition:"opacity 0.2s"}}
-              onClick={()=>setSelectedId(t.id===selectedId?null:t.id)}
+              onClick={()=>handleNodeClick(t.id)}
               onMouseEnter={()=>setHoveredId(t.id)} onMouseLeave={()=>setHoveredId(null)}
               filter={isSelected?"url(#pv-glow)":undefined}>
               {isSelected&&<rect x={pos.x-4} y={pos.y-4} width={pos.w+8} height={pos.h+8} rx="13" fill="none" stroke={`${DC.blue}33`} strokeWidth="2"/>}
@@ -364,6 +382,9 @@ function DependencyGraph({ tasks, result }) {
 export default function Home() {
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [demoSelected, setDemoSelected] = useState("t5");
+  const demoRisk = DEMO_RISK[demoSelected] || DEMO_RISK.t5;
+  const demoNode = DEMO_TASKS.find(t => t.id === demoSelected) || DEMO_TASKS[5];
   useEffect(() => {
     const fn=()=>setScrolled(window.scrollY>60);
     window.addEventListener("scroll",fn,{passive:true});
@@ -692,19 +713,19 @@ export default function Home() {
 
               {/* Graph + right panel */}
               <div className="pv-graph-body" style={{display:"grid",gridTemplateColumns:"1fr 260px",overflow:"visible"}}>
-                <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT}/>
+                <DependencyGraph tasks={DEMO_TASKS} result={DEMO_RESULT} onNodeClick={(id)=>{ if(id) setDemoSelected(id); }}/>
                 <div className="pv-graph-rp" style={{borderLeft:"1px solid #1C2128",padding:"1rem",display:"flex",flexDirection:"column",gap:"0.85rem"}}>
                   <div>
-                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#EF4444",marginBottom:"0.35rem"}}>BIGGEST RISK</div>
-                    <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.18)",borderRadius:8,padding:"0.7rem"}}>
-                      <div style={{fontSize:"0.78rem",fontWeight:700,color:"#EF4444",marginBottom:"0.25rem"}}>⚠ Development is the bottleneck</div>
-                      <div style={{fontSize:"0.74rem",lineHeight:1.6,color:"#8A9E8A"}}>QA &amp; Testing can't start until it's done. 2 days of buffer remain.</div>
+                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:demoRisk.fix?"#EF4444":"#22C55E",marginBottom:"0.35rem"}}>{demoRisk.fix?"BIGGEST RISK":"BUFFER STATUS"}</div>
+                    <div style={{background:demoRisk.fix?"rgba(239,68,68,0.05)":"rgba(34,197,94,0.05)",border:"1px solid "+(demoRisk.fix?"rgba(239,68,68,0.18)":"rgba(34,197,94,0.18)"),borderRadius:8,padding:"0.7rem"}}>
+                      <div style={{fontSize:"0.78rem",fontWeight:700,color:demoRisk.fix?"#EF4444":"#22C55E",marginBottom:"0.25rem"}}>{demoRisk.fix?"⚠ ":"✓ "}{demoRisk.title}</div>
+                      <div style={{fontSize:"0.74rem",lineHeight:1.6,color:"#8A9E8A"}}>{demoRisk.blurb}</div>
                     </div>
                   </div>
                   <div>
-                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A9E8A",marginBottom:"0.35rem"}}>CASCADE IMPACT</div>
+                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A9E8A",marginBottom:"0.35rem"}}>CASCADE IMPACT — {demoNode.name.toUpperCase()}</div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.35rem"}}>
-                      {[{l:"Delay Risk",v:"+5–7d",c:"#EF4444"},{l:"Blocked",v:"3 tasks",c:"#EF4444"},{l:"At Risk",v:"3 owners",c:"#F59E0B"},{l:"Cost",v:"$4,200",c:"#F59E0B"}].map((s,i)=>(
+                      {[{l:"Delay Risk",v:demoRisk.delay,c:demoRisk.fix?"#EF4444":"#22C55E"},{l:"Blocked",v:demoRisk.blocked,c:demoRisk.fix?"#EF4444":"#22C55E"},{l:"At Risk",v:demoRisk.owners,c:"#F59E0B"},{l:"Cost",v:demoRisk.cost,c:"#F59E0B"}].map((s,i)=>(
                         <div key={i} style={{background:"#111519",border:"1px solid #1C2128",borderRadius:6,padding:"0.4rem 0.55rem"}}>
                           <div style={{fontSize:"0.54rem",fontWeight:600,textTransform:"uppercase",color:"#3E4E3E",marginBottom:"0.1rem"}}>{s.l}</div>
                           <div style={{fontSize:"0.85rem",fontWeight:700,color:s.c}}>{s.v}</div>
@@ -712,20 +733,24 @@ export default function Home() {
                       ))}
                     </div>
                   </div>
-                  <div>
-                    <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#3ECB6F",marginBottom:"0.35rem"}}>PATHFLO FIX</div>
-                    <div style={{background:"#0A1F12",border:"1px solid rgba(62,203,111,0.15)",borderRadius:8,padding:"0.7rem"}}>
-                      <div style={{fontSize:"0.7rem",fontWeight:700,color:"#3ECB6F",marginBottom:"0.3rem"}}>+ Run Photography in parallel</div>
-                      <div style={{fontSize:"0.74rem",lineHeight:1.6,color:"#8A9E8A",marginBottom:"0.5rem"}}>Recovers 4 days at zero cost.</div>
-                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                        <div style={{fontSize:"0.58rem",color:"#3E4E3E",flexShrink:0}}>Confidence</div>
-                        <div style={{flex:1,height:3,borderRadius:2,background:"#1C2128"}}>
-                          <div style={{height:"100%",width:"86%",background:"#3ECB6F",borderRadius:2}}/>
+                  {demoRisk.fix ? (
+                    <div>
+                      <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#3ECB6F",marginBottom:"0.35rem"}}>PATHFLO FIX</div>
+                      <div style={{background:"#0A1F12",border:"1px solid rgba(62,203,111,0.15)",borderRadius:8,padding:"0.7rem"}}>
+                        <div style={{fontSize:"0.7rem",fontWeight:700,color:"#3ECB6F",marginBottom:"0.3rem"}}>+ {demoRisk.fix.title}</div>
+                        <div style={{fontSize:"0.74rem",lineHeight:1.6,color:"#8A9E8A",marginBottom:"0.5rem"}}>{demoRisk.fix.blurb}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                          <div style={{fontSize:"0.58rem",color:"#3E4E3E",flexShrink:0}}>Confidence</div>
+                          <div style={{flex:1,height:3,borderRadius:2,background:"#1C2128"}}>
+                            <div style={{height:"100%",width:demoRisk.fix.confidence+"%",background:"#3ECB6F",borderRadius:2}}/>
+                          </div>
+                          <div style={{fontSize:"0.7rem",fontWeight:700,color:"#3ECB6F",flexShrink:0}}>{demoRisk.fix.confidence}%</div>
                         </div>
-                        <div style={{fontSize:"0.7rem",fontWeight:700,color:"#3ECB6F",flexShrink:0}}>86%</div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div style={{fontSize:"0.72rem",lineHeight:1.6,color:"#484F58",fontStyle:"italic"}}>No action needed on this task right now.</div>
+                  )}
                   <a href="/app" className="pv-btn-p" style={{fontSize:"0.8rem",padding:"0.65rem 1rem",justifyContent:"center",borderRadius:8}}>
                     Run on my project →
                   </a>
