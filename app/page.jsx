@@ -208,7 +208,7 @@ function MethodologyChain() {
               animation: current?"pv-agentBurst 0.42s ease":"none",
             }}>
               <div style={{marginBottom:"0.22rem"}}>
-                <span style={{fontSize:"0.55rem",fontWeight:700,letterSpacing:"0.08em",color:active?a.color:TEXT_DIM}}>{a.n}</span>
+                <span style={{fontSize:"0.55rem",fontWeight:700,letterSpacing:"0.08em",color:active?(a.color===BRAND?BRAND_DEEP:a.color):TEXT_DIM}}>{a.n}</span>
               </div>
               <div style={{fontSize:"0.76rem",fontWeight:700,color:active?TEXT:TEXT_DIM,lineHeight:1.2,marginBottom:"0.18rem"}}>{a.name}</div>
               <div style={{fontSize:"0.62rem",color:active?TEXT_MID:TEXT_DIM,lineHeight:1.3}}>{a.short}</div>
@@ -290,7 +290,7 @@ export default function Home() {
         .pv-h4{animation:pv-fadeUp 0.7s 0.35s ease both}
         .pv-h5{animation:pv-fadeUp 0.7s 0.45s ease both}
 
-        .pv-btn-p{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;background:${BRAND_DEEP};color:#FFFFFF;border:none;border-radius:100px;font-family:inherit;font-weight:700;font-size:0.95rem;padding:0.9rem 2rem;cursor:pointer;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.08);transition:transform 0.15s,box-shadow 0.15s}
+        .pv-btn-p{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;background:${BRAND_DEEP};color:${WHITE};border:none;border-radius:100px;font-family:inherit;font-weight:700;font-size:0.95rem;padding:0.9rem 2rem;cursor:pointer;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.08);transition:transform 0.15s,box-shadow 0.15s}
         .pv-btn-p:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(0,0,0,.08), 0 8px 20px rgba(0,0,0,.12)}
         .pv-btn-s{display:inline-flex;align-items:center;justify-content:center;background:${WHITE};color:${TEXT};border:1.5px solid ${BORDER};border-radius:100px;font-family:inherit;font-weight:500;font-size:0.95rem;padding:0.9rem 2rem;cursor:pointer;text-decoration:none;transition:all 0.15s}
         .pv-btn-s:hover{border-color:${BRAND_DEEP};color:${BRAND_DEEP}}
