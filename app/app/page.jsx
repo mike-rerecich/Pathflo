@@ -566,7 +566,7 @@ export default function AppPage() {
           {[["#","How it works"],["#","Why it works"],["#","Pricing"]].map(([href,label])=>(
             <a key={label} href={href} onClick={()=>setNavOpen(false)}>{label}</a>
           ))}
-          <a href="/" onClick={()=>setNavOpen(false)}>← Back to home</a>
+          <a href="/software" onClick={()=>setNavOpen(false)}>← Back to home</a>
         </div>
         <a href="/app" onClick={()=>setNavOpen(false)} style={{display:"block",background:G,color:"#080A08",border:"none",borderRadius:"100px",fontFamily:"'DM Sans',system-ui",fontWeight:700,fontSize:"0.95rem",padding:"0.9rem 1.5rem",textAlign:"center",marginTop:"1.5rem"}}>New project</a>
       </div>
@@ -584,7 +584,7 @@ export default function AppPage() {
         </button>
 
         {/* Logo centered */}
-        <a href="/" style={{textDecoration:"none",display:"flex",alignItems:"center",gap:"0.45rem",position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
+        <a href="/software" style={{textDecoration:"none",display:"flex",alignItems:"center",gap:"0.45rem",position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
           <Logo size={20}/>
           <span style={{fontWeight:700,fontSize:"1rem",color:T.text}}>Path<span style={{color:G}}>flo</span></span>
         </a>
