@@ -249,24 +249,24 @@ const DEMO_TASKS = [
 const DEMO_RISK = {
   t0: {title:"Kickoff & Plan is the root dependency",  blurb:"Every other task waits on this. A slip here pushes the entire 41-day plan back day-for-day.",           delay:"+1d per 1d slip", blocked:"8 tasks", owners:"3 owners", cost:"$1,400/day",  fix:{title:"No slack to protect — lock scope before day 1", blurb:"This task can't safely run long. Freeze requirements before kickoff starts.", confidence:74}},
   t1: {title:"Content & Copy feeds the Design bottleneck", blurb:"Zero float. If copy slips, Design — and everything after it — slips with it.",                       delay:"+3–5d",           blocked:"5 tasks", owners:"3 owners", cost:"$3,100",      fix:{title:"Start copy outline during Kickoff", blurb:"Overlap the first 2 days with planning — recovers most of the float.", confidence:81}},
-  t2: {title:"Product Photos has 4 days of buffer",    blurb:"Not currently a risk — it can run 4 days long without threatening the deadline.",                        delay:"Absorbed",        blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
-  t3: {title:"Design is the critical bottleneck",       blurb:"Both Development and Klaviyo Setup wait on this. Zero float — the highest-leverage task in the plan.",  delay:"+5–7d",           blocked:"4 tasks", owners:"3 owners", cost:"$4,200",      fix:{title:"Run Photography in parallel", blurb:"Already true in this plan — recovers 4 days at zero cost.", confidence:86}},
-  t4: {title:"Klaviyo Setup has 6 days of buffer",      blurb:"Comfortable float. Even a week-long slip won't touch the launch date.",                                 delay:"Absorbed",        blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
-  t5: {title:"Development is the bottleneck",           blurb:"QA & Testing can't start until it's done. 2 days of buffer remain on the critical path.",                delay:"+5–7d",           blocked:"3 tasks", owners:"3 owners", cost:"$4,200",      fix:{title:"Run Photography in parallel", blurb:"Recovers 4 days at zero cost — enough to cover this task's overrun.", confidence:86}},
-  t6: {title:"SEO Setup has 8 days of buffer",          blurb:"The safest task in the plan — could run nearly 2 weeks long with zero downstream impact.",              delay:"Absorbed",        blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
+  t2: {title:"Product Photos has 2 days of buffer",     blurb:"Modest float — it can run 2 days long before it starts delaying Design.",                                delay:"Absorbed up to 2d",blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
+  t3: {title:"Design is the critical bottleneck",       blurb:"Both Development and Klaviyo Setup wait on this. Zero float — the highest-leverage task in the plan.",  delay:"+5–7d",           blocked:"4 tasks", owners:"3 owners", cost:"$4,200",      fix:{title:"Run Product Photos in parallel", blurb:"Already true in this plan — keeps Design from waiting on Photos.", confidence:86}},
+  t4: {title:"Klaviyo Setup has 8 days of buffer",      blurb:"Comfortable float. Even a week-long slip won't touch the launch date.",                                 delay:"Absorbed",        blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
+  t5: {title:"Development is the bottleneck",           blurb:"QA & Testing can't start until it's done. 2 days of buffer remain on the critical path.",                delay:"+5–7d",           blocked:"2 tasks", owners:"3 owners", cost:"$4,200",      fix:{title:"Run Product Photos in parallel", blurb:"Already true in this plan — helps absorb slips upstream of Development.", confidence:86}},
+  t6: {title:"SEO Setup has 31 days of buffer",         blurb:"The safest task in the plan — could run a full month long with zero downstream impact.",                delay:"Absorbed",        blocked:"0 tasks", owners:"—",        cost:"$0",          fix:null},
   t7: {title:"QA & Testing is the last gate before launch", blurb:"Zero float. Everything upstream funnels through here before the site goes live.",                    delay:"+2–4d",           blocked:"1 task",  owners:"1 owner",  cost:"$900",        fix:{title:"Start QA on completed modules early", blurb:"Test Development's finished pieces before the full build lands.", confidence:78}},
   t8: {title:"Launch is the finish line",                blurb:"Zero float, no downstream tasks — if this slips, the launch date slips with it, one day at a time.",   delay:"+1d per 1d slip", blocked:"0 tasks", owners:"1 owner",  cost:"$1,400/day",  fix:null},
 };
 const DEMO_RESULT = {
   bufferDays:2, bottleneck:{name:"Development"},
   tasks:[
-    {id:"t0",name:"Strategy & Planning",days:5, es:0, ef:5, slack:0},
+    {id:"t0",name:"Kickoff & Plan",     days:5, es:0, ef:5, slack:0},
     {id:"t1",name:"Content & Copy",     days:8, es:5, ef:13,slack:0},
-    {id:"t2",name:"Product Photography",days:6, es:5, ef:11,slack:4},
+    {id:"t2",name:"Product Photos",     days:6, es:5, ef:11,slack:2},
     {id:"t3",name:"Design",             days:10,es:13,ef:23,slack:0},
-    {id:"t4",name:"Klaviyo Setup",      days:4, es:23,ef:27,slack:6},
+    {id:"t4",name:"Klaviyo Setup",      days:4, es:23,ef:27,slack:8},
     {id:"t5",name:"Development",        days:12,es:23,ef:35,slack:0},
-    {id:"t6",name:"SEO Setup",          days:4, es:5, ef:9, slack:8},
+    {id:"t6",name:"SEO Setup",          days:4, es:5, ef:9, slack:31},
     {id:"t7",name:"QA & Testing",       days:5, es:35,ef:40,slack:0},
     {id:"t8",name:"Launch",             days:1, es:40,ef:41,slack:0},
   ],
@@ -705,7 +705,7 @@ export default function Home() {
                   <span style={{fontSize:"0.62rem",padding:"0.15rem 0.5rem",background:"rgba(239,68,68,0.08)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.2)",borderRadius:100}}>⚠ Cascade risk detected</span>
                 </div>
                 <div style={{display:"flex",gap:"1.25rem"}}>
-                  {[{l:"Tasks",v:"9"},{l:"Deps",v:"11"},{l:"Critical path",v:"5 tasks"},{l:"Buffer",v:"2d"}].map(s=>(
+                  {[{l:"Tasks",v:"9"},{l:"Deps",v:"11"},{l:"Critical path",v:"6 tasks"},{l:"Buffer",v:"2d"}].map(s=>(
                     <div key={s.l} style={{fontSize:"0.7rem",color:"#8A9E8A"}}>{s.l} <span style={{color:"#EEF2EE",fontWeight:700}}>{s.v}</span></div>
                   ))}
                 </div>
@@ -725,7 +725,7 @@ export default function Home() {
                   <div>
                     <div style={{fontSize:"0.58rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#8A9E8A",marginBottom:"0.35rem"}}>CASCADE IMPACT — {demoNode.name.toUpperCase()}</div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.35rem"}}>
-                      {[{l:"Delay Risk",v:demoRisk.delay,c:demoRisk.fix?"#EF4444":"#22C55E"},{l:"Blocked",v:demoRisk.blocked,c:demoRisk.fix?"#EF4444":"#22C55E"},{l:"At Risk",v:demoRisk.owners,c:"#F59E0B"},{l:"Cost",v:demoRisk.cost,c:"#F59E0B"}].map((s,i)=>(
+                      {[{l:"Delay Risk",v:demoRisk.delay,c:demoRisk.fix?"#EF4444":"#22C55E"},{l:"Blocked",v:demoRisk.blocked,c:demoRisk.fix?"#EF4444":"#22C55E"},{l:"At Risk",v:demoRisk.owners,c:demoRisk.fix?"#F59E0B":"#22C55E"},{l:"Cost",v:demoRisk.cost,c:demoRisk.fix?"#F59E0B":"#22C55E"}].map((s,i)=>(
                         <div key={i} style={{background:"#111519",border:"1px solid #1C2128",borderRadius:6,padding:"0.4rem 0.55rem"}}>
                           <div style={{fontSize:"0.54rem",fontWeight:600,textTransform:"uppercase",color:"#3E4E3E",marginBottom:"0.1rem"}}>{s.l}</div>
                           <div style={{fontSize:"0.85rem",fontWeight:700,color:s.c}}>{s.v}</div>
